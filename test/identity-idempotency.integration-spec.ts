@@ -78,13 +78,7 @@ describe('Identity command idempotency', () => {
 
     const crossKeyReplay = await Promise.all(
       alternateKeys.map((alternateKey) =>
-        createAuthService().createInvite(
-          dto,
-          adminId,
-          'system_admin',
-          randomUUID(),
-          alternateKey,
-        ),
+        createAuthService().createInvite(dto, adminId, 'system_admin', randomUUID(), alternateKey),
       ),
     );
     expect(crossKeyReplay.map((result) => result.id)).toEqual([inviteId, inviteId]);

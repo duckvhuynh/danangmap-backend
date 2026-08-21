@@ -4,6 +4,7 @@ if (!['up', 'degraded'].includes(expected)) {
 }
 const deadline = Date.now() + Number(process.argv[3] ?? 30_000);
 let last;
+let matched = false;
 while (Date.now() < deadline) {
   try {
     const response = await fetch('http://localhost:4000/health/ready');
@@ -19,11 +20,14 @@ while (Date.now() < deadline) {
       checks?.mail === expected
     ) {
       process.stdout.write(`Core ready; mail=${expected}\n`);
-      process.exit(0);
+      matched = true;
+      break;
     }
   } catch {
     // Poll through container transitions without emitting dependency details.
   }
   await new Promise((resolve) => setTimeout(resolve, 500));
 }
-throw new Error(`Mail readiness did not become ${expected}: ${JSON.stringify(last)}`);
+if (!matched) {
+  throw new Error(`Mail readiness did not become ${expected}: ${JSON.stringify(last)}`);
+}

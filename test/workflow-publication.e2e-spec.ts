@@ -53,6 +53,10 @@ describe('Controlled publication HTTP E2E', () => {
 
   beforeAll(async () => {
     if (!AppDataSource.isInitialized) await AppDataSource.initialize();
+    await AppDataSource.query(
+      'UPDATE user_mfa_methods SET last_used_time_step=NULL WHERE user_id=ANY($1::uuid[])',
+      [Object.values(users).map((user) => user.id)],
+    );
     [editor, reviewer, publisher, systemAdmin] = await Promise.all([
       login(users.editor),
       login(users.reviewer),
@@ -122,6 +126,10 @@ describe('Controlled publication HTTP E2E', () => {
           `DELETE FROM admin_sessions
            WHERE user_id=ANY($1::uuid[]) AND created_at >= $2`,
           [Object.values(users).map((user) => user.id), startedAt],
+        );
+        await manager.query(
+          'UPDATE user_mfa_methods SET last_used_time_step=NULL WHERE user_id=ANY($1::uuid[])',
+          [Object.values(users).map((user) => user.id)],
         );
         await manager.query(
           'ALTER TABLE workflow_events ENABLE TRIGGER trg_workflow_events_immutable',
@@ -440,19 +448,32 @@ describe('Controlled publication HTTP E2E', () => {
 });
 
 async function login(user: (typeof users)[keyof typeof users]): Promise<AuthenticatedActor> {
+  const publicCsrfResponse = await fetch(`${apiBaseUrl}/api/v1/auth/csrf`);
+  expect(publicCsrfResponse.status).toBe(200);
+  const publicCsrf = (await json<Envelope<{ csrfToken: string }>>(publicCsrfResponse)).data
+    .csrfToken;
+  const publicCsrfCookie = cookieValue(publicCsrfResponse, 'danangmap_csrf');
   const loginResponse = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: `danangmap_csrf=${publicCsrfCookie}`,
+      Origin: frontendOrigin,
+      'X-CSRF-Token': publicCsrf,
+    },
     body: JSON.stringify({ login: user.login, password: user.password }),
   });
   expect(loginResponse.status).toBe(200);
   const preauth = cookieValue(loginResponse, '__Host-danangmap_preauth');
+  const preauthCsrf = cookieValue(loginResponse, 'danangmap_csrf');
   const code = totp(mfaSecret);
   const verifyResponse = await fetch(`${apiBaseUrl}/api/v1/auth/mfa/verify`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Cookie: `__Host-danangmap_preauth=${preauth}`,
+      Cookie: `__Host-danangmap_preauth=${preauth}; danangmap_csrf=${preauthCsrf}`,
+      Origin: frontendOrigin,
+      'X-CSRF-Token': preauthCsrf,
     },
     body: JSON.stringify({ method: 'totp', code }),
   });

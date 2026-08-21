@@ -195,13 +195,14 @@ Mỗi field có:
 | AUTH-004 | MFA TOTP là bắt buộc. User mới chỉ có pre-auth session cho đến khi enroll và xác minh MFA. |
 | AUTH-005 | Session dùng random opaque token tối thiểu 256-bit; DB chỉ lưu hash; cookie HttpOnly, Secure, SameSite=Lax, Path=/, ưu tiên prefix `__Host-`. |
 | AUTH-006 | Mọi mutation dùng cookie PHẢI kiểm tra CSRF token và Origin/Referer allowlist. |
-| AUTH-007 | Hỗ trợ logout phiên hiện tại, revoke tất cả session, reset password và dùng recovery code một lần. |
+| AUTH-007 | Hỗ trợ logout phiên hiện tại, revoke-all gồm cả session đang gọi, reset password và recovery code một lần; revoke-all xóa cookie, buộc login lại và retry tuần tự bằng cookie cũ trả `401`. |
 | AUTH-008 | Login/MFA/reset bị rate limit, lockout tăng dần và audit; thông báo không được tiết lộ user tồn tại. |
-| AUTH-009 | Đổi password, role, trạng thái hoặc MFA PHẢI revoke các session liên quan. |
+| AUTH-009 | Đổi password PHẢI rotate session hiện tại và revoke mọi session còn lại; đổi role, trạng thái hoặc MFA PHẢI revoke toàn bộ session liên quan. Các command password/revoke-all có receipt idempotent và concurrent duplicate chỉ tạo một effect. |
 | AUTH-010 | Invite có endpoint inspect an toàn và accept một lần; accept đặt password, sau đó bắt buộc enroll MFA trước khi có admin session. |
-| AUTH-011 | Password reset dùng token random một lần chỉ lưu hash, có expiry, revoke các token/session cũ sau thành công và gửi qua mail adapter/outbox. |
+| AUTH-011 | Password reset request PHẢI trả generic `202` với timing tương đương cho account có/không tồn tại, có idempotency/rate limit. Token random một lần chỉ lưu hash, được copy/paste và chỉ nhận trong body (không URL/browser storage/log); confirm nguyên tử revoke mọi authenticated/pre-auth session, pending challenge và reset token, rồi yêu cầu login + MFA lại. |
 | AUTH-012 | User tự regenerate recovery codes sau khi xác minh password + MFA; System Admin chỉ được reset MFA để buộc re-enroll, không xem/generate code thay user. |
 | AUTH-013 | Import user đi qua inspect → validate/dry-run → apply → report; account hợp lệ được tạo ở trạng thái invite/inactive, không import password/MFA secret. |
+| AUTH-014 | User được tạo thủ công với `mustChangePassword=true`; guard backend trung tâm chặn mọi route admin/domain bằng `PASSWORD_CHANGE_REQUIRED` cho đến khi đổi password, chỉ cho phép tập route auth tối thiểu cần hoàn tất flow. |
 
 ### 7.2 Layer, revision và feature
 
@@ -419,8 +420,8 @@ Không đổi active pointer trước `switching`; failed giữ nguyên publicat
 
 | Nhóm | Ca tối thiểu |
 |---|---|
-| Auth | Argon2 verify, MFA TOTP/recovery, expiry, revoke, CSRF, lockout |
-| Account lifecycle | Invite inspect/accept/replay, password reset expiry/replay, recovery-code regenerate, admin MFA reset/re-enroll, user import inspect/validate/apply/report |
+| Auth | Argon2 verify, MFA TOTP/recovery, expiry, revoke gồm caller, old-cookie 401, CSRF, lockout |
+| Account lifecycle | Invite inspect/accept/replay; must-change guard; password change rotation/concurrent receipt; reset generic 202/body-only token/expiry/concurrent replay; recovery-code regenerate; admin MFA reset/re-enroll; user import inspect/validate/apply/report |
 | RBAC | Mỗi route có allow và deny; System Admin không bypass workflow |
 | Separation | self-review, editor-as-publisher, reviewer-as-publisher đều bị chặn |
 | Geometry | 6 geometry type, Point-only circle, invalid polygon, wrong SRID, GeometryCollection, 100.000 vertex và 64 KiB property boundaries |
@@ -438,7 +439,7 @@ Không đổi active pointer trước `switching`; failed giữ nguyên publicat
 E2E chạy với PostGIS, Redis, MinIO, API, worker và seed xác định:
 
 1. System Admin tạo/invite/import user và user enroll MFA.
-2. System Admin chạy reset password/MFA/recovery flow; invite/reset replay bị từ chối và mail adapter được capture.
+2. System Admin chạy reset password/MFA/recovery flow; manual user bị chặn trước password change; đổi password rotate current/revoke others; reset request generic `202`, token chỉ ở body; revoke-all gồm caller và old-cookie retry `401`; invite/reset concurrent replay bị từ chối và mail adapter được capture.
 3. Editor tạo group/layer/schema/popup config, vẽ Point/MultiPoint/Line/MultiLine/Polygon/MultiPolygon/circle bằng payload Terra Draw-compatible.
 4. Đóng tab giả lập; client mutation lưu Dexie được retry, server dedupe và trả canonical UUID; logout xóa, session expiry chỉ khóa recovery.
 5. Import CSV/XLSX/GeoJSON/JSON/KML; kiểm tra dry-run, skip-invalid, upsert, resource limits và MinIO full report.

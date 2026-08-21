@@ -125,7 +125,7 @@ Validation error `details.violations`:
 
 ### 1.7 Mã lỗi chuẩn
 
-`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NOT_READY`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
+`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_CHANGE_REQUIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NOT_READY`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
 
 ## 2. DTO dùng chung
 
@@ -242,10 +242,10 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 | POST | `/auth/mfa/recovery-codes:regenerate` | authenticated | Xác minh password + MFA rồi thay toàn bộ recovery codes |
 | GET | `/auth/me` | authenticated | Principal hiện tại |
 | POST | `/auth/logout` | authenticated | Thu hồi phiên hiện tại |
-| POST | `/auth/sessions:revoke-all` | authenticated | Thu hồi tất cả phiên của principal |
-| POST | `/auth/password/change` | authenticated | Đổi password |
-| POST | `/auth/password/reset:request` | public | Gửi reset nếu account hợp lệ, response không tiết lộ tồn tại |
-| POST | `/auth/password/reset:confirm` | public | Đặt password bằng token một lần |
+| POST | `/auth/sessions:revoke-all` | authenticated + CSRF + idempotency | Thu hồi mọi session, gồm session đang gọi |
+| POST | `/auth/password/change` | authenticated + CSRF + idempotency | Đổi password, rotate session hiện tại và revoke các session còn lại |
+| POST | `/auth/password/reset:request` | public + idempotency | Luôn trả generic `202`, không tiết lộ account tồn tại |
+| POST | `/auth/password/reset:confirm` | public + CSRF | Đặt password bằng token một lần chỉ nhận trong body |
 | POST | `/auth/invites:inspect` | public | Inspect invite an toàn, không tiêu thụ token |
 | POST | `/auth/invites:accept` | public | Đặt password, tiêu thụ invite và chuyển sang MFA enroll |
 | GET/POST | `/admin/users` | System Admin | Danh sách/tạo user |
@@ -376,7 +376,7 @@ Regenerate recovery codes yêu cầu body `{ "password": "<redacted>", "mfaCode"
 }
 ```
 
-`role`: đúng một trong `system_admin|editor|reviewer|publisher`. `delivery=invite` gửi link thiết lập mật khẩu. `delivery=manual` yêu cầu field `temporaryPassword`, đặt `mustChangePassword=true` và truyền mật khẩu qua kênh vận hành an toàn; API không bao giờ trả lại password.
+`role`: đúng một trong `system_admin|editor|reviewer|publisher`. `delivery=invite` gửi link thiết lập mật khẩu. `delivery=manual` yêu cầu field `temporaryPassword`, đặt `mustChangePassword=true` và truyền mật khẩu qua kênh vận hành an toàn; API không bao giờ trả lại password. Guard trung tâm trả `403 PASSWORD_CHANGE_REQUIRED` cho mọi route admin/domain cho đến khi user đổi mật khẩu; chỉ các route auth tối thiểu cần để xem principal, lấy CSRF, đổi mật khẩu và logout được phép trong trạng thái này.
 
 `POST /api/v1/admin/invites`
 
@@ -418,7 +418,9 @@ Response tạo pre-auth challenge để gọi `/auth/mfa/enroll`; invite bị ti
 { "email": "user@example.gov.vn" }
 ```
 
-Luôn trả `202` với thông báo chung. Mail adapter gửi token random một lần qua outbox; DB chỉ lưu hash, mặc định hết hạn sau 30 phút và token mới revoke token cũ.
+Yêu cầu `Idempotency-Key`. Email có và không có account đều trả cùng generic `202 { "status": "accepted" }` trong cùng lớp timing; rate limit áp dụng theo IP + account hash. Retry cùng key/payload không tạo thêm outbox; cùng key khác payload trả `409 IDEMPOTENCY_KEY_REUSED`. Mail adapter gửi token random một lần qua outbox; DB chỉ lưu hash, mặc định hết hạn sau 30 phút và token mới revoke token cũ.
+
+Token reset được người dùng copy/paste từ kênh mail vào form và chỉ truyền trong JSON body. Client không đưa token vào path/query/fragment URL, browser storage, analytics hoặc log; server không lưu token thô trong DB, receipt hay audit.
 
 `POST /api/v1/auth/password/reset:confirm`
 
@@ -430,7 +432,25 @@ Luôn trả `202` với thông báo chung. Mail adapter gửi token random một
 }
 ```
 
-Thành công consume token, revoke toàn bộ session/reset token và yêu cầu login + MFA lại. Error public dùng `PASSWORD_RESET_INVALID_OR_EXPIRED` không tiết lộ trạng thái account.
+Client phải lấy CSRF qua `GET /api/v1/auth/csrf`; confirm yêu cầu `X-CSRF-Token` và Origin/Referer hợp lệ. Thành công consume token nguyên tử, đổi password, revoke toàn bộ authenticated/pre-auth session, pending challenge và reset token, xóa auth cookie, rồi trả `{ "status": "password_reset", "loginRequired": true, "sessionsRevoked": 2 }`. User phải login + MFA lại. Token invalid/expired/revoked/used và concurrent loser đều dùng `PASSWORD_RESET_INVALID_OR_EXPIRED`, không tiết lộ trạng thái account.
+
+### 3.5 Đổi password và revoke session
+
+`POST /api/v1/auth/password/change`
+
+```json
+{
+  "currentPassword": "<redacted>",
+  "newPassword": "<redacted>",
+  "passwordConfirmation": "<redacted>"
+}
+```
+
+Yêu cầu authenticated cookie, `X-CSRF-Token`, Origin/Referer hợp lệ và `Idempotency-Key`. Server đổi password, xóa `mustChangePassword`, revoke session hiện tại cùng mọi session khác, rồi tạo đúng một session/CSRF mới cho response sở hữu transaction. Response `200` trả `status=password_changed`, `sessionsRevoked`, `sessionRotated=true` và principal; không trả session token trong JSON.
+
+Hai request concurrent cùng key/payload chỉ có một effect; chỉ response sở hữu transaction được nhận cookie mới. Retry tuần tự bằng cookie cũ sau khi rotation phải trả `401 AUTH_SESSION_EXPIRED`, không replay cookie hoặc response thành công. Cùng key khác payload trả `409 IDEMPOTENCY_KEY_REUSED`.
+
+`POST /api/v1/auth/sessions:revoke-all` yêu cầu authenticated cookie, `X-CSRF-Token`, Origin/Referer hợp lệ và `Idempotency-Key`. Command revoke mọi session, bao gồm session đang gọi, xóa session/CSRF cookie và trả `revokedCount`, `currentSessionRevoked=true`, `loginRequired=true`. Vì cookie gọi đã chết, retry tuần tự bằng cookie cũ phải trả `401 AUTH_SESSION_EXPIRED`; concurrent cùng key vẫn chỉ có một effect.
 
 ## 4. Admin layer và schema
 
@@ -1305,9 +1325,9 @@ Con số là baseline cấu hình, phải load-test trước production. 429 lu�
 
 | Contract | Test bắt buộc |
 |---|---|
-| Cookie session | Không có token trong JSON/localStorage; cookie đúng flags; revoke có hiệu lực ngay |
+| Cookie session | Không có token trong JSON/localStorage; cookie đúng flags; revoke-all gồm caller, xóa cookie và retry tuần tự bằng cookie cũ trả 401 |
 | MFA | Không vào `/admin/*` bằng pre-auth; TOTP/recovery replay bị chặn |
-| Account lifecycle | Invite inspect/accept/expiry/replay, password reset generic response/expiry/replay, recovery-code regenerate, admin MFA reset/re-enroll, user-import inspect/validate/apply/report |
+| Account lifecycle | Invite inspect/accept/expiry/replay; `mustChangePassword` chặn route domain; password change rotate current/revoke others; reset request generic 202 và token body-only; confirm/revoke-all concurrency + old-cookie 401; recovery-code regenerate; admin MFA reset/re-enroll; user-import inspect/validate/apply/report |
 | RBAC | Mỗi admin route có allow test và deny test cho ba role còn lại |
 | Separation | Editor đổi thành Reviewer vẫn không self-review; Editor/Reviewer đổi thành Publisher vẫn không publish; System Admin không config/upload content hoặc bypass |
 | ETag | Mutation thiếu `If-Match` → 428 `ETAG_REQUIRED`; stale → 412; GET `If-None-Match` → 304 |

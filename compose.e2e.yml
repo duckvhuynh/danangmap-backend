@@ -1,0 +1,46 @@
+name: danangmap
+
+include:
+  - compose.yml
+
+services:
+  test:
+    build:
+      context: .
+      target: test
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://danangmap:danangmap@postgres:5432/danangmap
+      DATABASE_SSL: 'false'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: 'false'
+      MINIO_ACCESS_KEY: danangmap
+      MINIO_SECRET_KEY: danangmap-local-secret
+      MINIO_BUCKET: danangmap
+      SESSION_PEPPER: local-only-session-pepper-change-in-production
+      FIELD_ENCRYPTION_KEY: local-only-field-encryption-key-change-in-production
+      FRONTEND_ORIGINS: http://localhost:3000
+      COOKIE_SECURE: 'false'
+      GEO_SERVICE_BASE_URL: ''
+    command: ['npm', 'run', 'test:integration']
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: 'no'
+
+  frontend:
+    profiles: ['fullstack']
+    build:
+      context: ../danangmap-frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/api/v1
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/api/v1
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '3000:3000'

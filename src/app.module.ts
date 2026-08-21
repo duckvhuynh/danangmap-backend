@@ -1,0 +1,30 @@
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { AppConfigModule } from './config/config.module';
+import { DatabaseModule } from './database/database.module';
+import { HealthModule } from './health/health.module';
+import { JobsModule } from './jobs/jobs.module';
+import { RequestIdMiddleware } from './common/http/request-id.middleware';
+import { StorageModule } from './storage/storage.module';
+import { CryptoModule } from './common/crypto/crypto.module';
+import { AuditModule } from './audit/audit.module';
+import { IdentityModule } from './identity/identity.module';
+import { LayersModule } from './layers/layers.module';
+
+@Module({
+  imports: [
+    AppConfigModule,
+    DatabaseModule,
+    CryptoModule,
+    StorageModule,
+    JobsModule,
+    AuditModule,
+    IdentityModule,
+    LayersModule,
+    HealthModule,
+  ],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('{*path}');
+  }
+}

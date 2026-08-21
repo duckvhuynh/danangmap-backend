@@ -1,0 +1,153 @@
+name: danangmap
+
+x-backend-environment: &backend-environment
+  NODE_ENV: development
+  APP_VERSION: 0.1.0
+  PORT: 4000
+  DATABASE_URL: postgresql://danangmap:danangmap@postgres:5432/danangmap
+  DATABASE_SSL: 'false'
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  MINIO_ENDPOINT: minio
+  MINIO_PORT: 9000
+  MINIO_USE_SSL: 'false'
+  MINIO_ACCESS_KEY: danangmap
+  MINIO_SECRET_KEY: danangmap-local-secret
+  MINIO_BUCKET: danangmap
+  SESSION_PEPPER: local-only-session-pepper-change-in-production
+  FIELD_ENCRYPTION_KEY: local-only-field-encryption-key-change-in-production
+  FRONTEND_ORIGINS: http://localhost:3000
+  COOKIE_SECURE: 'false'
+  GEO_SERVICE_BASE_URL: ''
+  GEO_SERVICE_CONNECT_TIMEOUT_MS: 2000
+  GEO_SERVICE_TOTAL_TIMEOUT_MS: 5000
+  SEED_ADMIN_PASSWORD: ChangeMe-Admin-2026!
+  SEED_EDITOR_PASSWORD: ChangeMe-Editor-2026!
+  SEED_REVIEWER_PASSWORD: ChangeMe-Reviewer-2026!
+  SEED_PUBLISHER_PASSWORD: ChangeMe-Publisher-2026!
+  SEED_MFA_SECRET: JBSWY3DPEHPK3PXP
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_DB: danangmap
+      POSTGRES_USER: danangmap
+      POSTGRES_PASSWORD: danangmap
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U danangmap -d danangmap']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4.2-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: danangmap
+      MINIO_ROOT_PASSWORD: danangmap-local-secret
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      target: runtime
+    environment: *backend-environment
+    command: ['npm', 'run', 'migration:run:prod']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  seed:
+    build:
+      context: .
+      target: runtime
+    environment:
+      <<: *backend-environment
+      ALLOW_SEED: 'true'
+    command: ['npm', 'run', 'seed:prod']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment: *backend-environment
+    command: ['node', 'dist/apps/api/src/main.js']
+    ports:
+      - '4000:4000'
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    environment: *backend-environment
+    command: ['node', 'dist/apps/worker/src/main.js']
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

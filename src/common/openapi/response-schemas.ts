@@ -161,6 +161,50 @@ export const logoutResultSchema: SchemaObject = {
   },
 };
 
+export const passwordChangeResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'sessionsRevoked', 'sessionRotated', 'principal'],
+  properties: {
+    status: { type: 'string', enum: ['password_changed'] },
+    sessionsRevoked: { type: 'integer', minimum: 1 },
+    sessionRotated: { type: 'boolean', enum: [true] },
+    principal: authPrincipalSchema,
+  },
+};
+
+export const passwordResetRequestResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status'],
+  properties: {
+    status: { type: 'string', enum: ['accepted'] },
+  },
+};
+
+export const passwordResetConfirmationSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'loginRequired', 'sessionsRevoked'],
+  properties: {
+    status: { type: 'string', enum: ['password_reset'] },
+    loginRequired: { type: 'boolean', enum: [true] },
+    sessionsRevoked: { type: 'integer', minimum: 0 },
+  },
+};
+
+export const sessionRevocationResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'revokedCount', 'currentSessionRevoked', 'loginRequired'],
+  properties: {
+    status: { type: 'string', enum: ['sessions_revoked'] },
+    revokedCount: { type: 'integer', minimum: 1 },
+    currentSessionRevoked: { type: 'boolean', enum: [true] },
+    loginRequired: { type: 'boolean', enum: [true] },
+  },
+};
+
 const layerGroupSchema: SchemaObject = {
   type: 'object',
   nullable: true,

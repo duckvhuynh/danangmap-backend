@@ -7,5 +7,6 @@ export interface RequestWithContext extends Request {
     role: string;
     sessionId: string;
     displayName: string;
+    mustChangePassword?: boolean;
   };
 }

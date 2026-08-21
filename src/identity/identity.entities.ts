@@ -98,12 +98,32 @@ export class InviteEntity {
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }
 
+@Entity({ name: 'password_reset_tokens' })
+@Index('uq_password_reset_tokens_token_hash', ['tokenHash'], { unique: true })
+@Index('idx_password_reset_tokens_user_active', ['userId'], {
+  unique: true,
+  where: 'used_at IS NULL AND revoked_at IS NULL',
+})
+export class PasswordResetTokenEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'user_id', type: 'uuid' }) userId: string;
+  @Column({ name: 'token_hash', type: 'text' }) tokenHash: string;
+  @Column({ name: 'expires_at', type: 'timestamptz' }) expiresAt: Date;
+  @Column({ name: 'used_at', type: 'timestamptz', nullable: true }) usedAt: Date | null;
+  @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true }) revokedAt: Date | null;
+  @Column({ name: 'ip_hash', type: 'text', nullable: true }) ipHash: string | null;
+  @Column({ name: 'user_agent', type: 'text', nullable: true }) userAgent: string | null;
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
+}
+
 @Entity({ name: 'mail_outbox' })
 export class MailOutboxEntity {
   @PrimaryGeneratedColumn('uuid') id: string;
   @Column({ name: 'template_key', type: 'text' }) templateKey: string;
   @Column({ name: 'recipient_email', type: 'text' }) recipientEmail: string;
   @Column({ name: 'invite_id', type: 'uuid', nullable: true }) inviteId: string | null;
+  @Column({ name: 'password_reset_token_id', type: 'uuid', nullable: true })
+  passwordResetTokenId: string | null;
   @Column({ name: 'payload_encrypted', type: 'text' }) payloadEncrypted: string;
   @Column({ type: 'text', default: 'pending' }) status: string;
   @Column({ type: 'integer', default: 0 }) attempts: number;

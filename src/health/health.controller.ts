@@ -10,6 +10,7 @@ import {
   livenessSchema,
   readinessSchema,
 } from '../common/openapi/response-schemas';
+import { GeoServiceAdapter } from '../public-api/geo-service.adapter';
 
 @ApiTags('health')
 @Controller('health')
@@ -21,6 +22,7 @@ export class HealthController {
     private readonly dataSource: DataSource,
     private readonly storage: StorageService,
     private readonly config: ConfigService,
+    private readonly geoService: GeoServiceAdapter,
   ) {
     this.redis = new Redis({
       host: config.getOrThrow<string>('redis.host'),
@@ -51,7 +53,7 @@ export class HealthController {
       redis: 'down',
       migrations: 'down',
       minio: 'down',
-      geoService: this.config.get<string>('geoService.baseUrl') ? 'up' : 'degraded',
+      geoService: this.geoService.healthStatus,
     };
 
     await this.dataSource.query('SELECT 1');

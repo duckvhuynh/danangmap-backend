@@ -18,8 +18,30 @@ describe('environment validation', () => {
   });
 
   it('normalizes typed configuration values', () => {
-    expect(validateEnvironment({ ...baseline, PORT: '4100', COOKIE_SECURE: 'true' })).toEqual(
-      expect.objectContaining({ PORT: 4100, COOKIE_SECURE: true }),
+    expect(
+      validateEnvironment({
+        ...baseline,
+        PORT: '4100',
+        COOKIE_SECURE: 'true',
+        GEO_SERVICE_RETRY_ATTEMPTS: '3',
+        GEO_SERVICE_BREAKER_FAILURE_THRESHOLD: '10',
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        PORT: 4100,
+        COOKIE_SECURE: true,
+        GEO_SERVICE_RETRY_ATTEMPTS: 3,
+        GEO_SERVICE_BREAKER_FAILURE_THRESHOLD: 10,
+      }),
+    );
+  });
+
+  it('rejects unsafe Geo Service retry and breaker settings', () => {
+    expect(() => validateEnvironment({ ...baseline, GEO_SERVICE_RETRY_ATTEMPTS: '4' })).toThrow(
+      'Invalid environment configuration',
+    );
+    expect(() => validateEnvironment({ ...baseline, GEO_SERVICE_BREAKER_OPEN_MS: '999' })).toThrow(
+      'Invalid environment configuration',
     );
   });
 });

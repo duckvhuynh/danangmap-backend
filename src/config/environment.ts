@@ -28,6 +28,10 @@ const environmentSchema = z.object({
   GEO_SERVICE_AUTH_HEADER: z.string().optional(),
   GEO_SERVICE_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(250).max(5_000).default(2_000),
   GEO_SERVICE_TOTAL_TIMEOUT_MS: z.coerce.number().int().min(500).max(10_000).default(5_000),
+  GEO_SERVICE_RETRY_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(2),
+  GEO_SERVICE_RETRY_DELAY_MS: z.coerce.number().int().min(0).max(1_000).default(100),
+  GEO_SERVICE_BREAKER_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(20).default(5),
+  GEO_SERVICE_BREAKER_OPEN_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

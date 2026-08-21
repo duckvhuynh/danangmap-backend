@@ -4113,6 +4113,7 @@
                           },
                           "position": {
                             "type": "object",
+                            "nullable": true,
                             "required": [
                               "longitude",
                               "latitude"
@@ -4292,6 +4293,7 @@
                         },
                         "position": {
                           "type": "object",
+                          "nullable": true,
                           "required": [
                             "longitude",
                             "latitude"

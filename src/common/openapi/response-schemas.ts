@@ -294,6 +294,7 @@ export const publicFeatureDetailSchema: SchemaObject = {
 
 const positionSchema: SchemaObject = {
   type: 'object',
+  nullable: true,
   required: ['longitude', 'latitude'],
   properties: { longitude: { type: 'number' }, latitude: { type: 'number' } },
 };
@@ -318,7 +319,7 @@ export const publicSearchItemSchema: SchemaObject = {
     kind: { type: 'string', enum: ['feature', 'place'] },
     title: { type: 'string' },
     subtitle: nullableString,
-    position: positionSchema,
+    position: { ...positionSchema },
     bbox: {
       type: 'array',
       nullable: true,
@@ -370,7 +371,7 @@ export const externalPlaceSchema: SchemaObject = {
     id: { type: 'string' },
     name: { type: 'string' },
     address: nullableString,
-    position: positionSchema,
+    position: { ...positionSchema },
     phone: nullableString,
     website: nullableString,
     source: { type: 'string', enum: ['geo_service'] },

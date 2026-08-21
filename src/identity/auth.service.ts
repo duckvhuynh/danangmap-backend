@@ -508,7 +508,7 @@ export class AuthService {
         invite.usedAt = now;
         invite.acceptedUserId = user.id;
         await manager.save(InviteEntity, invite);
-        await this.scrubInviteOutbox(manager, invite.id, 'accepted');
+        await this.scrubInviteOutbox(manager, invite.id);
         const challenge = await this.createPreauthSession(manager, user.id, metadata);
         await this.insertAudit(
           manager,
@@ -577,7 +577,7 @@ export class AuthService {
       if (!invite.revokedAt) {
         invite.revokedAt = revokedAt;
         await manager.save(InviteEntity, invite);
-        await this.scrubInviteOutbox(manager, invite.id, 'revoked');
+        await this.scrubInviteOutbox(manager, invite.id);
         await this.insertAudit(
           manager,
           actorId,
@@ -881,7 +881,7 @@ export class AuthService {
     }
     for (const expired of probes) {
       await manager.update(InviteEntity, expired.id, { revokedAt: now });
-      await this.scrubInviteOutbox(manager, expired.id, 'expired');
+      await this.scrubInviteOutbox(manager, expired.id);
     }
     const token = this.crypto.randomToken();
     const expiresAt = new Date(Date.now() + dto.expiresInHours * 60 * 60_000);
@@ -936,19 +936,17 @@ export class AuthService {
     }
   }
 
-  private async scrubInviteOutbox(
-    manager: EntityManager,
-    inviteId: string,
-    status: 'accepted' | 'revoked' | 'expired',
-  ): Promise<void> {
+  private async scrubInviteOutbox(manager: EntityManager, inviteId: string): Promise<void> {
     await manager.query(
       `UPDATE mail_outbox
-       SET payload_encrypted=$2,
-           status=CASE WHEN status IN ('pending','sending') THEN 'failed' ELSE status END,
-           next_attempt_at=NULL,
+       SET payload_encrypted=NULL,payload_scrubbed_at=COALESCE(payload_scrubbed_at,now()),
+           status=CASE WHEN status IN ('pending','claimed','sending','failed') THEN 'cancelled' ELSE status END,
+           claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,next_attempt_at=NULL,
+           last_error_code=CASE WHEN status IN ('pending','claimed','sending','failed')
+             THEN 'MAIL_CREDENTIAL_INVALID' ELSE last_error_code END,
            updated_at=now()
        WHERE invite_id=$1`,
-      [inviteId, this.crypto.encrypt(JSON.stringify({ inviteId, status }))],
+      [inviteId],
     );
   }
 

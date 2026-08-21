@@ -124,11 +124,30 @@ export class MailOutboxEntity {
   @Column({ name: 'invite_id', type: 'uuid', nullable: true }) inviteId: string | null;
   @Column({ name: 'password_reset_token_id', type: 'uuid', nullable: true })
   passwordResetTokenId: string | null;
-  @Column({ name: 'payload_encrypted', type: 'text' }) payloadEncrypted: string;
-  @Column({ type: 'text', default: 'pending' }) status: string;
+  @Column({ name: 'payload_encrypted', type: 'text', nullable: true }) payloadEncrypted:
+    string | null;
+  @Column({ type: 'text', default: 'pending' })
+  status: 'pending' | 'claimed' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'dead';
   @Column({ type: 'integer', default: 0 }) attempts: number;
   @Column({ name: 'next_attempt_at', type: 'timestamptz', nullable: true })
   nextAttemptAt: Date | null;
+  @Column({ name: 'claim_token', type: 'uuid', nullable: true }) claimToken: string | null;
+  @Column({ name: 'claimed_at', type: 'timestamptz', nullable: true }) claimedAt: Date | null;
+  @Column({ name: 'lease_expires_at', type: 'timestamptz', nullable: true })
+  leaseExpiresAt: Date | null;
+  @Column({ name: 'last_attempt_at', type: 'timestamptz', nullable: true })
+  lastAttemptAt: Date | null;
+  @Column({ name: 'sent_at', type: 'timestamptz', nullable: true }) sentAt: Date | null;
+  @Column({ name: 'failed_at', type: 'timestamptz', nullable: true }) failedAt: Date | null;
+  @Column({ name: 'dead_at', type: 'timestamptz', nullable: true }) deadAt: Date | null;
+  @Column({ name: 'payload_scrubbed_at', type: 'timestamptz', nullable: true })
+  payloadScrubbedAt: Date | null;
+  @Column({ name: 'provider_message_id', type: 'text', nullable: true })
+  providerMessageId: string | null;
+  @Column({ name: 'last_error_code', type: 'text', nullable: true })
+  lastErrorCode: string | null;
+  @Column({ name: 'last_smtp_status', type: 'integer', nullable: true })
+  lastSmtpStatus: number | null;
   @Column({ name: 'correlation_id', type: 'uuid' }) correlationId: string;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;

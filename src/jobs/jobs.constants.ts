@@ -7,3 +7,8 @@ export const USER_IMPORT_QUEUE = 'user-imports';
 export const USER_IMPORT_INSPECT_JOB = 'inspect-user-import';
 export const USER_IMPORT_VALIDATE_JOB = 'validate-user-import';
 export const USER_IMPORT_APPLY_JOB = 'apply-user-import';
+
+export const MAIL_QUEUE = 'identity-mail';
+export const MAIL_SWEEP_JOB = 'sweep-mail-outbox';
+export const MAIL_DELIVER_JOB = 'deliver-mail-outbox';
+export const MAIL_SWEEP_SCHEDULER = 'identity-mail-sweep';

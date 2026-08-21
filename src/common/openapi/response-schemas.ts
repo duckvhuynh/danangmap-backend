@@ -990,7 +990,16 @@ export const readinessSchema: SchemaObject = {
     version: { type: 'string' },
     checks: {
       type: 'object',
-      additionalProperties: { type: 'string', enum: ['up', 'down', 'degraded', 'current'] },
+      additionalProperties: false,
+      required: ['postgres', 'redis', 'migrations', 'minio', 'geoService', 'mail'],
+      properties: {
+        postgres: { type: 'string', enum: ['up', 'down'] },
+        redis: { type: 'string', enum: ['up', 'down'] },
+        migrations: { type: 'string', enum: ['current', 'down'] },
+        minio: { type: 'string', enum: ['up', 'down'] },
+        geoService: { type: 'string', enum: ['up', 'degraded'] },
+        mail: { type: 'string', enum: ['up', 'degraded'] },
+      },
     },
   },
 };

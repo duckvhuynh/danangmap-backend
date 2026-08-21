@@ -1,7 +1,8 @@
-import { createDecipheriv, createHash, createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { Client } from 'minio';
 import AppDataSource from '../src/database/data-source';
+import { waitForMailpitMessage } from './mailpit.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 const allowedOrigin = 'http://localhost:3000';
@@ -378,13 +379,20 @@ describe('Secure user import HTTP lifecycle', () => {
 
   it('hands an imported invite into accept and MFA enrollment without persisting secrets in reports', async () => {
     const editorInvite = (await AppDataSource.query(
-      `SELECT i.id FROM invites i JOIN user_import_invites ui ON ui.invite_id=i.id
+      `SELECT i.id,i.email FROM invites i JOIN user_import_invites ui ON ui.invite_id=i.id
        WHERE ui.job_id=$1 AND i.role='editor'`,
       [jobIds[0]],
-    )) as Array<{ id: string }>;
+    )) as Array<{ id: string; email: string }>;
     const inviteId = editorInvite[0]?.id;
     expect(inviteId).toBeDefined();
-    const token = await captureInviteToken(inviteId!);
+    const delivered = await waitForMailpitMessage(editorInvite[0]!.email);
+    expect(delivered).toMatchObject({ count: 1 });
+    expect(delivered.subject).toContain('Mã mời');
+    expect(delivered.text).not.toMatch(/https?:\/\//i);
+    const token = delivered.code;
+    const sentOutbox = await waitForImportedOutboxStatus(inviteId!, 'sent');
+    expect(sentOutbox).toMatchObject({ status: 'sent', payload_encrypted: null });
+    expect(sentOutbox.payload_scrubbed_at).toBeInstanceOf(Date);
     const inspect = await fetch(`${apiBaseUrl}/api/v1/auth/invites:inspect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -599,30 +607,21 @@ function jsonHeaders(
   };
 }
 
-async function captureInviteToken(inviteId: string): Promise<string> {
-  const rows = (await AppDataSource.query(
-    'SELECT payload_encrypted FROM mail_outbox WHERE invite_id=$1 ORDER BY created_at DESC LIMIT 1',
-    [inviteId],
-  )) as Array<{ payload_encrypted: string }>;
-  const payload = JSON.parse(decryptField(rows[0]!.payload_encrypted)) as { token?: string };
-  if (!payload.token) throw new Error('Imported invite token capture was missing');
-  return payload.token;
-}
-
-function decryptField(payload: string): string {
-  const [nonce, tag, encrypted] = payload.split('.');
-  if (!nonce || !tag || !encrypted) throw new Error('Encrypted payload is malformed');
-  const key = createHash('sha256')
-    .update(
-      process.env.FIELD_ENCRYPTION_KEY ?? 'local-only-field-encryption-key-change-in-production',
-    )
-    .digest();
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(nonce, 'base64url'));
-  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-  return Buffer.concat([
-    decipher.update(Buffer.from(encrypted, 'base64url')),
-    decipher.final(),
-  ]).toString('utf8');
+async function waitForImportedOutboxStatus(
+  inviteId: string,
+  status: string,
+): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const rows = (await AppDataSource.query(
+      `SELECT status,payload_encrypted,payload_scrubbed_at,last_error_code FROM mail_outbox
+       WHERE invite_id=$1 ORDER BY created_at DESC LIMIT 1`,
+      [inviteId],
+    )) as Array<Record<string, unknown>>;
+    if (rows[0]?.status === status) return rows[0];
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Imported invite outbox did not reach ${status}`);
 }
 
 function generateTotp(secret: string, offset = 0): string {

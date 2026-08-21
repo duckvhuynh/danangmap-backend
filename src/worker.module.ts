@@ -7,6 +7,7 @@ import { CryptoModule } from './common/crypto/crypto.module';
 import { ImportsWorkerModule } from './imports/imports-worker.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 import { UserImportsWorkerModule } from './user-imports/user-imports-worker.module';
+import { MailWorkerModule } from './mail/mail-worker.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UserImportsWorkerModule } from './user-imports/user-imports-worker.modu
     JobsModule,
     ImportsWorkerModule,
     UserImportsWorkerModule,
+    MailWorkerModule,
   ],
 })
 export class WorkerModule {}

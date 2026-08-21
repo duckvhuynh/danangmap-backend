@@ -53,4 +53,23 @@ describe('environment validation', () => {
       'Invalid environment configuration',
     );
   });
+
+  it('requires a complete SMTP configuration and strict production transport security', () => {
+    expect(() =>
+      validateEnvironment({ ...baseline, SMTP_ENABLED: 'true', SMTP_HOST: 'smtp.example.vn' }),
+    ).toThrow('Invalid environment configuration');
+    expect(() =>
+      validateEnvironment({
+        ...baseline,
+        NODE_ENV: 'production',
+        SMTP_ENABLED: 'true',
+        SMTP_HOST: 'smtp.example.vn',
+        SMTP_FROM_ADDRESS: 'no-reply@example.vn',
+        SMTP_TLS_MODE: 'none',
+      }),
+    ).toThrow('SMTP_TLS_MODE');
+    expect(() =>
+      validateEnvironment({ ...baseline, SMTP_FROM_NAME: 'DanangMap\r\nBcc: victim@example.vn' }),
+    ).toThrow('SMTP_FROM_NAME');
+  });
 });

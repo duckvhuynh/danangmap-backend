@@ -133,7 +133,7 @@ export class PasswordSecurityService {
       user.lockedUntil = null;
       await manager.save(UserEntity, user);
       const resetTokenIds = await this.revokeActiveResetTokens(manager, user.id, now);
-      await this.scrubResetOutboxes(manager, resetTokenIds, 'password_changed');
+      await this.scrubResetOutboxes(manager, resetTokenIds);
       const revokedSessionIds = await this.revokeSessions(manager, user.id, now);
       const rotated = await this.createAuthenticatedSession(manager, user.id, metadata);
       await this.insertAudit(
@@ -206,7 +206,7 @@ export class PasswordSecurityService {
         if (user?.status === 'active' && !user.disabledAt) {
           const now = new Date();
           const supersededIds = await this.revokeActiveResetTokens(manager, user.id, now);
-          await this.scrubResetOutboxes(manager, supersededIds, 'superseded');
+          await this.scrubResetOutboxes(manager, supersededIds);
           await manager.insert(PasswordResetTokenEntity, {
             id: resetTokenId,
             userId: user.id,
@@ -302,8 +302,8 @@ export class PasswordSecurityService {
       await manager.save(UserEntity, user);
       const revokedSessionIds = await this.revokeSessions(manager, user.id, now);
       await manager.delete(UserMfaMethodEntity, { userId: user.id, status: 'pending' });
-      await this.scrubResetOutboxes(manager, [resetToken.id], 'used');
-      await this.scrubResetOutboxes(manager, supersededIds, 'superseded');
+      await this.scrubResetOutboxes(manager, [resetToken.id]);
+      await this.scrubResetOutboxes(manager, supersededIds);
       await this.insertAudit(
         manager,
         null,
@@ -427,23 +427,18 @@ export class PasswordSecurityService {
     return result as T[];
   }
 
-  private async scrubResetOutboxes(
-    manager: EntityManager,
-    resetTokenIds: string[],
-    status: 'password_changed' | 'superseded' | 'used',
-  ): Promise<void> {
+  private async scrubResetOutboxes(manager: EntityManager, resetTokenIds: string[]): Promise<void> {
     for (const resetTokenId of resetTokenIds) {
       await manager.query(
         `UPDATE mail_outbox
-         SET payload_encrypted=$2,
-             status=CASE WHEN status IN ('pending','sending') THEN 'failed' ELSE status END,
-             next_attempt_at=NULL,
+         SET payload_encrypted=NULL,payload_scrubbed_at=COALESCE(payload_scrubbed_at,now()),
+             status=CASE WHEN status IN ('pending','claimed','sending','failed') THEN 'cancelled' ELSE status END,
+             claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,next_attempt_at=NULL,
+             last_error_code=CASE WHEN status IN ('pending','claimed','sending','failed')
+               THEN 'MAIL_CREDENTIAL_INVALID' ELSE last_error_code END,
              updated_at=now()
          WHERE password_reset_token_id=$1`,
-        [
-          resetTokenId,
-          this.crypto.encrypt(JSON.stringify({ passwordResetTokenId: resetTokenId, status })),
-        ],
+        [resetTokenId],
       );
     }
   }

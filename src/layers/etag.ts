@@ -12,6 +12,22 @@ export function resourceEtag(
   return `"${resource}-${resourceId}-v${lockVersion}"`;
 }
 
+export function publicationPointerEtag(
+  layerId: string,
+  activeSnapshotId: string,
+  generation: number,
+): string {
+  return `"publication-pointer-${layerId}-${activeSnapshotId}-g${generation}"`;
+}
+
+export function requirePublicationPointerEtag(value: string | undefined): string {
+  if (!value) throw new AppException(428, 'ETAG_REQUIRED', 'Thiếu If-Match.');
+  if (!/^"publication-pointer-[0-9a-f-]{36}-[0-9a-f-]{36}-g[1-9]\d*"$/i.test(value)) {
+    throw new AppException(412, 'ETAG_MISMATCH', 'Publication pointer ETag không hợp lệ.');
+  }
+  return value;
+}
+
 export function requireRevisionVersion(ifMatch: string | undefined, revisionId: string): number {
   if (!ifMatch) throw new AppException(428, 'ETAG_REQUIRED', 'Thiếu If-Match.');
   const escaped = revisionId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

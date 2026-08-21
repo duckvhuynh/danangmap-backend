@@ -264,12 +264,15 @@ Mỗi field có:
 | WFL-001 | State của submitted revision: `draft → in_review → changes_requested` hoặc `in_review → approved → publishing → published`; failure publish trở về `approved` với lỗi. Request changes giữ revision gốc bất biến ở `changes_requested` và tạo successor `draft`. |
 | WFL-002 | Submit khóa revision, chạy validation đầy đủ và ghi manifest/checksum. |
 | WFL-003 | Request changes bắt buộc comment; approve có comment tùy chọn. |
-| WFL-004 | Separation-of-duties được kiểm tra ở mọi transition. |
-| WFL-005 | Publish chạy nền, tạo snapshot bất biến và đổi active pointer bằng transaction ngắn. |
+| WFL-004 | Separation-of-duties được kiểm tra ở mọi transition và rollback bằng participant history bất biến. Create/update/delete feature và import apply ghi `edit`; actor từng edit/review vẫn bị deny publish/rollback sau khi đổi role; System Admin không bypass. |
+| WFL-005 | Checkpoint MVP hiện tại publish đồng bộ: request chỉ trả terminal sau khi snapshot và active pointer commit nguyên tử. Client dùng trạng thái indeterminate trong lúc chờ; chỉ snapshot đã commit có `progress=100`, không tạo phần trăm trung gian giả. |
 | WFL-006 | Public cache chỉ invalidate sau khi pointer đổi thành công. |
-| WFL-007 | Rollback chỉ đến snapshot từng published, yêu cầu reason và không xóa lịch sử. |
+| WFL-007 | Rollback chỉ đến snapshot `published` đã từng active, yêu cầu reason + publication-pointer `If-Match`, tạo generation mới và không xóa lịch sử. History ETag, pointer ETag và public cache ETag là ba domain riêng. |
 | WFL-008 | Mọi transition, import apply và mutation quan trọng có audit event/request ID. |
 | WFL-009 | Request changes atomically cập nhật original + tạo đúng một successor khi chưa có active draft; response trả `originalRevisionId`, `draftRevisionId`, `supersedesRevisionId`. Nếu đã có draft, toàn command fail không đổi dữ liệu. |
+| WFL-010 | Revision diff đồng bộ trả summary và feature-level cursor page tối đa 25 entry, gồm added/removed/modified geometry, circle radius, public properties và redacted-change marker. Query có feature/vertex bound và trả `DIFF_TOO_LARGE` thay vì chạy không giới hạn. |
+| WFL-011 | Attachment diff báo explicit `ATTACHMENT_CONTRACT_PENDING` tới khi backend #29 có canonical versioned binding; không suy ra từ JSON properties hoặc dùng empty array làm bằng chứng không đổi. |
+| WFL-012 | Durable BullMQ publication job, observable queued/building/failed state và measured monotonic progress là follow-up; backend #30/frontend #19 tiếp tục Open/In Progress khi checkpoint chỉ có terminal progress. |
 
 ### 7.6 Public data
 
@@ -405,14 +408,25 @@ uploaded → inspecting → mapping_required → validating → ready
 
 Cancel hợp lệ ở `uploaded|inspecting|mapping_required|validating|ready`.
 
-### 11.3 Publication job
+### 11.3 Publication execution
+
+Checkpoint hiện tại là synchronous terminal-only:
+
+```text
+approved ── one HTTP transaction ──► published + active pointer switched
+         └── any failure ──────────► approved; pointer/success snapshot/audit unchanged
+```
+
+Frontend hiển thị indeterminate trong lúc POST đang chạy. Publication history/detail chỉ trả `progress=100` sau commit; row không có measured progress trả `null`, không gán 50% theo phase.
+
+Durable publication job sau đây là follow-up có thiết kế/PR riêng, chưa được checkpoint hiện tại tuyên bố:
 
 ```text
 queued → building → validating → switching → completed
                  └──────────────► failed
 ```
 
-Không đổi active pointer trước `switching`; failed giữ nguyên publication cũ.
+Follow-up chỉ hợp lệ khi job row được commit trước work, BullMQ retry/crash recovery idempotent và progress monotonic được đo từ work thật. Không đổi active pointer trước `switching`; failed giữ nguyên publication cũ.
 
 ## 12. Ma trận kiểm thử bắt buộc
 
@@ -423,12 +437,12 @@ Không đổi active pointer trước `switching`; failed giữ nguyên publicat
 | Auth | Argon2 verify, MFA TOTP/recovery, expiry, revoke gồm caller, old-cookie 401, CSRF, lockout |
 | Account lifecycle | Invite inspect/accept/replay; must-change guard; password change rotation/concurrent receipt; reset generic 202/body-only token/expiry/concurrent replay; recovery-code regenerate; admin MFA reset/re-enroll; user import inspect/validate/apply/report |
 | RBAC | Mỗi route có allow và deny; System Admin không bypass workflow |
-| Separation | self-review, editor-as-publisher, reviewer-as-publisher đều bị chặn |
+| Separation | self-review, editor-as-publisher, reviewer-as-publisher và editor/importer đổi role rồi publish/rollback đều bị chặn; zero domain mutation |
 | Geometry | 6 geometry type, Point-only circle, invalid polygon, wrong SRID, GeometryCollection, 100.000 vertex và 64 KiB property boundaries |
 | Schema | required/type/enum/private/searchable/filterable và migration impact |
 | Sync | retry cùng mutation, stale ETag, conflict, cursor expired, server UUID mapping |
 | Import | 4 format + `.json` GeoJSON sniff, 3 mode, exact 25 MiB, 100.000 record, 2.000.000 vertex, 250 MiB expanded, XLSX sheet/column limits, 20.000 DB issues, skip-invalid on/off, duplicate/retry/cancel |
-| Workflow | mọi transition hợp lệ/không hợp lệ, failure publish, rollback |
+| Workflow | mọi transition hợp lệ/không hợp lệ; synchronous publish chỉ indeterminate→terminal; feature-level diff cursor/bound/redaction/circle radius; failure publish; pointer-ETag rollback |
 | Public | draft/private leak test, ETag/304, bbox/filter/limit, MVT source layer |
 | Public contract | Full catalog source descriptor, immutable generation tile, HTTP 200 empty MVT, feature-detail ETag, polygon `ST_PointOnSurface` search position |
 | Geo adapter | timeout/retry/breaker/schema-invalid/oversized/partial search |

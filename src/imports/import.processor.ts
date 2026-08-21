@@ -543,6 +543,11 @@ export class ImportProcessor extends WorkerHost {
           [job.revisionId, nextCursor.toString()],
         );
         await manager.query(
+          `INSERT INTO revision_participants(revision_id,user_id,participation_type)
+           VALUES($1,$2,'edit') ON CONFLICT DO NOTHING`,
+          [job.revisionId, job.actorId],
+        );
+        await manager.query(
           `INSERT INTO audit_logs(
             actor_id,actor_role,action,resource_type,resource_id,request_id,metadata
            ) VALUES($1,$2,'import.applied','import_job',$3,$4,$5::jsonb)`,

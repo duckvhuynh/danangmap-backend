@@ -36,7 +36,7 @@ export class PublicApiController {
   @apiJsonResponse(200, { type: 'array', items: publicLayerSchema })
   async catalog(@Req() request: RequestWithContext, @Res() response: Response) {
     const result = await this.publicApi.catalog();
-    return this.cacheableJson(request, response, result.data, result.etag, 60);
+    return this.cacheableJson(request, response, result.data, result.etag);
   }
 
   @Get('layers/:slug')
@@ -48,7 +48,7 @@ export class PublicApiController {
     @Res() response: Response,
   ) {
     const result = await this.publicApi.layerDetail(slug);
-    return this.cacheableJson(request, response, result.data, result.etag, 60);
+    return this.cacheableJson(request, response, result.data, result.etag);
   }
 
   @Get('layers/:slug/features')
@@ -63,10 +63,19 @@ export class PublicApiController {
     @Query('bbox') bbox: string | undefined,
     @Query('limit') limit: string | undefined,
     @Query('filter') filter: string | undefined,
-    @Res({ passthrough: true }) response: Response,
+    @Req() request: RequestWithContext,
+    @Res() response: Response,
   ) {
-    response.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-    return this.publicApi.featureCollection(slug, bbox, limit ? Number(limit) : 1000, filter);
+    const result = await this.publicApi.featureCollection(
+      slug,
+      bbox,
+      limit ? Number(limit) : 1000,
+      filter,
+    );
+    response.setHeader('Cache-Control', 'public, no-cache, must-revalidate');
+    response.setHeader('ETag', result.etag);
+    if (request.header('if-none-match') === result.etag) return response.status(304).end();
+    return response.status(200).json(result.data);
   }
 
   @Get('layers/:slug/features/:featureId')
@@ -79,7 +88,7 @@ export class PublicApiController {
     @Res() response: Response,
   ) {
     const result = await this.publicApi.feature(slug, featureId);
-    return this.cacheableJson(request, response, result.data, result.etag, 300);
+    return this.cacheableJson(request, response, result.data, result.etag);
   }
 
   @Get('tiles/:slug/:generation/:z/:x/:y.pbf')
@@ -148,9 +157,10 @@ export class PublicApiController {
     response: Response,
     data: unknown,
     etag: string,
-    maxAge: number,
   ) {
-    response.setHeader('Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=300`);
+    // Pointer-resolving URLs must revalidate so a publish/rollback cannot be served stale.
+    // Generation-addressed vector tiles remain immutable and cacheable for one year.
+    response.setHeader('Cache-Control', 'public, no-cache, must-revalidate');
     response.setHeader('ETag', etag);
     if (request.header('if-none-match') === etag) return response.status(304).end();
     return response.status(200).json({ data, meta: { requestId: request.requestId } });

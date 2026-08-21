@@ -175,10 +175,22 @@ describe('GeoJSON import validation and atomic apply', () => {
          WHERE actor_id=$1 AND operation='import.apply' AND idempotency_key=$2`,
         [editorId, applyKey],
       );
+      await AppDataSource.transaction(async (manager) => {
+        await manager.query('ALTER TABLE audit_logs DISABLE TRIGGER trg_audit_logs_immutable');
+        await manager.query(
+          `DELETE FROM audit_logs
+           WHERE id IN (SELECT audit_id FROM audit_layer_scopes WHERE layer_id=$1)`,
+          [layerId],
+        );
+        await manager.query('ALTER TABLE audit_logs ENABLE TRIGGER trg_audit_logs_immutable');
+      });
       await AppDataSource.query('DELETE FROM import_jobs WHERE id=ANY($1::uuid[])', [
         [importId, emptyReplaceImportId],
       ]);
       await AppDataSource.query('DELETE FROM revision_changes WHERE revision_id=$1', [revisionId]);
+      await AppDataSource.query('DELETE FROM revision_participants WHERE revision_id=$1', [
+        revisionId,
+      ]);
       await AppDataSource.query('DELETE FROM revision_features WHERE revision_id=$1', [revisionId]);
       await AppDataSource.query('DELETE FROM feature_versions WHERE revision_id=$1', [revisionId]);
       await AppDataSource.query('DELETE FROM features WHERE layer_id=$1', [layerId]);
@@ -240,6 +252,12 @@ describe('GeoJSON import validation and atomic apply', () => {
     expect(completed.counts).toMatchObject({ applied: 2, skipped: 1 });
     expect(await queue.getJob(`apply-${importId}-${applyKey}`)).not.toBeNull();
     expect(await revisionState()).toMatchObject({ lockVersion: 2, cursorSeq: '2', links: 2 });
+    const participants = (await AppDataSource.query(
+      `SELECT participation_type FROM revision_participants
+       WHERE revision_id=$1 AND user_id=$2`,
+      [revisionId, editorId],
+    )) as Array<{ participation_type: string }>;
+    expect(participants).toEqual([{ participation_type: 'edit' }]);
 
     const changes = (await AppDataSource.query(
       `SELECT server_cursor::text AS cursor,operation FROM revision_changes

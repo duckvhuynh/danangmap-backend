@@ -69,6 +69,14 @@ const strictlyTypedResponseOperations = new Set([
   'approveRevision',
   'requestRevisionChanges',
   'publishRevision',
+  'listLayerRevisionHistory',
+  'getRevisionHistory',
+  'getRevisionDiff',
+  'listLayerPublicationHistory',
+  'getPublicationHistory',
+  'listAuditEvents',
+  'listLayerAuditEvents',
+  'listRevisionWorkflowEvents',
   'rollbackLayer',
 ]);
 const parameterContracts = {
@@ -168,6 +176,7 @@ const parameterContracts = {
     ['header', 'X-CSRF-Token', true],
   ],
   rollbackLayer: [
+    ['header', 'If-Match', true],
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],

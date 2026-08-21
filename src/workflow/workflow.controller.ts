@@ -18,7 +18,6 @@ import { requireIdempotencyKey } from '../layers/etag';
 import {
   PublishRevisionDto,
   RequestChangesDto,
-  RollbackDto,
   SubmitRevisionDto,
   WorkflowCommentDto,
 } from '../layers/layer.dto';
@@ -115,26 +114,5 @@ export class WorkflowController {
   ) {
     requireIdempotencyKey(key);
     return this.workflow.publish(revisionId, dto, principal, request.requestId, key!);
-  }
-
-  @Post('layers/:layerId\\:rollback')
-  @Roles('publisher')
-  @ApiHeader({
-    name: 'Idempotency-Key',
-    required: true,
-    schema: { type: 'string', format: 'uuid' },
-  })
-  @ApiHeader({ name: 'X-CSRF-Token', required: true })
-  @ApiOperation({ operationId: 'rollbackLayer' })
-  @apiJsonResponse(201, workflowResultSchema)
-  rollback(
-    @Param('layerId', ParseUUIDPipe) layerId: string,
-    @Body() dto: RollbackDto,
-    @Headers('idempotency-key') key: string | undefined,
-    @Req() request: RequestWithContext,
-    @Principal() principal: NonNullable<RequestWithContext['principal']>,
-  ) {
-    requireIdempotencyKey(key);
-    return this.workflow.rollback(layerId, dto, principal, request.requestId, key!);
   }
 }

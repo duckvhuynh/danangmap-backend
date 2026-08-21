@@ -2,7 +2,7 @@
 
 > Trạng thái: `ACTIVE`
 > Cập nhật: 2026-08-21
-> Phạm vi gần nhất: design gate, public map, controlled publication, four-format import, Docker E2E
+> Phạm vi gần nhất: history/diff/rollback/audit checkpoint trên controlled publication, four-format import, Docker E2E
 > Nguồn yêu cầu: `PRD.md`, `SRS.md`, `API-CONTRACT.md`, `PLANS.md`, `../../danangmap-frontend/docs/DESIGN.md`
 
 ## 1. Kết quả cần chứng minh
@@ -24,7 +24,7 @@ Slice đầu tiên chỉ cần fixture Point và Polygon để chứng minh ki�
 | D2 — Design source of truth | `COMPLETE` | `DESIGN.md` đã ghi decision/date/artifact, Tabler Icons, blue tokens, Google Maps-like radius/shadow và trạng thái `SELECTED_READY_TO_SCAFFOLD` |
 | D3 — UI scaffold unlocked | `UNLOCKED` | Selection/source-of-truth gate đạt tại `2d35ec5`; visual QA hoàn tất tại `0899ebd`; commit design phải là ancestor của commit UI đầu tiên |
 | V1 — Published read slice | `IN_PROGRESS` | Backend typed public API/query policy (`7ec3bc7`, `efc1a29`) và frontend pin/consume (`aa0380b`, `3fd3e027`) riêng lẻ xanh; issue #9 đã đóng, còn cross-stack issue #11 chưa đạt |
-| V2 — Controlled publication slice | `IN_PROGRESS` | Draft PR backend `#13`/`6800ff6` có HTTP three-actor, deny, redaction và atomic-pointer evidence với CI `32449796541` xanh nhưng chưa merge; browser cross-stack issue #11 vẫn mở |
+| V2 — Controlled publication slice | `IN_PROGRESS` | History checkpoint có OpenAPI 73 operations, unit 47, integration 38, E2E 41; synchronous terminal-only publish + rollback/history/diff/audit có evidence nhưng backend #30/frontend #19 vẫn mở cho durable job progress, attachment diff và browser UI |
 | V3 — Four-format import slice | `IN_PROGRESS` | Backend bốn parser/equivalence đạt tại `bd5013b` + CI `32448008945`; frontend typed wizard pin cùng contract đạt tại `ab806d6`; browser cross-stack/imported-feature publication chưa đạt |
 
 Frontend gate issue `#1` có đủ evidence để đóng tại `2d35ec5` + `0899ebd`. Backend M0 issue `#1` vẫn mở cho tới khi các exit criteria M0 còn lại trong `PLANS.md` có bằng chứng.
@@ -128,7 +128,15 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 - [ ] **VS-034 — Frontend:** Minimal desktop editor for seeded properties/geometry save and submit. Mapping: `F-020`, `F-027`, `F-029`, `F-032`.
   - Acceptance: server/local state được phân biệt; mobile capability gate không render mutation tools.
 - [ ] **VS-035 — Frontend:** Review/approve và publish progress surfaces. Mapping: `F-040`, `F-041`, `F-042`.
-  - Acceptance: role/action visibility, backend deny state và three-actor happy path rõ; publish desktop-only.
+  - Acceptance: role/action visibility, backend deny state và three-actor happy path rõ; publish desktop-only; checkpoint đồng bộ dùng indeterminate khi POST chạy rồi terminal success/problem, không hiển thị phần trăm giả.
+
+- [ ] **VS-035A — Backend:** Canonical history/diff/rollback/audit checkpoint. Mapping: `B-033`, `B-064`, `Q-005`, `Q-027`; tracking backend `#30`.
+  - Partial evidence: OpenAPI 73 operations; unit 47, integration 38, E2E 41. Chín endpoint canonical, bounded feature-level diff, pointer ETag riêng, role-scoped immutable audit và atomic rollback có test; issue vẫn Open/In Progress.
+  - Acceptance còn lại trước Done: attachment diff từ canonical binding sau backend #29; không dùng JSON properties/empty array thay thế.
+- [ ] **VS-035B — Backend/Worker:** Durable publication-job progress. Mapping: `B-031`, `B-032`; tracking backend `#30`.
+  - Acceptance: committed job row trước work, BullMQ retry/crash recovery idempotent, observable queued/building/failed, measured monotonic progress và final pointer switch nguyên tử. Không đưa vào checkpoint synchronous bằng fake `50%`.
+- [ ] **VS-035C — Frontend:** Real history/diff/rollback/audit UI. Mapping: `F-040..F-044`, `Q-015`; tracking frontend `#19`.
+  - Acceptance: generated client pin đúng artifact; feature cursor/exact-vs-bbox/redacted/unavailable states; indeterminate synchronous publish; pointer-ETag rollback; public ETag/generation revalidation; mobile không publish/rollback.
 
 ### 4.5 Four-format import path
 

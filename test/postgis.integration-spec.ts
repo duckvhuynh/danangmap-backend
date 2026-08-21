@@ -197,8 +197,8 @@ describe('PostGIS integration', () => {
 
   it('keeps the canonical public GeoJSON circle as Point plus radiusM', async () => {
     const collection = await publicApi.featureCollection(circleFixture.slug, undefined, 10);
-    expect(collection.features).toHaveLength(1);
-    expect(collection.features[0]).toMatchObject({
+    expect(collection.data.features).toHaveLength(1);
+    expect(collection.data.features[0]).toMatchObject({
       geometry: { type: 'Point', coordinates: [108.2208, 16.0678] },
       geometryKind: 'circle',
       radiusM: 250,

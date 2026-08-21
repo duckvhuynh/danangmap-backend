@@ -658,4 +658,9 @@ export class RollbackDto {
   @IsString()
   @Length(1, 4_000)
   reason: string;
+
+  @ApiProperty({ required: false, enum: ['desktop'], example: 'desktop' })
+  @IsOptional()
+  @IsIn(['desktop'])
+  clientIntent?: 'desktop';
 }

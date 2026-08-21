@@ -582,22 +582,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/layers/{layerId}:rollback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["rollbackLayer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/public/layers": {
         parameters: {
             query?: never;
@@ -896,6 +880,150 @@ export interface paths {
         get: operations["getUserImportReport"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layers/{layerId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listLayerRevisionHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/revisions/{revisionId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRevisionHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/revisions/{revisionId}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRevisionDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layers/{layerId}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listLayerPublicationHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/publications/{snapshotId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicationHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layers/{layerId}/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listLayerAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/revisions/{revisionId}/workflow-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRevisionWorkflowEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layers/{layerId}:rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rollbackLayer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1207,11 +1335,6 @@ export interface components {
         PublishRevisionDto: {
             releaseNote: string;
         };
-        RollbackDto: {
-            /** Format: uuid */
-            targetSnapshotId: string;
-            reason: string;
-        };
         ImportGeometryMappingDto: {
             /** @enum {string} */
             kind: "geojson" | "coordinates" | "wkt" | "kml_geometry";
@@ -1262,6 +1385,16 @@ export interface components {
              * @enum {string}
              */
             validRowPolicy: "invite";
+        };
+        RollbackDto: {
+            /** Format: uuid */
+            targetSnapshotId: string;
+            reason: string;
+            /**
+             * @example desktop
+             * @enum {string}
+             */
+            clientIntent?: "desktop";
         };
     };
     responses: never;
@@ -4253,61 +4386,6 @@ export interface operations {
             };
         };
     };
-    rollbackLayer: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": string;
-                "Idempotency-Key": string;
-            };
-            path: {
-                layerId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RollbackDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: {
-                            /** Format: uuid */
-                            revisionId: string;
-                            status: string;
-                        } | {
-                            /** Format: uuid */
-                            originalRevisionId: string;
-                            /** Format: uuid */
-                            draftRevisionId: string;
-                            /** Format: uuid */
-                            supersedesRevisionId: string;
-                            originalStatus: string;
-                            draftStatus: string;
-                            draftEtag: string;
-                        } | {
-                            /** Format: uuid */
-                            publicationId?: string;
-                            /** Format: uuid */
-                            snapshotId: string;
-                            generation: number;
-                            /** @enum {string} */
-                            status: "completed";
-                        };
-                        meta: {
-                            requestId: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
     listPublicLayers: {
         parameters: {
             query?: never;
@@ -5602,6 +5680,1578 @@ export interface operations {
                             hasMore: boolean;
                             limit: number;
                         };
+                    };
+                };
+            };
+        };
+    };
+    listLayerRevisionHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                status?: "draft" | "in_review" | "changes_requested" | "approved" | "publishing" | "published";
+            };
+            header?: never;
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                revisionNo: number;
+                                /** @enum {string} */
+                                status: "draft" | "in_review" | "changes_requested" | "approved" | "publishing" | "published";
+                                title: string;
+                                /** Format: uuid */
+                                supersedesRevisionId: string | null;
+                                /** Format: uuid */
+                                createdBy: string;
+                                createdByDisplayName: string | null;
+                                /** Format: date-time */
+                                submittedAt: string | null;
+                                /** Format: date-time */
+                                approvedAt: string | null;
+                                /** Format: date-time */
+                                publishedAt: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                featureCount: number;
+                                participantCount: number;
+                                /** Format: uuid */
+                                activeSnapshotId: string | null;
+                                activeGeneration: number | null;
+                            }[];
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    getRevisionHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            revision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                /** @enum {string} */
+                                status: "draft" | "in_review" | "changes_requested" | "approved" | "publishing" | "published";
+                                title: string;
+                                description: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: ("point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle")[];
+                                schemaVersion: number;
+                                lockVersion: number;
+                                /** Format: uuid */
+                                supersedesRevisionId: string | null;
+                                /** Format: uuid */
+                                createdBy: string;
+                                createdByDisplayName: string | null;
+                                /** Format: date-time */
+                                submittedAt: string | null;
+                                /** Format: date-time */
+                                approvedAt: string | null;
+                                /** Format: date-time */
+                                publishedAt: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                /** Format: uuid */
+                                successorRevisionId: string | null;
+                            };
+                            validation: {
+                                /** @enum {string} */
+                                status: "valid" | "invalid";
+                                featureCount: number;
+                                issues: {
+                                    /** @enum {string} */
+                                    code: "GEOMETRY_INVALID" | "REQUIRED_PROPERTY_MISSING";
+                                    count: number;
+                                }[];
+                            };
+                            participants: {
+                                /** Format: uuid */
+                                userId: string;
+                                /** @enum {string} */
+                                type: "edit" | "review" | "publish";
+                                /** Format: date-time */
+                                participatedAt: string;
+                                displayName: string | null;
+                                /** @enum {string|null} */
+                                role: "editor" | "reviewer" | "publisher" | "system_admin" | null;
+                            }[];
+                            events: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                fromStatus: "draft" | "in_review" | "changes_requested" | "approved" | "publishing" | "published";
+                                /** @enum {string} */
+                                toStatus: "draft" | "in_review" | "changes_requested" | "approved" | "publishing" | "published";
+                                /** Format: uuid */
+                                actorId: string;
+                                actorDisplayName: string | null;
+                                /** @enum {string|null} */
+                                role: "editor" | "reviewer" | "publisher" | "system_admin" | null;
+                                reason: string | null;
+                                /** Format: date-time */
+                                occurredAt: string;
+                            }[];
+                            publications: {
+                                /** Format: uuid */
+                                snapshotId: string;
+                                generation: number;
+                                /** @enum {string} */
+                                status: "building" | "published" | "failed";
+                                featureCount: number;
+                                /** Format: date-time */
+                                publishedAt: string | null;
+                                /** Format: uuid */
+                                rollbackOf: string | null;
+                                isActive: boolean;
+                            }[];
+                            historyLimits: {
+                                participants: {
+                                    returned: number;
+                                    hasMore: boolean;
+                                    /** @enum {integer} */
+                                    limit: 100;
+                                };
+                                events: {
+                                    returned: number;
+                                    hasMore: boolean;
+                                    /** @enum {integer} */
+                                    limit: 100;
+                                };
+                                publications: {
+                                    returned: number;
+                                    hasMore: boolean;
+                                    /** @enum {integer} */
+                                    limit: 100;
+                                };
+                            };
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    getRevisionDiff: {
+        parameters: {
+            query?: {
+                compareTo?: "parent" | "active";
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            revisionId: string;
+                            /** Format: uuid */
+                            layerId: string;
+                            /** @enum {string} */
+                            comparison: "parent" | "active";
+                            /** Format: uuid */
+                            baseRevisionId: string | null;
+                            geometry: {
+                                currentFeatureCount: number;
+                                baseFeatureCount: number;
+                                added: number;
+                                removed: number;
+                                modified: number;
+                            };
+                            properties: {
+                                featuresModified: number;
+                                publicFieldKeysChanged: string[];
+                            };
+                            attachments: {
+                                /** @enum {boolean} */
+                                available: false;
+                                /** @enum {string} */
+                                status: "unavailable";
+                                /** @enum {string} */
+                                reasonCode: "ATTACHMENT_CONTRACT_PENDING";
+                            };
+                            schema: {
+                                publicFieldsAdded: string[];
+                                publicFieldsRemoved: string[];
+                                publicFieldsChanged: string[];
+                                redactedChangeCount: number;
+                            };
+                            entries: {
+                                /** Format: uuid */
+                                featureId: string;
+                                /** @enum {string} */
+                                changeType: "added" | "removed" | "modified";
+                                geometry: {
+                                    changed: boolean;
+                                    /** @enum {string|null} */
+                                    beforeKind: "point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle" | null;
+                                    /** @enum {string|null} */
+                                    afterKind: "point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle" | null;
+                                    beforeRadiusM: number | null;
+                                    afterRadiusM: number | null;
+                                    beforePreview: {
+                                        [key: string]: unknown;
+                                    } | null;
+                                    afterPreview: {
+                                        [key: string]: unknown;
+                                    } | null;
+                                    /** @enum {string|null} */
+                                    beforePreviewMode: "exact" | "bbox" | null;
+                                    /** @enum {string|null} */
+                                    afterPreviewMode: "exact" | "bbox" | null;
+                                    beforeBounds: number[] | null;
+                                    afterBounds: number[] | null;
+                                };
+                                properties: {
+                                    before: {
+                                        [key: string]: unknown;
+                                    };
+                                    after: {
+                                        [key: string]: unknown;
+                                    };
+                                    changedKeys: string[];
+                                };
+                                attachments: {
+                                    /** @enum {boolean} */
+                                    available: false;
+                                    /** @enum {string} */
+                                    status: "unavailable";
+                                    /** @enum {string} */
+                                    reasonCode: "ATTACHMENT_CONTRACT_PENDING";
+                                };
+                                redactedChange: boolean;
+                            }[];
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "DIFF_TOO_LARGE";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    listLayerPublicationHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                status?: "building" | "published" | "failed";
+                rollbackOnly?: "true" | "false";
+            };
+            header?: never;
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: {
+                                /** Format: uuid */
+                                snapshotId: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                /** Format: uuid */
+                                revisionId: string;
+                                revisionNo: number;
+                                /** @enum {string} */
+                                status: "building" | "published" | "failed";
+                                generation: number;
+                                progress: number | null;
+                                featureCount: number;
+                                bounds: number[] | null;
+                                checksum: string;
+                                /** Format: uuid */
+                                rollbackOf: string | null;
+                                /** Format: uuid */
+                                publishedBy: string;
+                                publishedByDisplayName: string | null;
+                                /** Format: date-time */
+                                publishedAt: string | null;
+                                /** Format: date-time */
+                                activatedAt: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                isActive: boolean;
+                                rollbackEligibility: {
+                                    eligible: boolean;
+                                    /** @enum {string|null} */
+                                    reasonCode: "ROLE_FORBIDDEN" | "ROLLBACK_TARGET_ACTIVE" | "SEPARATION_OF_DUTIES" | "ROLLBACK_TARGET_INVALID" | null;
+                                };
+                            }[];
+                            activePointerEtag: string | null;
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    getPublicationHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshotId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            publication: {
+                                /** Format: uuid */
+                                snapshotId: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                /** Format: uuid */
+                                revisionId: string;
+                                revisionNo: number;
+                                /** @enum {string} */
+                                status: "building" | "published" | "failed";
+                                generation: number;
+                                progress: number | null;
+                                featureCount: number;
+                                bounds: number[] | null;
+                                checksum: string;
+                                /** Format: uuid */
+                                rollbackOf: string | null;
+                                /** Format: uuid */
+                                publishedBy: string;
+                                publishedByDisplayName: string | null;
+                                /** Format: date-time */
+                                publishedAt: string | null;
+                                /** Format: date-time */
+                                activatedAt: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                isActive: boolean;
+                                rollbackEligibility: {
+                                    eligible: boolean;
+                                    /** @enum {string|null} */
+                                    reasonCode: "ROLE_FORBIDDEN" | "ROLLBACK_TARGET_ACTIVE" | "SEPARATION_OF_DUTIES" | "ROLLBACK_TARGET_INVALID" | null;
+                                };
+                            };
+                            activePointerEtag: string | null;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    listAuditEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                action?: string;
+                resourceType?: string;
+                resourceId?: string;
+                actorId?: string;
+                requestId?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                actorId: string | null;
+                                /** @enum {string|null} */
+                                actorRole: "editor" | "reviewer" | "publisher" | "system_admin" | null;
+                                actorDisplayName: string | null;
+                                action: string;
+                                resourceType: string;
+                                /** Format: uuid */
+                                resourceId: string | null;
+                                /** Format: uuid */
+                                requestId: string;
+                                beforeDigest: string | null;
+                                afterDigest: string | null;
+                                metadata: {
+                                    [key: string]: unknown;
+                                };
+                                /** Format: date-time */
+                                occurredAt: string;
+                            }[];
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    listLayerAuditEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                action?: string;
+                resourceType?: string;
+                resourceId?: string;
+                actorId?: string;
+                requestId?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                actorId: string | null;
+                                /** @enum {string|null} */
+                                actorRole: "editor" | "reviewer" | "publisher" | "system_admin" | null;
+                                actorDisplayName: string | null;
+                                action: string;
+                                resourceType: string;
+                                /** Format: uuid */
+                                resourceId: string | null;
+                                /** Format: uuid */
+                                requestId: string;
+                                beforeDigest: string | null;
+                                afterDigest: string | null;
+                                metadata: {
+                                    [key: string]: unknown;
+                                };
+                                /** Format: date-time */
+                                occurredAt: string;
+                            }[];
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    listRevisionWorkflowEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                fromStatus: "draft" | "in_review" | "changes_requested" | "approved" | "publishing" | "published";
+                                /** @enum {string} */
+                                toStatus: "draft" | "in_review" | "changes_requested" | "approved" | "publishing" | "published";
+                                /** Format: uuid */
+                                actorId: string;
+                                actorDisplayName: string | null;
+                                /** @enum {string|null} */
+                                role: "editor" | "reviewer" | "publisher" | "system_admin" | null;
+                                reason: string | null;
+                                /** Format: date-time */
+                                occurredAt: string;
+                            }[];
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    rollbackLayer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                /** @description activePointerEtag from listLayerPublicationHistory. */
+                "If-Match": string;
+            };
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RollbackDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            publicationId: string;
+                            /** Format: uuid */
+                            snapshotId: string;
+                            /** Format: uuid */
+                            targetSnapshotId: string;
+                            generation: number;
+                            /** @enum {string} */
+                            status: "completed";
+                            /** Format: uuid */
+                            activeRevisionId: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "CSRF_INVALID" | "SEPARATION_OF_DUTIES";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND" | "ROLLBACK_TARGET_NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "IDEMPOTENCY_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "ROLLBACK_TARGET_ACTIVE" | "ROLLBACK_TARGET_INVALID" | "PUBLICATION_POINTER_STALE";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ETAG_MISMATCH";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ETAG_REQUIRED" | "IDEMPOTENCY_KEY_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
                     };
                 };
             };

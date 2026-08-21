@@ -817,6 +817,123 @@ export const importIssueMetaSchema: SchemaObject = {
   },
 };
 
+export const userImportJobSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'status',
+    'format',
+    'file',
+    'progress',
+    'counts',
+    'inspection',
+    'validRowPolicy',
+    'failureCode',
+    'createdAt',
+    'updatedAt',
+  ],
+  properties: {
+    id: uuid,
+    status: {
+      type: 'string',
+      enum: [
+        'uploaded',
+        'inspecting',
+        'inspected',
+        'validating',
+        'ready',
+        'applying',
+        'completed',
+        'failed',
+      ],
+    },
+    format: { type: 'string', enum: ['csv', 'xlsx'] },
+    file: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['name', 'sizeBytes'],
+      properties: {
+        name: { type: 'string' },
+        sizeBytes: { type: 'integer', minimum: 1, maximum: 5 * 1024 * 1024 },
+      },
+    },
+    progress: { type: 'integer', minimum: 0, maximum: 100 },
+    counts: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['total', 'valid', 'invalid', 'applied', 'skipped'],
+      properties: {
+        total: { type: 'integer', minimum: 0, maximum: 5000 },
+        valid: { type: 'integer', minimum: 0, maximum: 5000 },
+        invalid: { type: 'integer', minimum: 0, maximum: 5000 },
+        applied: { type: 'integer', minimum: 0, maximum: 5000 },
+        skipped: { type: 'integer', minimum: 0, maximum: 5000 },
+      },
+    },
+    inspection: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['sheets', 'selectedSheet', 'limits'],
+      properties: {
+        sheets: { type: 'array', maxItems: 10, items: { type: 'string' } },
+        selectedSheet: nullableString,
+        limits: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['maxBytes', 'maxRows', 'maxSheets', 'maxColumns', 'maxExpandedBytes'],
+          properties: {
+            maxBytes: { type: 'integer', enum: [5 * 1024 * 1024] },
+            maxRows: { type: 'integer', enum: [5000] },
+            maxSheets: { type: 'integer', enum: [10] },
+            maxColumns: { type: 'integer', enum: [4] },
+            maxExpandedBytes: { type: 'integer', enum: [50 * 1024 * 1024] },
+          },
+        },
+      },
+    },
+    validRowPolicy: { type: 'string', enum: ['invite'] },
+    failureCode: nullableString,
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+};
+
+export const userImportIssueSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'rowNumber', 'severity', 'code', 'field'],
+  properties: {
+    id: { type: 'string', pattern: '^\\d+$' },
+    rowNumber: { type: 'integer', minimum: 2, maximum: 5001 },
+    severity: { type: 'string', enum: ['error'] },
+    code: { type: 'string' },
+    field: { type: 'string', enum: ['email', 'username', 'displayName', 'role'], nullable: true },
+  },
+};
+
+export const userImportIssueMetaSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['requestId', 'nextCursor', 'hasMore', 'limit'],
+  properties: {
+    requestId: { type: 'string' },
+    nextCursor: nullableString,
+    hasMore: { type: 'boolean' },
+    limit: { type: 'integer', minimum: 1, maximum: 200 },
+  },
+};
+
+export const userImportReportSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['job', 'issues'],
+  properties: {
+    job: userImportJobSchema,
+    issues: { type: 'array', items: userImportIssueSchema },
+  },
+};
+
 export const workflowResultSchema: SchemaObject = {
   oneOf: [
     {

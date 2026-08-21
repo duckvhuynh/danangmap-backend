@@ -267,7 +267,7 @@ Mỗi field có:
 | WFL-004 | Separation-of-duties được kiểm tra ở mọi transition và rollback bằng participant history bất biến. Create/update/delete feature và import apply ghi `edit`; actor từng edit/review vẫn bị deny publish/rollback sau khi đổi role; System Admin không bypass. |
 | WFL-005 | Checkpoint MVP hiện tại publish đồng bộ: request chỉ trả terminal sau khi snapshot và active pointer commit nguyên tử. Client dùng trạng thái indeterminate trong lúc chờ; chỉ snapshot đã commit có `progress=100`, không tạo phần trăm trung gian giả. |
 | WFL-006 | Public cache chỉ invalidate sau khi pointer đổi thành công. |
-| WFL-007 | Rollback chỉ đến snapshot `published` đã từng active, yêu cầu reason + publication-pointer `If-Match`, tạo generation mới và không xóa lịch sử. History ETag, pointer ETag và public cache ETag là ba domain riêng. |
+| WFL-007 | Rollback chỉ đến snapshot `published` đã từng active, yêu cầu reason + `clientIntent=desktop` + publication-pointer `If-Match`, tạo generation mới và không xóa lịch sử. Thiếu/sai intent trả `BAD_REQUEST` không mutation. History ETag, pointer ETag và public cache ETag là ba domain riêng. |
 | WFL-008 | Mọi transition, import apply và mutation quan trọng có audit event/request ID. |
 | WFL-009 | Request changes atomically cập nhật original + tạo đúng một successor khi chưa có active draft; response trả `originalRevisionId`, `draftRevisionId`, `supersedesRevisionId`. Nếu đã có draft, toàn command fail không đổi dữ liệu. |
 | WFL-010 | Revision diff đồng bộ trả summary và feature-level cursor page tối đa 25 entry, gồm added/removed/modified geometry, circle radius, public properties và redacted-change marker. Query có feature/vertex bound và trả `DIFF_TOO_LARGE` thay vì chạy không giới hạn. |

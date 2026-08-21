@@ -997,11 +997,12 @@ Public pointer chỉ đổi sau build + validate thành công. Public cache/cata
 ```json
 {
   "targetSnapshotId": "0192a810-1902-7891-8a56-61534d66dc92",
-  "reason": "Phát hiện sai lệch dữ liệu sau xuất bản."
+  "reason": "Phát hiện sai lệch dữ liệu sau xuất bản.",
+  "clientIntent": "desktop"
 }
 ```
 
-Rollback bắt buộc `If-Match: <activePointerEtag>`, `Idempotency-Key`, CSRF và reason. Target phải là snapshot `published` đã từng active (`activatedAt != null`), không phải snapshot hiện hành. Publisher đã từng `edit|review` revision đích bị `403 SEPARATION_OF_DUTIES`, kể cả sau khi đổi role; System Admin không bypass.
+Rollback bắt buộc `If-Match: <activePointerEtag>`, `Idempotency-Key`, CSRF, reason và `clientIntent="desktop"`; thiếu hoặc gửi intent khác trả `400 BAD_REQUEST` trước mọi domain mutation. Target phải là snapshot `published` đã từng active (`activatedAt != null`), không phải snapshot hiện hành. Publisher đã từng `edit|review` revision đích bị `403 SEPARATION_OF_DUTIES`, kể cả sau khi đổi role; System Admin không bypass.
 
 Rollback tạo publication event mới, đổi pointer atomically, tăng generation, ghi bounded audit và trả publication-pointer ETag mới; không thay đổi/xóa snapshot lịch sử. Stale pointer trả `412 ETAG_MISMATCH` và không tạo snapshot/audit/receipt thành công. Sau commit, admin refetch publication history bằng history ETag và public client revalidate catalog/data bằng public ETag/generation, không dùng lẫn hai ETag domain.
 

@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  Allow,
   ArrayMaxSize,
   ArrayMinSize,
   ArrayUnique,
@@ -659,8 +660,7 @@ export class RollbackDto {
   @Length(1, 4_000)
   reason: string;
 
-  @ApiProperty({ required: false, enum: ['desktop'], example: 'desktop' })
-  @IsOptional()
-  @IsIn(['desktop'])
-  clientIntent?: 'desktop';
+  @ApiProperty({ enum: ['desktop'], example: 'desktop' })
+  @Allow()
+  clientIntent: 'desktop';
 }

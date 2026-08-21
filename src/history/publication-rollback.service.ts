@@ -36,6 +36,9 @@ export class PublicationRollbackService {
     requestId: string,
     idempotencyKey: string,
   ): Promise<{ data: RollbackResponse; etag: string }> {
+    if (dto.clientIntent !== 'desktop') {
+      throw new AppException(400, 'BAD_REQUEST', 'Rollback chỉ chấp nhận clientIntent desktop.');
+    }
     const expectedPointerEtag = requirePublicationPointerEtag(ifMatch);
     const requestDigest = this.idempotency.digest({ layerId, dto, ifMatch });
     return this.dataSource.transaction(async (manager) => {
@@ -210,7 +213,7 @@ export class PublicationRollbackService {
             activeRevisionId: target.revision_id,
             generation,
             reason: dto.reason,
-            clientIntent: dto.clientIntent ?? null,
+            clientIntent: 'desktop',
             publicCacheVersion: generation,
           }),
         ],

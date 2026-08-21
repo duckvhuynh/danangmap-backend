@@ -400,8 +400,40 @@ describe('Publication, revision and audit history HTTP E2E', () => {
     );
     const firstPageBody = await json<Envelope<{ activePointerEtag: string }>>(firstPage);
     const initialEtag = firstPageBody.data.activePointerEtag;
+    const invalidIntentBefore = await rollbackState();
+    await expectProblem(
+      post(
+        publisher,
+        `/api/v1/admin/layers/${fixture.layerId}:rollback`,
+        { targetSnapshotId: fixture.snapshot1, reason: 'Missing client intent' },
+        { idempotencyKey: randomUUID(), ifMatch: initialEtag },
+      ),
+      400,
+      'BAD_REQUEST',
+    );
+    await expectProblem(
+      postRollback(
+        publisher,
+        fixture.layerId,
+        {
+          targetSnapshotId: fixture.snapshot1,
+          reason: 'Mobile client intent',
+          clientIntent: 'mobile',
+        },
+        randomUUID(),
+        initialEtag,
+      ),
+      400,
+      'BAD_REQUEST',
+    );
+    expect(await rollbackState()).toEqual(invalidIntentBefore);
+
     const key = randomUUID();
-    const body = { targetSnapshotId: fixture.snapshot1, reason: 'Khôi phục bản phát hành ổn định' };
+    const body = {
+      targetSnapshotId: fixture.snapshot1,
+      reason: 'Khôi phục bản phát hành ổn định',
+      clientIntent: 'desktop',
+    };
     const before = await rollbackState();
     const rollback = await postRollback(publisher, fixture.layerId, body, key, initialEtag);
     const rollbackBody = await json<Envelope<Record<string, any>>>(rollback);
@@ -420,6 +452,12 @@ describe('Publication, revision and audit history HTTP E2E', () => {
       receipts: before.receipts + 1,
       activeSnapshotId: rollbackBody.data.snapshotId,
     });
+    const rollbackAudit = (await AppDataSource.query(
+      `SELECT metadata->>'clientIntent' AS "clientIntent"
+       FROM audit_logs WHERE action='publication.rolled_back' AND resource_id=$1`,
+      [rollbackBody.data.snapshotId],
+    )) as Array<{ clientIntent: string }>;
+    expect(rollbackAudit).toEqual([{ clientIntent: 'desktop' }]);
     const revalidatedLayer = await fetch(publicLayerUrl, {
       headers: { 'If-None-Match': oldLayerEtag },
     });
@@ -719,6 +757,12 @@ describe('Publication, revision and audit history HTTP E2E', () => {
     expect(
       rollback.responses['403'].content['application/problem+json'].schema.properties.code.enum,
     ).toEqual(expect.arrayContaining(['PASSWORD_CHANGE_REQUIRED', 'SEPARATION_OF_DUTIES']));
+    expect(document.components.schemas.RollbackDto.required).toEqual(
+      expect.arrayContaining(['targetSnapshotId', 'reason', 'clientIntent']),
+    );
+    expect(document.components.schemas.RollbackDto.properties.clientIntent.enum).toEqual([
+      'desktop',
+    ]);
     const diff = document.paths['/api/v1/admin/revisions/{revisionId}/diff'].get;
     expect(Object.keys(diff.responses)).toEqual(
       expect.arrayContaining(['200', '400', '401', '403', '404', '422']),
@@ -1132,10 +1176,15 @@ async function postRollback(
   key: string,
   etag: string,
 ) {
-  return post(actor, `/api/v1/admin/layers/${layerId}:rollback`, body, {
-    idempotencyKey: key,
-    ifMatch: etag,
-  });
+  return post(
+    actor,
+    `/api/v1/admin/layers/${layerId}:rollback`,
+    { clientIntent: 'desktop', ...body },
+    {
+      idempotencyKey: key,
+      ifMatch: etag,
+    },
+  );
 }
 
 function mutationHeaders(

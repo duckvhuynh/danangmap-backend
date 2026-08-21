@@ -1394,7 +1394,7 @@ export interface components {
              * @example desktop
              * @enum {string}
              */
-            clientIntent?: "desktop";
+            clientIntent: "desktop";
         };
     };
     responses: never;

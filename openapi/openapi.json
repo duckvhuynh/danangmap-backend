@@ -19527,7 +19527,8 @@
         },
         "required": [
           "targetSnapshotId",
-          "reason"
+          "reason",
+          "clientIntent"
         ]
       }
     }

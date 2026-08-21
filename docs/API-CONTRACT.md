@@ -125,7 +125,7 @@ Validation error `details.violations`:
 
 ### 1.7 Mã lỗi chuẩn
 
-`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_CHANGE_REQUIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NOT_READY`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
+`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_CHANGE_REQUIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `CONFIG_IMPACT_BLOCKED`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NOT_READY`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
 
 ## 2. DTO dùng chung
 
@@ -470,9 +470,8 @@ Hai request concurrent cùng key/payload chỉ có một effect; chỉ response 
 | GET | `/admin/layers/{layerId}/revisions` | mọi admin | Lịch sử revision |
 | POST | `/admin/layers/{layerId}/drafts` | Editor | Tạo draft từ snapshot active |
 | GET | `/admin/revisions/{revisionId}` | mọi admin | Chi tiết revision |
-| PATCH | `/admin/revisions/{revisionId}` | Editor | Sửa title/description/geometry mode/style/render/popup config |
-| PUT | `/admin/revisions/{revisionId}/fields` | Editor | Thay danh sách schema fields có version check |
-| POST | `/admin/revisions/{revisionId}/schema:impact` | Editor | Preview ảnh hưởng schema |
+| POST | `/admin/revisions/{revisionId}/config:impact` | Editor | Preview ảnh hưởng của một full configuration replacement, không mutation |
+| PUT | `/admin/revisions/{revisionId}/config` | Editor | Atomically thay toàn bộ cấu hình của draft revision |
 | GET | `/admin/revisions/{revisionId}/workspace` | mọi admin | Metadata sync workspace |
 | GET | `/admin/revisions/{revisionId}/features` | mọi admin | Feature theo bbox/cursor |
 
@@ -525,13 +524,50 @@ Header: `Idempotency-Key`.
 
 Response `201` trả layer và draft revision. `slug` không thay đổi sau khi public nếu chưa có migration/redirect riêng.
 
-Layer group là cấu trúc trình bày, không phải permission boundary. Group DTO gồm `id`, `slug`, `title`, `description`, `displayOrder`, `archivedAt`. `groupId` có thể null. Archive group yêu cầu body `{ "orphanLayerPolicy": "ungroup" }`, atomically đặt `groupId=null` cho layer thuộc group và không archive/xóa layer.
+Layer group là cấu trúc trình bày, không phải permission boundary. Group DTO gồm `id`, `slug`, `title`, `description`, `displayOrder`, `archivedAt`. `groupId` có thể null. Archive group yêu cầu `If-Match`, `Idempotency-Key` và body `{ "orphanLayerPolicy": "ungroup" }`. Cùng transaction archive group, server đặt `groupId=null` cho mọi layer con; không archive/xóa layer, không thay revision/publication snapshot của layer. Replay cùng key/payload trả cùng kết quả/ETag và audit event chỉ ghi một lần.
 
 `popupConfig` được version hóa cùng revision. Chỉ chấp nhận key allowlist như `titleField`, `subtitleField`, `fieldKeys`, `showCoordinates`; mọi field tham chiếu phải tồn tại. Public projection tự loại field private/sensitive khỏi popup kể cả config cũ còn tham chiếu.
 
 `renderConfig.sourcePolicy`: `auto|geojson|mvt|hybrid`. Publication builder có thể hạ `auto` thành source descriptor cụ thể dựa trên benchmark/feature count nhưng không được đổi canonical data; min/max zoom và cluster được validate theo geometry/style.
 
-### 4.3 Workspace
+### 4.3 Atomic draft configuration
+
+Hai route cấu hình dùng cùng `RevisionConfiguration` DTO đầy đủ gồm `title`, `description`, `geometryMode`, `allowedGeometryKinds`, `fields`, `style`, `renderConfig` và `popupConfig`. Identity/catalog metadata (`slug`, `groupId`, `displayOrder`, `defaultVisible`) không thuộc DTO này và được quản lý bởi route layer/catalog. Không tồn tại route PATCH cấu hình revision hoặc route thay fields riêng song song.
+
+`POST /api/v1/admin/revisions/{revisionId}/config:impact` yêu cầu `If-Match`, authenticated Editor, CSRF và Origin/Referer hợp lệ. Route chỉ tính toán, không mutation và không tăng `lockVersion`/`schemaVersion`. Response `200` trả:
+
+```json
+{
+  "featureCount": 18420,
+  "blocking": true,
+  "schemaVersionWillIncrement": true,
+  "reasons": [
+    {
+      "code": "FIELD_REMOVAL_WITH_DATA",
+      "fieldKey": "phone",
+      "geometryKind": null,
+      "affectedFeatures": 176
+    }
+  ]
+}
+```
+
+Reason code cố định: `GEOMETRY_KIND_IN_USE`, `FIELD_REMOVAL_WITH_DATA`, `FIELD_CONSTRAINT_CHANGE_WITH_DATA`, `REQUIRED_FIELD_MISSING`. Response giữ nguyên ETag hiện tại để client dùng cho lệnh replace tiếp theo.
+
+`PUT /api/v1/admin/revisions/{revisionId}/config` yêu cầu `If-Match`, `Idempotency-Key`, authenticated Editor, CSRF và Origin/Referer hợp lệ. Server validate toàn bộ geometry/schema/style/render/popup trong một boundary rồi atomically thay toàn bộ cấu hình và fields của draft. Không được để client quan sát trạng thái trung gian giữa các phần cấu hình.
+
+- Chỉ revision `draft` được sửa; `in_review`, `approved`, `published` và revision lịch sử trả `409 REVISION_NOT_EDITABLE`.
+- Impact có `blocking=true` làm replace trả `422 CONFIG_IMPACT_BLOCKED`, kèm impact trong error details; không mutation một phần.
+- Thành công trả revision, fields, impact và ETag mới; `schemaVersion` chỉ tăng khi geometry/schema signature thay đổi, `lockVersion` tăng một lần.
+- Thiếu `If-Match` trả `428 ETAG_REQUIRED`, stale ETag trả `412 ETAG_MISMATCH`.
+- Replay cùng idempotency key/payload trả cùng body/ETag và chỉ một audit event; cùng key khác payload trả `409 IDEMPOTENCY_KEY_REUSED`.
+- Draft/config mới không xuất hiện ở public catalog/detail/data cho tới khi publication pointer chuyển thành công.
+
+Successor draft tạo từ revision đang published phải copy cấu hình và feature links của source, giữ lineage `sourceRevisionId`, và tuân constraint một active draft trên mỗi layer. Mọi sửa tiếp theo vẫn đi qua atomic config replacement ở trên; source published không bị mutation.
+
+Quyết định dùng một full replacement boundary để geometry policy, field schema, style và popup luôn được validate trên cùng một snapshot. Điều này tránh intermediate state không tương thích và giữ đúng một ETag/idempotency/audit boundary cho mỗi lần lưu.
+
+### 4.4 Workspace
 
 `GET /api/v1/admin/revisions/{revisionId}/workspace`
 
@@ -552,7 +588,7 @@ Layer group là cấu trúc trình bày, không phải permission boundary. Grou
 
 Response có `ETag: "rev-<id>-v<lockVersion>"`. Workspace không nhồi toàn bộ feature lớn; frontend tải feature qua bbox/cursor hoặc MVT draft preview.
 
-### 4.4 Liệt kê feature admin
+### 4.5 Liệt kê feature admin
 
 `GET /api/v1/admin/revisions/{revisionId}/features?bbox=108.0,15.8,108.5,16.3&cursor=...&limit=200&sort=name:asc&filter=status:eq:active`
 
@@ -1335,7 +1371,7 @@ Con số là baseline cấu hình, phải load-test trước production. 429 lu�
 | Dexie batch | UUID mapping ổn định, partial conflict đúng mutation, cursor expiry có recovery URL |
 | Dexie recovery | `origin=recovery` được audit; conflict explicit; logout delete; expiry lock; không server lease; sensitive/offlineCache policy |
 | Geometry | Cả 6 GeoJSON type + Point-only circle/radiusM; cấm GeometryCollection/Z/M/invalid polygon; 100.000 vertex và 64 KiB property boundaries |
-| Layer config | Group CRUD/order/archive-ungroup, popupConfig versioning và private-field stripping |
+| Layer config | Group CRUD/order/archive bằng atomic ungroup; create/reload; preview impact + atomic full config replacement; strict ETag/idempotency/audit; published immutability; draft vắng mặt public; popupConfig versioning và private-field stripping |
 | Import | MIME spoof, exact 25 MiB, `.json` sniff, 100.000 record, 2.000.000 vertex, 250 MiB expanded, XLSX sheet/column, 20.000 DB issue, 3 mode, skip invalid, retry/cancel |
 | Workflow | Request changes giữ original immutable và tạo đúng một successor draft; participant history deny; build fail không đổi pointer; rollback tăng generation |
 | Privacy | Field private vắng mặt trong catalog/detail/search/GeoJSON/MVT/attachment |

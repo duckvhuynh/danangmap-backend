@@ -24,7 +24,7 @@
 | `If-Match` | request mutation | Bắt buộc khi sửa resource versioned |
 | `If-None-Match` | request GET | Trả 304 khi không đổi |
 | `Idempotency-Key` | request command | UUID bắt buộc với command có thể retry |
-| `X-CSRF-Token` | admin mutation | Token lấy từ CSRF endpoint; bind với session |
+| `X-CSRF-Token` | cookie-backed mutation | Bắt buộc cho login, mutation pre-auth (`mfa/verify`, `mfa/enroll`, `mfa/enroll/confirm`) và mọi mutation authenticated/admin; token lấy từ `/auth/csrf` và bind với trạng thái public/pre-auth/auth tương ứng |
 | `Retry-After` | 429/503 | Số giây client nên chờ |
 
 ### 1.3 Cookie admin
@@ -33,6 +33,8 @@
 - `danangmap_csrf`: token CSRF không HttpOnly để frontend đọc và echo qua `X-CSRF-Token`; không phải credential.
 - Login trước MFA chỉ tạo pre-auth cookie hạn ngắn, không có quyền admin.
 - API không trả session/MFA secret trong JSON ngoài TOTP enrollment URI tại đúng bước enrollment; URI chỉ hiển thị một lần và không được log/lưu Dexie.
+- `GET /auth/csrf` hoạt động ở cả ba trạng thái public, pre-auth và authenticated: public nhận token để gọi login; pre-auth/authenticated rotate token bind với session hiện tại. Login thành công rotate/bind token sang pre-auth; verify/confirm thành công rotate/bind token sang authenticated session.
+- Mọi POST dùng public/pre-auth/auth cookie phải gửi `Origin`/`Referer` thuộc allowlist và `X-CSRF-Token` khớp cookie. Thiếu/sai origin hoặc token trả `CSRF_INVALID`; cookie `SameSite` không thay thế kiểm tra này.
 
 ### 1.4 Success envelope
 
@@ -123,7 +125,7 @@ Validation error `details.violations`:
 
 ### 1.7 Mã lỗi chuẩn
 
-`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NOT_READY`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
+`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NOT_READY`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
 
 ## 2. DTO dùng chung
 
@@ -233,10 +235,10 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 | Method | Route | Auth/role | Mô tả |
 |---|---|---|---|
 | GET | `/auth/csrf` | public/pre-auth/auth | Cấp/rotate CSRF token |
-| POST | `/auth/login` | public | Xác minh username/email + password |
-| POST | `/auth/mfa/verify` | pre-auth | Xác minh TOTP/recovery code, tạo session |
-| POST | `/auth/mfa/enroll` | pre-auth | Bắt đầu enroll TOTP |
-| POST | `/auth/mfa/enroll/confirm` | pre-auth | Xác nhận TOTP lần đầu, trả recovery codes một lần |
+| POST | `/auth/login` | public + CSRF | Xác minh username/email + password |
+| POST | `/auth/mfa/verify` | pre-auth + CSRF | Xác minh TOTP/recovery code, tạo session |
+| POST | `/auth/mfa/enroll` | pre-auth + CSRF | Bắt đầu enroll TOTP; URI chỉ trả một lần cho pre-auth đó |
+| POST | `/auth/mfa/enroll/confirm` | pre-auth + CSRF | Xác nhận TOTP lần đầu, trả recovery codes một lần |
 | POST | `/auth/mfa/recovery-codes:regenerate` | authenticated | Xác minh password + MFA rồi thay toàn bộ recovery codes |
 | GET | `/auth/me` | authenticated | Principal hiện tại |
 | POST | `/auth/logout` | authenticated | Thu hồi phiên hiện tại |
@@ -258,6 +260,8 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 | GET | `/admin/user-imports/{jobId}/report` | System Admin | Tải report đã lọc |
 
 ### 3.2 Login và MFA
+
+Trước `POST /auth/login`, client gọi `GET /auth/csrf`, giữ cookie `danangmap_csrf`, rồi echo token trong `X-CSRF-Token` và gửi `Origin` hợp lệ. Quy tắc tương tự áp dụng cho `mfa/verify`, `mfa/enroll` và `mfa/enroll/confirm`; sau mỗi chuyển trạng thái public → pre-auth → authenticated, client dùng CSRF token mới do server rotate.
 
 `POST /api/v1/auth/login`
 
@@ -305,6 +309,56 @@ Response tạo authenticated cookie và trả principal:
 ```
 
 Không trả field phân biệt “user không tồn tại” và “password sai”. Recovery code chỉ dùng một lần.
+
+Khi login trả `mfaEnrollmentRequired=true`, client gọi `POST /api/v1/auth/mfa/enroll` với body rỗng. Response `200` duy nhất cho pre-auth hiện tại:
+
+```json
+{
+  "data": {
+    "status": "pending",
+    "enrollmentUri": "otpauth://totp/DanangMap:editor%40example.gov.vn?secret=<redacted>&issuer=DanangMap"
+  }
+}
+```
+
+URI/secret chỉ được trả đúng một lần cho mỗi pre-auth. Replay tuần tự hoặc request start đồng thời thua race trả `409 AUTH_MFA_ENROLLMENT_ALREADY_STARTED` và không có URI/secret. Nếu response bị mất hoặc tab đóng, user login bằng password lại để nhận pre-auth mới; backend rotate pending secret/challenge, làm pre-auth/challenge cũ vô hiệu. Confirm bằng cookie cũ trả `409 AUTH_MFA_ENROLLMENT_STALE`.
+
+`enrollment_session_id` là liên kết nội bộ giữa pending factor và pre-auth session; không phải request/response/header public. `POST /api/v1/auth/mfa/enroll/confirm` tiếp tục nhận body tối thiểu:
+
+```json
+{ "code": "000000" }
+```
+
+Backend bind pending factor với `principal.sessionId` của pre-auth cookie, xác minh TOTP, bật MFA, tạo authenticated session, revoke pre-auth và trả principal cùng 10 recovery codes đúng một lần:
+
+```json
+{
+  "data": {
+    "principal": {
+      "id": "0192a70b-245c-7a32-9481-30f288e97415",
+      "email": "editor@example.gov.vn",
+      "username": "editor01",
+      "displayName": "Biên tập viên 01",
+      "role": "editor",
+      "mfaEnabled": true
+    },
+    "recoveryCodes": [
+      "A1B2-C3D4-E5F6-0718-192A",
+      "B2C3-D4E5-F607-1829-A3B4",
+      "C3D4-E5F6-0718-29A3-B4C5",
+      "D4E5-F607-1829-A3B4-C5D6",
+      "E5F6-0718-29A3-B4C5-D6E7",
+      "F607-1829-A3B4-C5D6-E7F8",
+      "0718-29A3-B4C5-D6E7-F809",
+      "1829-A3B4-C5D6-E7F8-091A",
+      "29A3-B4C5-D6E7-F809-1A2B",
+      "A3B4-C5D6-E7F8-091A-2B3C"
+    ]
+  }
+}
+```
+
+Hai confirm đồng thời chỉ có một request thành công. Replay TOTP cùng time-step và recovery code đã dùng bị từ chối. DB chỉ lưu digest recovery code; enrollment URI, raw TOTP secret và raw recovery code không xuất hiện trong audit/problem/log output. Confirm sai liên tiếp bị rate limit; pre-auth hết hạn không được start/confirm.
 
 Regenerate recovery codes yêu cầu body `{ "password": "<redacted>", "mfaCode": "000000" }`; response trả mảng recovery code đúng một lần, đồng thời vô hiệu toàn bộ code cũ. System Admin reset MFA không nhận/biết secret hoặc recovery code của user; command revoke toàn bộ session và lần login sau trả `mfaEnrollmentRequired=true`.
 

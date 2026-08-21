@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   HttpCode,
   Post,
@@ -9,7 +10,14 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiHeader, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiResponse,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
@@ -17,6 +25,7 @@ import {
   apiJsonResponse,
   authPrincipalSchema,
   csrfResultSchema,
+  envelopeSchema,
   inviteInspectionSchema,
   loginResultSchema,
   logoutResultSchema,
@@ -175,15 +184,62 @@ export class AuthController {
 
   @Get('csrf')
   @UseGuards(OptionalAuthGuard)
-  @ApiOperation({ operationId: 'rotateCsrf' })
-  @apiJsonResponse(200, csrfResultSchema)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    operationId: 'getCsrfToken',
+    description:
+      'Issues or reuses a public CSRF token. Pre-authenticated and authenticated sessions receive their current session-bound token without rotation.',
+  })
+  @ApiResponse({
+    status: 200,
+    headers: {
+      'Cache-Control': {
+        description: 'CSRF responses are private and must never be stored.',
+        schema: { type: 'string', enum: ['private, no-store'] },
+      },
+    },
+    schema: envelopeSchema(csrfResultSchema),
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      'application/problem+json': {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'type',
+            'title',
+            'status',
+            'code',
+            'message',
+            'details',
+            'requestId',
+            'timestamp',
+          ],
+          properties: {
+            type: { type: 'string', format: 'uri' },
+            title: { type: 'string' },
+            status: { type: 'integer', enum: [403] },
+            code: { type: 'string', enum: ['CSRF_INVALID'] },
+            message: { type: 'string' },
+            details: { type: 'object', additionalProperties: true },
+            requestId: { type: 'string' },
+            timestamp: { type: 'string', format: 'date-time' },
+          },
+        },
+      },
+    },
+  })
   async csrf(
     @Principal() principal: RequestWithContext['principal'],
+    @Req() request: RequestWithContext,
     @Res({ passthrough: true }) response: Response,
   ) {
+    const presentedToken = request.cookies?.[CSRF_COOKIE] as unknown;
     const token = principal
-      ? await this.auth.rotateCsrf(principal.sessionId)
-      : this.auth.issueCsrfToken();
+      ? await this.auth.getSessionCsrf(principal.sessionId, presentedToken)
+      : this.auth.getPublicCsrf(presentedToken);
     this.setCsrfCookie(
       response,
       token,

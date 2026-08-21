@@ -194,7 +194,7 @@ Mỗi field có:
 | AUTH-003 | Password lưu bằng Argon2id với tham số được benchmark; không log hoặc trả password. |
 | AUTH-004 | MFA TOTP là bắt buộc. User mới chỉ có pre-auth session cho đến khi enroll và xác minh MFA. |
 | AUTH-005 | Session dùng random opaque token tối thiểu 256-bit; DB chỉ lưu hash; cookie HttpOnly, Secure, SameSite=Lax, Path=/, ưu tiên prefix `__Host-`. |
-| AUTH-006 | Mọi mutation dùng cookie PHẢI kiểm tra CSRF token và Origin/Referer allowlist. |
+| AUTH-006 | Mọi mutation dùng cookie PHẢI kiểm tra CSRF token và Origin/Referer allowlist. Sau khi public cookie được thiết lập, `GET /auth/csrf` PHẢI reuse token đó; hai public request cold chưa có cookie có thể cấp token khác nhau và cookie response cuối thắng. Trong cùng pre-auth/authenticated session, endpoint PHẢI non-mutating/idempotent và trả cùng token kể cả khi nhiều tab gọi đồng thời; session active chỉ trả token cookie đã bind nếu hash khớp và fail closed `403 CSRF_INVALID` khi thiếu/sai mà không rebind hay update DB. Token chỉ rotate tại trust/session boundary public → pre-auth → authenticated hoặc khi tạo/rotate session mới do password/session-security transition. |
 | AUTH-007 | Hỗ trợ logout phiên hiện tại, revoke-all gồm cả session đang gọi, reset password và recovery code một lần; revoke-all xóa cookie, buộc login lại và retry tuần tự bằng cookie cũ trả `401`. |
 | AUTH-008 | Login/MFA/reset bị rate limit, lockout tăng dần và audit; thông báo không được tiết lộ user tồn tại. |
 | AUTH-009 | Đổi password PHẢI rotate session hiện tại và revoke mọi session còn lại; đổi role, trạng thái hoặc MFA PHẢI revoke toàn bộ session liên quan. Các command password/revoke-all có receipt idempotent và concurrent duplicate chỉ tạo một effect. |

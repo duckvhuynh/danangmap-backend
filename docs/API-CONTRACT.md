@@ -33,7 +33,7 @@
 - `danangmap_csrf`: token CSRF không HttpOnly để frontend đọc và echo qua `X-CSRF-Token`; không phải credential.
 - Login trước MFA chỉ tạo pre-auth cookie hạn ngắn, không có quyền admin.
 - API không trả session/MFA secret trong JSON ngoài TOTP enrollment URI tại đúng bước enrollment; URI chỉ hiển thị một lần và không được log/lưu Dexie.
-- `GET /auth/csrf` hoạt động ở cả ba trạng thái public, pre-auth và authenticated: public nhận token để gọi login; pre-auth/authenticated rotate token bind với session hiện tại. Login thành công rotate/bind token sang pre-auth; verify/confirm thành công rotate/bind token sang authenticated session.
+- `GET /auth/csrf` hoạt động ở cả ba trạng thái public, pre-auth và authenticated, luôn trả `Cache-Control: private, no-store`. Khi public cookie đã được thiết lập, endpoint reuse token có cú pháp hợp lệ; các request public cold đồng thời chưa có cookie có thể nhận token khác nhau và cookie response cuối cùng của browser thắng, nhưng chưa token nào bind với protected session. Pre-auth/authenticated chỉ trả lại token hiện tại khi cookie có cú pháp hợp lệ và hash khớp session active; endpoint không update `csrf_hash`, nên nhiều tab dùng chung session không vô hiệu hóa lẫn nhau. Thiếu/sai token ở session active trả `403 CSRF_INVALID` và không rebind hay mutation DB. Token chỉ rotate/bind tại trust/session boundary: public → pre-auth, pre-auth → authenticated, hoặc khi tạo/rotate session mới do password/session-security transition.
 - Mọi POST dùng public/pre-auth/auth cookie phải gửi `Origin`/`Referer` thuộc allowlist và `X-CSRF-Token` khớp cookie. Thiếu/sai origin hoặc token trả `CSRF_INVALID`; cookie `SameSite` không thay thế kiểm tra này.
 
 ### 1.4 Success envelope
@@ -234,7 +234,7 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 
 | Method | Route | Auth/role | Mô tả |
 |---|---|---|---|
-| GET | `/auth/csrf` | public/pre-auth/auth | Cấp/rotate CSRF token |
+| GET | `/auth/csrf` | public/pre-auth/auth | Cấp hoặc lấy token CSRF hiện tại; không rotate trong cùng session |
 | POST | `/auth/login` | public + CSRF | Xác minh username/email + password |
 | POST | `/auth/mfa/verify` | pre-auth + CSRF | Xác minh TOTP/recovery code, tạo session |
 | POST | `/auth/mfa/enroll` | pre-auth + CSRF | Bắt đầu enroll TOTP; URI chỉ trả một lần cho pre-auth đó |
@@ -261,7 +261,7 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 
 ### 3.2 Login và MFA
 
-Trước `POST /auth/login`, client gọi `GET /auth/csrf`, giữ cookie `danangmap_csrf`, rồi echo token trong `X-CSRF-Token` và gửi `Origin` hợp lệ. Quy tắc tương tự áp dụng cho `mfa/verify`, `mfa/enroll` và `mfa/enroll/confirm`; sau mỗi chuyển trạng thái public → pre-auth → authenticated, client dùng CSRF token mới do server rotate.
+Trước `POST /auth/login`, client gọi `GET /auth/csrf`, giữ cookie `danangmap_csrf`, rồi echo giá trị cookie đã được browser chốt trong `X-CSRF-Token` và gửi `Origin` hợp lệ. Quy tắc tương tự áp dụng cho `mfa/verify`, `mfa/enroll` và `mfa/enroll/confirm`. Sau khi public cookie đã được thiết lập, các GET lặp lại reuse token đó; trong cùng pre-auth/authenticated session, các GET đồng thời hoặc lặp lại luôn trả cùng token. Client chỉ dùng token mới sau trust transition public → pre-auth → authenticated hoặc khi server tạo/rotate session mới tại password/session-security boundary.
 
 `POST /api/v1/auth/login`
 

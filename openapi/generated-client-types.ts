@@ -107,7 +107,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["rotateCsrf"];
+        /** @description Issues or reuses a public CSRF token. Pre-authenticated and authenticated sessions receive their current session-bound token without rotation. */
+        get: operations["getCsrfToken"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1632,7 +1633,7 @@ export interface operations {
             };
         };
     };
-    rotateCsrf: {
+    getCsrfToken: {
         parameters: {
             query?: never;
             header?: never;
@@ -1643,6 +1644,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description CSRF responses are private and must never be stored. */
+                    "Cache-Control"?: "private, no-store";
                     [name: string]: unknown;
                 };
                 content: {
@@ -1653,6 +1656,29 @@ export interface operations {
                         meta: {
                             requestId: string;
                         };
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        /** @enum {integer} */
+                        status: 403;
+                        /** @enum {string} */
+                        code: "CSRF_INVALID";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
                     };
                 };
             };

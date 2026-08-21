@@ -212,8 +212,16 @@ export const loginResultSchema: SchemaObject = {
 
 export const csrfResultSchema: SchemaObject = {
   type: 'object',
+  additionalProperties: false,
   required: ['csrfToken'],
-  properties: { csrfToken: { type: 'string' } },
+  properties: {
+    csrfToken: {
+      type: 'string',
+      minLength: 32,
+      maxLength: 32,
+      pattern: '^[A-Za-z0-9_-]{32}$',
+    },
+  },
 };
 
 export const mfaEnrollmentSchema: SchemaObject = {

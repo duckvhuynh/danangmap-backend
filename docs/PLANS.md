@@ -178,7 +178,7 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | B-054 | Public/private attachment delivery | `danangmap-backend` | B-061, B-032 | Chỉ clean+bound+published public attachment được delivery; private object không public URL |
 | B-055 | Generate/publish OpenAPI artifact | `danangmap-backend` | B-009, B-022, B-027, B-040, B-052 | Stable operation IDs; schemas/errors/examples đủ để sinh frontend client |
 | B-056 | Deterministic development/E2E seed | `danangmap-backend` | B-020, B-008 | Seed users/roles/layers/geometries idempotent, không dùng production credential |
-| B-057 | CSRF endpoint/middleware + Origin/Referer guard | `danangmap-backend` | B-009, C-009 | Token bind session/rotate; mọi cookie mutation deny khi token/origin thiếu hoặc sai |
+| B-057 | CSRF endpoint/middleware + Origin/Referer guard | `danangmap-backend` | Public reuse sau khi cookie được thiết lập; pre-auth/auth GET nhiều tab trả cùng token và không mutation/rebind; chỉ rotate tại trust/new-session boundary; session active thiếu/sai token trả `403 CSRF_INVALID`; mọi cookie mutation deny khi token/origin thiếu hoặc sai |
 | B-058 | Password change/reset lifecycle | `danangmap-backend` | B-009, B-014, B-059 | Request không lộ account, token hashed/one-time/expiry; confirm revoke sessions và audit |
 | B-059 | Mail adapter, template và delivery worker | `danangmap-backend` | B-004, B-007, C-004 | SMTP adapter/outbox retry; invite/reset template; token/PII redaction; Mailpit fixture |
 | B-060 | Attachment malware scanner/quarantine worker | `danangmap-backend` | B-004, B-053, C-009 | Pending→clean/rejected state idempotent; infected/scan-fail không finalize; scanner metrics |
@@ -246,7 +246,7 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | F-044 | Audit viewer | `danangmap-frontend` | F-020, B-064 | Filter actor/action/subject/time/correlation; scope/redaction đúng role |
 | F-045 | Attachment upload/scan/binding/visibility UI | `danangmap-frontend` | F-024, B-053, B-054, B-060, B-061 | Quarantine/scanning/clean/rejected, bind/unbind, public/private và access-deny states |
 | F-046 | Password change/reset lifecycle screens | `danangmap-frontend` | F-002, F-004, F-047, B-058 | Request generic response, confirm expiry/replay/success, change password và session revoke states |
-| F-047 | CSRF/session client boundary | `danangmap-frontend` | F-001, F-004, B-057 | Fetch/rotate token, echo mutation header, credentials policy; CSRF error re-auth/retry an toàn |
+| F-047 | CSRF/session client boundary | `danangmap-frontend` | F-001, F-004, B-057 | Browser dùng public cookie response cuối đã chốt; nhiều tab trong cùng pre-auth/auth session fetch/reuse cùng token, nhận token mới sau trust/new-session transition, echo mutation header và credentials policy; CSRF error re-auth/retry an toàn |
 
 ### 5.7 Data migration v1
 
@@ -270,7 +270,7 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | Q-001 | Test strategy + requirement trace matrix | `danangmap-backend` | C-001 | FR/NFR map tới unit/integration/contract/E2E/manual owner và fixture |
 | Q-002 | Geometry fixture suite | `danangmap-backend` | C-007 | Valid/invalid point/circle/line/polygon/multi/mixed fixtures versioned |
 | Q-003 | Import fixture/guardrail suite 4 format | `danangmap-backend` | B-043, B-044, B-045, B-046, B-068 | Boundary 25 MiB/100.000 record/100.000+2.000.000 vertices/250 MiB/64 KiB/10 sheets/256 cols/20.000 issues cùng malicious fixtures |
-| Q-004 | Auth/MFA/session/CSRF/reset integration suite | `danangmap-backend` | B-011, B-013, B-057, B-058, B-059 | Login/MFA/recovery/reset/mail/revoke/lockout/CSRF allow+deny xanh |
+| Q-004 | Auth/MFA/session/CSRF/reset integration suite | `danangmap-backend` | B-011, B-013, B-057, B-058, B-059 | Login/MFA/recovery/reset/mail/revoke/lockout/CSRF allow+deny xanh; public reuse sau khi cookie thiết lập; GET CSRF tuần tự/song song giữa nhiều tab trong cùng pre-auth/auth session trả cùng token và giữ nguyên DB hash; trust/new-session transition trả token khác |
 | Q-005 | RBAC/workflow deny matrix | `danangmap-backend` | B-017, B-033 | Self-review, edit/import participant đổi role rồi publish/rollback, unapproved publish và admin-bypass đều bị từ chối với zero mutation |
 | Q-006 | Public private/draft leakage suite | `danangmap-backend` | B-041, B-054, B-060, B-061 | Catalog/detail/GeoJSON/MVT/search/place/cache/attachment kiểm tra 0 leak |
 | Q-007 | API contract/breaking-change test | `danangmap-backend` | B-055, C-010 | OpenAPI lint/snapshot/diff; breaking change không có version plan làm CI fail |
@@ -371,7 +371,9 @@ Một issue chỉ `Done` khi:
 4. Kiểm tra generated API client không stale.
 5. Next.js production build và bundle/token scan.
 6. Playwright targeted smoke khi backend contract image sẵn sàng.
-7. Build container non-root và upload screenshot/trace artifacts khi test lỗi.
+7. Build container non-root; khi test lỗi chỉ giữ screenshot/trace artifacts trong kho evidence hạn chế quyền truy cập.
+
+Playwright trace có thể chứa cookie và credential của fixture dùng một lần. Harness không được dùng production credential hoặc giá trị `SEED_*` tái sử dụng; trace/artifact không được publish công khai và phải tuân retention hạn chế.
 
 ### 8.4 Docker topology
 

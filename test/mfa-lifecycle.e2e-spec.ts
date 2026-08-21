@@ -120,9 +120,12 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
 
   it('enrolls, confirms and consumes MFA factors exactly once', async () => {
     const staleJar = new CookieJar({ '__Host-danangmap_session': 'expired-browser-cookie' });
-    const publicCsrf = await rotateCsrf(staleJar);
+    const publicCsrf = await getCsrfToken(staleJar);
     expect(publicCsrf.response.status).toBe(200);
+    expect(publicCsrf.response.headers.get('cache-control')).toBe('private, no-store');
     expect(staleJar.get('danangmap_csrf')).toBe(publicCsrf.token);
+    const repeatedPublicCsrf = await getCsrfToken(staleJar);
+    expect(repeatedPublicCsrf.token).toBe(publicCsrf.token);
 
     const noOriginLogin = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
       method: 'POST',
@@ -144,8 +147,49 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
       mfaEnrollmentRequired: true,
     });
     const loginCsrf = enrollmentJar.jar.get('danangmap_csrf');
-    const rotatedPreauthCsrf = await rotateCsrf(enrollmentJar.jar);
-    expect(rotatedPreauthCsrf.token).not.toBe(loginCsrf);
+    expect(loginCsrf).toBeDefined();
+    expect(loginCsrf).not.toBe(publicCsrf.token);
+    const preauthSession = await latestSessionState(userId, 'preauth');
+    const sequentialPreauthA = await getCsrfToken(enrollmentJar.jar);
+    const sequentialPreauthB = await getCsrfToken(enrollmentJar.jar);
+    expect([sequentialPreauthA.token, sequentialPreauthB.token]).toEqual([loginCsrf, loginCsrf]);
+    expect(sequentialPreauthA.response.headers.get('cache-control')).toBe('private, no-store');
+    expect(await sessionCsrfHash(preauthSession.id)).toBe(preauthSession.csrfHash);
+
+    const tabAJar = enrollmentJar.jar.clone();
+    const tabBJar = enrollmentJar.jar.clone();
+    const [tabACsrf, tabBCsrf] = await Promise.all([getCsrfToken(tabAJar), getCsrfToken(tabBJar)]);
+    expect([tabACsrf.token, tabBCsrf.token]).toEqual([loginCsrf, loginCsrf]);
+    expect(await sessionCsrfHash(preauthSession.id)).toBe(preauthSession.csrfHash);
+
+    const preauthCookie = enrollmentJar.jar.get('__Host-danangmap_preauth')!;
+    for (const invalidJar of [
+      new CookieJar({ '__Host-danangmap_preauth': preauthCookie }),
+      new CookieJar({
+        '__Host-danangmap_preauth': preauthCookie,
+        danangmap_csrf: 'malformed-token',
+      }),
+      new CookieJar({
+        '__Host-danangmap_preauth': preauthCookie,
+        danangmap_csrf: 'C'.repeat(32),
+      }),
+    ]) {
+      await expectProblem(await requestCsrf(invalidJar), 403, 'CSRF_INVALID');
+      expect(await sessionCsrfHash(preauthSession.id)).toBe(preauthSession.csrfHash);
+    }
+
+    const foreignPreauth = await loginWithPassword(login, password);
+    const crossSessionJar = new CookieJar({
+      '__Host-danangmap_preauth': preauthCookie,
+      danangmap_csrf: foreignPreauth.jar.get('danangmap_csrf')!,
+    });
+    await expectProblem(await requestCsrf(crossSessionJar), 403, 'CSRF_INVALID');
+    await expectProblem(
+      await postWithCsrf('/api/v1/auth/mfa/enroll', crossSessionJar),
+      403,
+      'CSRF_INVALID',
+    );
+    expect(await sessionCsrfHash(preauthSession.id)).toBe(preauthSession.csrfHash);
 
     const missingOriginEnroll = await postWithCsrf(
       '/api/v1/auth/mfa/enroll',
@@ -180,12 +224,18 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
     );
     expect(wrongCookieConfirm.status).toBe(401);
 
-    const concurrentStarts = await Promise.all([
-      postWithCsrf('/api/v1/auth/mfa/enroll', enrollmentJar.jar),
-      postWithCsrf('/api/v1/auth/mfa/enroll', enrollmentJar.jar),
-    ]);
-    expect(concurrentStarts.map((response) => response.status).sort()).toEqual([200, 409]);
-    const firstStart = concurrentStarts.find((response) => response.status === 200)!;
+    const sharedPreauthJar = enrollmentJar.jar.clone();
+    sharedPreauthJar.absorb(tabACsrf.response);
+    sharedPreauthJar.absorb(tabBCsrf.response);
+    const firstStart = await postWithCsrf(
+      '/api/v1/auth/mfa/enroll',
+      sharedPreauthJar,
+      undefined,
+      allowedOrigin,
+      tabACsrf.token,
+    );
+    expect(firstStart.status).toBe(200);
+    expect(await sessionCsrfHash(preauthSession.id)).toBe(preauthSession.csrfHash);
     const enrollBody = (await firstStart.json()) as Envelope<{
       status: string;
       enrollmentUri: string;
@@ -197,8 +247,12 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
     const firstSecret = enrollmentSecret(firstEnrollmentUri);
 
     const rotatedEnrollment = await loginWithPassword(login, password);
-    const rotatedStart = await postWithCsrf('/api/v1/auth/mfa/enroll', rotatedEnrollment.jar);
-    expect(rotatedStart.status).toBe(200);
+    const concurrentStarts = await Promise.all([
+      postWithCsrf('/api/v1/auth/mfa/enroll', rotatedEnrollment.jar),
+      postWithCsrf('/api/v1/auth/mfa/enroll', rotatedEnrollment.jar),
+    ]);
+    expect(concurrentStarts.map((response) => response.status).sort()).toEqual([200, 409]);
+    const rotatedStart = concurrentStarts.find((response) => response.status === 200)!;
     const rotatedUri = ((await rotatedStart.json()) as Envelope<{ enrollmentUri: string }>).data
       .enrollmentUri;
     expect(rotatedUri).not.toBe(firstEnrollmentUri);
@@ -275,6 +329,7 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
     ]);
     expect(confirmRequests.map((response) => response.status).sort()).toEqual([200, 401]);
     const successfulConfirm = confirmRequests.find((response) => response.status === 200)!;
+    const confirmedPreauthCsrf = confirmJar.jar.get('danangmap_csrf');
     const authenticatedJar = confirmJar.jar.clone();
     authenticatedJar.absorb(successfulConfirm);
     const confirmed = (await successfulConfirm.json()) as Envelope<{
@@ -287,6 +342,9 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
     expect(confirmed.data.recoveryCodes).toEqual(
       expect.arrayContaining([expect.stringMatching(/^[A-F0-9]{4}(?:-[A-F0-9]{4}){4}$/)]),
     );
+    const authenticatedToken = authenticatedJar.get('danangmap_csrf');
+    expect(authenticatedToken).toBeDefined();
+    expect(authenticatedToken).not.toBe(confirmedPreauthCsrf);
 
     const replayConfirm = await postWithCsrf('/api/v1/auth/mfa/enroll/confirm', confirmJar.jar, {
       code: currentToken,
@@ -302,11 +360,39 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
         mfaEnabled: true,
       },
     );
-    const authenticatedCsrf = await rotateCsrf(authenticatedJar);
-    expect(authenticatedCsrf.response.status).toBe(200);
+    const authenticatedSession = await latestSessionState(userId, 'authenticated');
+    const authenticatedCsrfA = await getCsrfToken(authenticatedJar);
+    const authenticatedCsrfB = await getCsrfToken(authenticatedJar);
+    expect([authenticatedCsrfA.token, authenticatedCsrfB.token]).toEqual([
+      authenticatedToken,
+      authenticatedToken,
+    ]);
+    const authenticatedTabAJar = authenticatedJar.clone();
+    const authenticatedTabBJar = authenticatedJar.clone();
+    const [authenticatedTabA, authenticatedTabB] = await Promise.all([
+      getCsrfToken(authenticatedTabAJar),
+      getCsrfToken(authenticatedTabBJar),
+    ]);
+    expect([authenticatedTabA.token, authenticatedTabB.token]).toEqual([
+      authenticatedToken,
+      authenticatedToken,
+    ]);
+    expect(await sessionCsrfHash(authenticatedSession.id)).toBe(authenticatedSession.csrfHash);
 
     const authOnlyEnroll = await postWithCsrf('/api/v1/auth/mfa/enroll', authenticatedJar);
     expect(authOnlyEnroll.status).toBe(401);
+    const sharedAuthenticatedJar = authenticatedJar.clone();
+    sharedAuthenticatedJar.absorb(authenticatedTabA.response);
+    sharedAuthenticatedJar.absorb(authenticatedTabB.response);
+    const logout = await postWithCsrf(
+      '/api/v1/auth/logout',
+      sharedAuthenticatedJar,
+      undefined,
+      allowedOrigin,
+      authenticatedTabA.token,
+    );
+    expect(logout.status).toBe(200);
+    expect(await sessionCsrfHash(authenticatedSession.id)).toBe(authenticatedSession.csrfHash);
     const alreadyEnabled = await loginWithPassword(login, password);
     expect(alreadyEnabled.body.data.mfaEnrollmentRequired).toBe(false);
     const forbiddenEnroll = await postWithCsrf('/api/v1/auth/mfa/enroll', alreadyEnabled.jar);
@@ -381,17 +467,22 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
   });
 });
 
-async function rotateCsrf(jar: CookieJar) {
-  const response = await fetch(`${apiBaseUrl}/api/v1/auth/csrf`, {
+async function requestCsrf(jar: CookieJar): Promise<Response> {
+  return fetch(`${apiBaseUrl}/api/v1/auth/csrf`, {
     headers: jar.header() ? { Cookie: jar.header() } : undefined,
   });
+}
+
+async function getCsrfToken(jar: CookieJar) {
+  const response = await requestCsrf(jar);
+  expect(response.status).toBe(200);
   jar.absorb(response);
   const body = (await response.json()) as Envelope<{ csrfToken: string }>;
   return { response, token: body.data.csrfToken };
 }
 
 async function loginWithPassword(login: string, password: string, jar = new CookieJar()) {
-  const { token } = await rotateCsrf(jar);
+  const { token } = await getCsrfToken(jar);
   const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
     method: 'POST',
     headers: jsonHeaders(jar, token, allowedOrigin),
@@ -455,6 +546,28 @@ function generateTotp(secret: string, epochSeconds = Math.floor(Date.now() / 1_0
     ((digest[offset + 2]! & 0xff) << 8) |
     (digest[offset + 3]! & 0xff);
   return String(binary % 1_000_000).padStart(6, '0');
+}
+
+async function latestSessionState(userId: string, kind: 'preauth' | 'authenticated') {
+  const rows = (await AppDataSource.query(
+    `SELECT id,csrf_hash AS "csrfHash"
+     FROM admin_sessions
+     WHERE user_id=$1 AND kind=$2
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId, kind],
+  )) as Array<{ id: string; csrfHash: string }>;
+  expect(rows).toHaveLength(1);
+  return rows[0]!;
+}
+
+async function sessionCsrfHash(sessionId: string): Promise<string> {
+  const rows = (await AppDataSource.query(
+    'SELECT csrf_hash AS "csrfHash" FROM admin_sessions WHERE id=$1',
+    [sessionId],
+  )) as Array<{ csrfHash: string }>;
+  expect(rows).toHaveLength(1);
+  return rows[0]!.csrfHash;
 }
 
 async function expectProblem(response: Response, status: number, code: string): Promise<void> {

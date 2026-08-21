@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import argon2 from 'argon2';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { generateSecret, generateURI, verify } from 'otplib';
 import { DataSource, type EntityManager, IsNull, QueryFailedError, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
@@ -307,14 +307,40 @@ export class AuthService {
     return result;
   }
 
-  async rotateCsrf(sessionId: string): Promise<string> {
-    const token = this.crypto.randomToken(24);
-    await this.sessions.update(sessionId, { csrfHash: this.crypto.digest(token) });
-    return token;
+  async getSessionCsrf(sessionId: string, presentedToken: unknown): Promise<string> {
+    if (!this.isCsrfToken(presentedToken)) this.throwInvalidCsrf();
+    const session = await this.sessions.findOneBy({ id: sessionId });
+    if (
+      !session?.csrfHash ||
+      session.revokedAt !== null ||
+      session.expiresAt <= new Date() ||
+      !this.equal(session.csrfHash, this.crypto.digest(presentedToken))
+    ) {
+      this.throwInvalidCsrf();
+    }
+    return presentedToken;
+  }
+
+  getPublicCsrf(presentedToken: unknown): string {
+    return this.isCsrfToken(presentedToken) ? presentedToken : this.issueCsrfToken();
   }
 
   issueCsrfToken(): string {
     return this.crypto.randomToken(24);
+  }
+
+  private isCsrfToken(value: unknown): value is string {
+    return typeof value === 'string' && /^[A-Za-z0-9_-]{32}$/.test(value);
+  }
+
+  private equal(left: string, right: string): boolean {
+    const leftBuffer = Buffer.from(left);
+    const rightBuffer = Buffer.from(right);
+    return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+  }
+
+  private throwInvalidCsrf(): never {
+    throw new AppException(403, 'CSRF_INVALID', 'CSRF token không hợp lệ.');
   }
 
   async logout(sessionId: string, userId: string, role: string, requestId: string): Promise<void> {

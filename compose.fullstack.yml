@@ -28,7 +28,7 @@ services:
   frontend:
     ports: !reset []
     labels:
-      danangmap.frontend.revision: 323eb4eb5c9e03205e5048791b44d9bad3e113d0
+      danangmap.frontend.revision: eb24147bea0a7cbfccc7d01576afffbd7dce3b34
     build:
       args:
         NEXT_PUBLIC_API_BASE_URL: https://gateway
@@ -71,7 +71,7 @@ services:
       context: ${DANANGMAP_FRONTEND_CONTEXT:-../danangmap-frontend}
       dockerfile: Dockerfile.e2e
       labels:
-        danangmap.frontend.revision: 323eb4eb5c9e03205e5048791b44d9bad3e113d0
+        danangmap.frontend.revision: eb24147bea0a7cbfccc7d01576afffbd7dce3b34
     environment:
       CI: 'true'
       DANANGMAP_REAL_STACK: 'true'

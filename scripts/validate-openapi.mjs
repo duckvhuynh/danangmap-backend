@@ -12,10 +12,76 @@ const rawOperations = new Set([
   'listPublicFeatures',
   'getPublicTile',
 ]);
+const parameterContracts = {
+  listPublicFeatures: [
+    ['query', 'bbox', false],
+    ['query', 'limit', false],
+    ['query', 'filter', false],
+  ],
+  searchPublicMap: [
+    ['query', 'q', true],
+    ['query', 'sources', false],
+    ['query', 'layerIds', false],
+    ['query', 'center', false],
+    ['query', 'radiusM', false],
+    ['query', 'limit', false],
+  ],
+  getExternalPlace: [['query', 'fields', false]],
+  createSpatialImport: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  updateSpatialImportMapping: [['header', 'X-CSRF-Token', true]],
+  validateSpatialImport: [['header', 'X-CSRF-Token', true]],
+  applySpatialImport: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  createLayer: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  createFeature: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  updateFeature: [
+    ['header', 'If-Match', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  deleteFeature: [
+    ['header', 'If-Match', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  submitRevision: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  approveRevision: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  requestRevisionChanges: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  publishRevision: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  rollbackLayer: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+};
 const resolveSchema = (schema) => {
   if (!schema?.$ref) return schema;
   const prefix = '#/components/schemas/';
-  if (!schema.$ref.startsWith(prefix)) throw new Error(`Unsupported schema reference ${schema.$ref}`);
+  if (!schema.$ref.startsWith(prefix))
+    throw new Error(`Unsupported schema reference ${schema.$ref}`);
   return document.components?.schemas?.[schema.$ref.slice(prefix.length)];
 };
 const seen = new Map();
@@ -27,7 +93,19 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
       throw new Error(`Missing operationId: ${method.toUpperCase()} ${path}`);
     }
     if (seen.has(operationId)) {
-      throw new Error(`Duplicate operationId ${operationId}: ${seen.get(operationId)} and ${method.toUpperCase()} ${path}`);
+      throw new Error(
+        `Duplicate operationId ${operationId}: ${seen.get(operationId)} and ${method.toUpperCase()} ${path}`,
+      );
+    }
+    for (const [location, name, required] of parameterContracts[operationId] ?? []) {
+      const parameter = (operation.parameters ?? []).find(
+        (candidate) => candidate?.in === location && candidate?.name === name,
+      );
+      if (!parameter || parameter.required !== required) {
+        throw new Error(
+          `Parameter contract mismatch: ${operationId} ${location} ${name} required=${required}`,
+        );
+      }
     }
     for (const [mediaType, media] of Object.entries(operation.requestBody?.content ?? {})) {
       const requestSchema = resolveSchema(media?.schema);

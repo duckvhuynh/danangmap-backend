@@ -1,9 +1,20 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Job } from 'bullmq';
 import { UnrecoverableError } from 'bullmq';
-import { Repository } from 'typeorm';
-import { IMPORT_INSPECT_JOB, IMPORT_QUEUE } from '../jobs/jobs.constants';
+import { DataSource, Repository } from 'typeorm';
+import { AppException } from '../common/http/app.exception';
+import type { GeometryKind } from '../domain/enums';
+import {
+  IMPORT_APPLY_JOB,
+  IMPORT_INSPECT_JOB,
+  IMPORT_QUEUE,
+  IMPORT_VALIDATE_JOB,
+} from '../jobs/jobs.constants';
+import { GeometryService } from '../layers/geometry.service';
+import type { LayerFieldDto } from '../layers/layer.dto';
+import { LayerSchemaService } from '../layers/layer-schema.service';
 import { StorageService } from '../storage/storage.service';
 import { MAX_IMPORT_BYTES } from './import-file.inspector';
 import { ImportJobEntity } from './import.entity';
@@ -12,6 +23,7 @@ const MAX_EXPANDED_BYTES = 250 * 1024 * 1024;
 const MAX_RECORDS = 100_000;
 const MAX_VERTICES_PER_FEATURE = 100_000;
 const MAX_VERTICES_PER_JOB = 2_000_000;
+const MAX_ISSUES = 20_000;
 const GEOJSON_GEOMETRY_TYPES = new Set([
   'GeometryCollection',
   'Point',
@@ -39,16 +51,49 @@ class ImportInspectionError extends Error {
   }
 }
 
+interface ImportMappingPlan {
+  sourceCrs: 'EPSG:4326';
+  geometry: { kind: string };
+  fields: Record<string, string>;
+  upsert?: { matchBy: 'external_identity' };
+}
+
+interface StagedFeature {
+  rowNumber: number;
+  proposedFeatureId: string;
+  targetFeatureId: string | null;
+  geometry: Record<string, unknown>;
+  geometryKind: GeometryKind;
+  radiusM: number | null;
+  properties: Record<string, unknown>;
+  externalSource: string | null;
+  externalId: string | null;
+}
+
+const GEOJSON_KIND: Record<string, Exclude<GeometryKind, 'circle'>> = {
+  Point: 'point',
+  MultiPoint: 'multipoint',
+  LineString: 'line',
+  MultiLineString: 'multiline',
+  Polygon: 'polygon',
+  MultiPolygon: 'multipolygon',
+};
+
 @Processor(IMPORT_QUEUE, { concurrency: 2 })
 export class ImportProcessor extends WorkerHost {
   constructor(
     @InjectRepository(ImportJobEntity) private readonly imports: Repository<ImportJobEntity>,
     private readonly storage: StorageService,
+    private readonly dataSource: DataSource,
+    private readonly geometryService: GeometryService,
+    private readonly schemaService: LayerSchemaService,
   ) {
     super();
   }
 
   async process(job: Job<{ importId: string }>): Promise<void> {
+    if (job.name === IMPORT_VALIDATE_JOB) return this.validate(job.data.importId);
+    if (job.name === IMPORT_APPLY_JOB) return this.apply(job.data.importId);
     if (job.name !== IMPORT_INSPECT_JOB) return;
     const record = await this.imports.findOneBy({ id: job.data.importId });
     const isRetryableFailure =
@@ -89,6 +134,421 @@ export class ImportProcessor extends WorkerHost {
       if (error instanceof ImportInspectionError) throw new UnrecoverableError(error.code);
       throw error;
     }
+  }
+
+  private async validate(importId: string): Promise<void> {
+    const record = await this.imports.findOneBy({ id: importId });
+    if (!record || record.status !== 'validating') return;
+    if (record.format !== 'geojson') {
+      await this.imports.update(record.id, {
+        status: 'failed',
+        failureCode: 'IMPORT_PARSER_NOT_READY',
+      });
+      throw new UnrecoverableError('IMPORT_PARSER_NOT_READY');
+    }
+    const plan = record.mapping.plan as ImportMappingPlan | undefined;
+    if (!plan || plan.geometry.kind !== 'geojson' || plan.sourceCrs !== 'EPSG:4326') {
+      await this.imports.update(record.id, {
+        status: 'failed',
+        failureCode: 'IMPORT_MAPPING_INVALID',
+      });
+      throw new UnrecoverableError('IMPORT_MAPPING_INVALID');
+    }
+    try {
+      const content = await this.readBounded(record.objectKey);
+      const sourceFeatures = this.importFeatures(content);
+      const revisionRows = (await this.dataSource.query(
+        `SELECT r.layer_id AS "layerId",r.allowed_geometry_kinds AS "allowedKinds"
+         FROM layer_revisions r WHERE r.id=$1 AND r.status='draft'`,
+        [record.revisionId],
+      )) as Array<{ layerId: string; allowedKinds: GeometryKind[] }>;
+      const revision = revisionRows[0];
+      if (!revision) throw new ImportInspectionError('GEOJSON_INVALID');
+      const fields = (await this.dataSource.query(
+        `SELECT key,type,required FROM layer_fields WHERE revision_id=$1 ORDER BY display_order,id`,
+        [record.revisionId],
+      )) as LayerFieldDto[];
+      const existingRows = (await this.dataSource.query(
+        `SELECT id,external_source AS "externalSource",external_id AS "externalId"
+         FROM features WHERE layer_id=$1 AND external_source IS NOT NULL AND deleted_at IS NULL`,
+        [revision.layerId],
+      )) as Array<{ id: string; externalSource: string; externalId: string }>;
+      const existingByIdentity = new Map(
+        existingRows.map((feature) => [
+          `${feature.externalSource}\u0000${feature.externalId}`,
+          feature.id,
+        ]),
+      );
+      const staged: StagedFeature[] = [];
+      const issues: Array<{
+        rowNumber: number;
+        severity: 'warning' | 'error';
+        code: string;
+        field: string | null;
+      }> = [];
+      const seenIdentities = new Set<string>();
+      let matched = 0;
+      for (let index = 0; index < sourceFeatures.length; index += 1) {
+        const rowNumber = index + 1;
+        try {
+          const candidate = this.mapFeature(sourceFeatures[index], rowNumber, plan);
+          if (!revision.allowedKinds.includes(candidate.geometryKind)) {
+            throw new AppException(
+              422,
+              'GEOMETRY_TYPE_NOT_ALLOWED',
+              'Geometry không thuộc allow-list.',
+            );
+          }
+          await this.geometryService.validate(
+            candidate.geometry,
+            candidate.geometryKind,
+            candidate.radiusM,
+          );
+          this.schemaService.validateProperties(fields, candidate.properties);
+          let targetFeatureId: string | null = null;
+          if (candidate.externalSource && candidate.externalId) {
+            const identity = `${candidate.externalSource}\u0000${candidate.externalId}`;
+            if (seenIdentities.has(identity)) {
+              throw new AppException(
+                422,
+                'IMPORT_DUPLICATE_EXTERNAL_IDENTITY',
+                'External identity bị trùng trong file.',
+              );
+            }
+            seenIdentities.add(identity);
+            const existing = existingByIdentity.get(identity);
+            if (existing) {
+              if (record.mode === 'append') {
+                throw new AppException(
+                  422,
+                  'IMPORT_EXTERNAL_IDENTITY_EXISTS',
+                  'External identity đã tồn tại.',
+                );
+              }
+              targetFeatureId = existing;
+              matched += 1;
+            }
+          }
+          staged.push({ ...candidate, targetFeatureId });
+        } catch (error) {
+          issues.push({
+            rowNumber,
+            severity: 'error',
+            code: error instanceof AppException ? error.code : 'IMPORT_ROW_INVALID',
+            field: null,
+          });
+        }
+      }
+      const errors = issues.filter((issue) => issue.severity === 'error');
+      const warnings = issues.filter((issue) => issue.severity === 'warning');
+      const reportKey = `reports/imports/${record.id}/validation.json`;
+      await this.storage.putBuffer(
+        reportKey,
+        Buffer.from(JSON.stringify({ importId: record.id, issues })),
+        'application/json',
+      );
+      await this.dataSource.transaction(async (manager) => {
+        await manager.query('DELETE FROM import_staged_features WHERE import_id=$1', [record.id]);
+        await manager.query('DELETE FROM import_issues WHERE import_id=$1', [record.id]);
+        for (const feature of staged) {
+          await manager.query(
+            `INSERT INTO import_staged_features(
+              import_id,row_number,proposed_feature_id,target_feature_id,geometry,geometry_kind,
+              radius_m,properties,external_source,external_id
+             ) VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8::jsonb,$9,$10)`,
+            [
+              record.id,
+              feature.rowNumber,
+              feature.proposedFeatureId,
+              feature.targetFeatureId,
+              JSON.stringify(feature.geometry),
+              feature.geometryKind,
+              feature.radiusM,
+              JSON.stringify(feature.properties),
+              feature.externalSource,
+              feature.externalId,
+            ],
+          );
+        }
+        for (const issue of issues.slice(0, MAX_ISSUES)) {
+          await manager.query(
+            `INSERT INTO import_issues(import_id,row_number,severity,code,field)
+             VALUES($1,$2,$3,$4,$5)`,
+            [record.id, issue.rowNumber, issue.severity, issue.code, issue.field],
+          );
+        }
+        await manager.update(ImportJobEntity, record.id, {
+          status: 'ready',
+          progress: 100,
+          failureCode: null,
+          counts: {
+            total: sourceFeatures.length,
+            valid: staged.length,
+            warning: warnings.length,
+            invalid: errors.length,
+            matched,
+            new: staged.length - matched,
+          },
+          mapping: {
+            ...record.mapping,
+            validation: {
+              reportObjectKey: reportKey,
+              persistedIssues: Math.min(issues.length, MAX_ISSUES),
+            },
+          },
+        });
+      });
+    } catch (error) {
+      const failureCode =
+        error instanceof ImportInspectionError ? error.code : 'IMPORT_VALIDATE_FAILED';
+      await this.imports.update(record.id, { status: 'failed', failureCode });
+      throw new UnrecoverableError(failureCode);
+    }
+  }
+
+  private async apply(importId: string): Promise<void> {
+    const record = await this.imports.findOneBy({ id: importId });
+    if (!record || record.status !== 'applying') return;
+    const command = record.mapping.apply as
+      | {
+          expectedVersion: number;
+          skipInvalid: boolean;
+          requestId: string;
+          actorRole: string;
+        }
+      | undefined;
+    if (!command) return;
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const job = await manager
+          .getRepository(ImportJobEntity)
+          .createQueryBuilder('job')
+          .setLock('pessimistic_write')
+          .where('job.id=:id', { id: record.id })
+          .getOne();
+        if (!job || job.status === 'completed') return;
+        if (job.status !== 'applying') throw new Error('IMPORT_STATE_INVALID');
+        if (Number(job.counts.invalid ?? 0) > 0 && !command.skipInvalid) {
+          throw new Error('IMPORT_HAS_ERRORS');
+        }
+        const revisionRows = (await manager.query(
+          `SELECT id,layer_id AS "layerId",lock_version AS "lockVersion",cursor_seq AS "cursorSeq",status
+           FROM layer_revisions WHERE id=$1 FOR UPDATE`,
+          [job.revisionId],
+        )) as Array<{
+          id: string;
+          layerId: string;
+          lockVersion: number;
+          cursorSeq: string;
+          status: string;
+        }>;
+        const revision = revisionRows[0];
+        if (!revision || revision.status !== 'draft') throw new Error('REVISION_NOT_EDITABLE');
+        if (revision.lockVersion !== command.expectedVersion) throw new Error('ETAG_MISMATCH');
+        const staged = (await manager.query(
+          `SELECT row_number AS "rowNumber",proposed_feature_id AS "proposedFeatureId",
+                  target_feature_id AS "targetFeatureId",geometry,geometry_kind AS "geometryKind",
+                  radius_m AS "radiusM",properties,external_source AS "externalSource",
+                  external_id AS "externalId"
+           FROM import_staged_features WHERE import_id=$1 ORDER BY row_number`,
+          [job.id],
+        )) as StagedFeature[];
+        if (staged.length < 1) throw new Error('IMPORT_NO_VALID_ROWS');
+        let nextCursor = BigInt(revision.cursorSeq);
+        if (job.mode === 'replace') {
+          const removed = (await manager.query(
+            `SELECT feature_id AS "featureId" FROM revision_features
+             WHERE revision_id=$1 ORDER BY ordinal,feature_id`,
+            [job.revisionId],
+          )) as Array<{ featureId: string }>;
+          await manager.query('DELETE FROM revision_features WHERE revision_id=$1', [
+            job.revisionId,
+          ]);
+          for (const feature of removed) {
+            nextCursor += 1n;
+            await manager.query(
+              `INSERT INTO revision_changes(
+                 revision_id,server_cursor,operation,feature_id,version_id,changed_paths,actor_id
+               ) VALUES($1,$2,'delete',$3,NULL,ARRAY[]::text[],$4)`,
+              [job.revisionId, nextCursor.toString(), feature.featureId, job.actorId],
+            );
+          }
+        }
+        for (const feature of staged) {
+          nextCursor += 1n;
+          const featureId = feature.targetFeatureId ?? feature.proposedFeatureId;
+          if (!feature.targetFeatureId) {
+            await manager.query(
+              `INSERT INTO features(id,layer_id,external_source,external_id)
+               VALUES($1,$2,$3,$4)`,
+              [featureId, revision.layerId, feature.externalSource, feature.externalId],
+            );
+          }
+          const checksum = createHash('sha256')
+            .update(JSON.stringify([feature.geometry, feature.properties, feature.radiusM]))
+            .digest('hex');
+          const versionId = randomUUID();
+          await manager.query(
+            `INSERT INTO feature_versions(
+              id,feature_id,revision_id,geometry,geometry_kind,properties,radius_m,checksum,created_by
+             ) VALUES($1,$2,$3,ST_SetSRID(ST_GeomFromGeoJSON($4),4326),$5,$6::jsonb,$7,$8,$9)`,
+            [
+              versionId,
+              featureId,
+              job.revisionId,
+              JSON.stringify(feature.geometry),
+              feature.geometryKind,
+              JSON.stringify(feature.properties),
+              feature.radiusM,
+              checksum,
+              job.actorId,
+            ],
+          );
+          await manager.query(
+            `INSERT INTO revision_features(revision_id,feature_id,feature_version_id,ordinal)
+             VALUES($1,$2,$3,$4)
+             ON CONFLICT(revision_id,feature_id) DO UPDATE SET
+               feature_version_id=EXCLUDED.feature_version_id,ordinal=EXCLUDED.ordinal`,
+            [job.revisionId, featureId, versionId, feature.rowNumber],
+          );
+          await manager.query(
+            `INSERT INTO revision_changes(
+              revision_id,server_cursor,operation,feature_id,version_id,changed_paths,actor_id
+             ) VALUES($1,$2,$3,$4,$5,ARRAY['geometry','properties'],$6)`,
+            [
+              job.revisionId,
+              nextCursor.toString(),
+              feature.targetFeatureId ? 'update' : 'create',
+              featureId,
+              versionId,
+              job.actorId,
+            ],
+          );
+        }
+        await manager.query(
+          `UPDATE layer_revisions SET lock_version=lock_version+1,cursor_seq=$2,updated_at=now()
+           WHERE id=$1`,
+          [job.revisionId, nextCursor.toString()],
+        );
+        await manager.query(
+          `INSERT INTO audit_logs(
+            actor_id,actor_role,action,resource_type,resource_id,request_id,metadata
+           ) VALUES($1,$2,'import.applied','import_job',$3,$4,$5::jsonb)`,
+          [
+            job.actorId,
+            command.actorRole,
+            job.id,
+            command.requestId,
+            JSON.stringify({ revisionId: job.revisionId, mode: job.mode, applied: staged.length }),
+          ],
+        );
+        await manager.update(ImportJobEntity, job.id, {
+          status: 'completed',
+          progress: 100,
+          counts: {
+            ...job.counts,
+            applied: staged.length,
+            skipped: command.skipInvalid ? Number(job.counts.invalid ?? 0) : 0,
+          },
+          failureCode: null,
+        });
+      });
+    } catch (error) {
+      const code =
+        error instanceof Error &&
+        [
+          'ETAG_MISMATCH',
+          'REVISION_NOT_EDITABLE',
+          'IMPORT_NO_VALID_ROWS',
+          'IMPORT_HAS_ERRORS',
+        ].includes(error.message)
+          ? error.message
+          : 'IMPORT_APPLY_FAILED';
+      await this.imports.update(record.id, { status: 'failed', failureCode: code });
+      throw new UnrecoverableError(code);
+    }
+  }
+
+  private importFeatures(content: Buffer): unknown[] {
+    let payload: unknown;
+    try {
+      payload = JSON.parse(content.toString('utf8'));
+    } catch {
+      throw new ImportInspectionError('GEOJSON_INVALID');
+    }
+    if (!payload || typeof payload !== 'object') throw new ImportInspectionError('GEOJSON_INVALID');
+    const object = payload as { type?: unknown; features?: unknown };
+    if (object.type === 'FeatureCollection' && Array.isArray(object.features))
+      return object.features;
+    if (object.type === 'Feature') return [object];
+    throw new ImportInspectionError('GEOJSON_INVALID');
+  }
+
+  private mapFeature(value: unknown, rowNumber: number, plan: ImportMappingPlan): StagedFeature {
+    if (!value || typeof value !== 'object') {
+      throw new AppException(422, 'GEOJSON_FEATURE_INVALID', 'GeoJSON feature không hợp lệ.');
+    }
+    const feature = value as {
+      type?: unknown;
+      geometry?: unknown;
+      properties?: unknown;
+      geometryKind?: unknown;
+      radiusM?: unknown;
+    };
+    if (
+      feature.type !== 'Feature' ||
+      !feature.geometry ||
+      typeof feature.geometry !== 'object' ||
+      (feature.properties !== null &&
+        (typeof feature.properties !== 'object' || Array.isArray(feature.properties)))
+    ) {
+      throw new AppException(422, 'GEOJSON_FEATURE_INVALID', 'GeoJSON feature không hợp lệ.');
+    }
+    const geometry = feature.geometry as Record<string, unknown>;
+    const inferredKind = GEOJSON_KIND[String(geometry.type)];
+    const geometryKind =
+      feature.geometryKind === 'circle'
+        ? 'circle'
+        : feature.geometryKind === undefined
+          ? inferredKind
+          : (feature.geometryKind as GeometryKind);
+    if (!geometryKind || (!GEOJSON_KIND[String(geometry.type)] && geometryKind !== 'circle')) {
+      throw new AppException(422, 'GEOMETRY_TYPE_NOT_ALLOWED', 'Geometry type không được hỗ trợ.');
+    }
+    const radiusM =
+      feature.radiusM === undefined || feature.radiusM === null ? null : Number(feature.radiusM);
+    const sourceProperties = (feature.properties ?? {}) as Record<string, unknown>;
+    const properties: Record<string, unknown> = {};
+    let externalSource: string | null = null;
+    let externalId: string | null = null;
+    for (const [source, target] of Object.entries(plan.fields)) {
+      const mapped = sourceProperties[source];
+      if (target === 'external_source') {
+        externalSource = typeof mapped === 'string' && mapped.trim() ? mapped.trim() : null;
+      } else if (target === 'external_id') {
+        externalId = typeof mapped === 'string' && mapped.trim() ? mapped.trim() : null;
+      } else if (mapped !== undefined) {
+        properties[target] = mapped;
+      }
+    }
+    if ((externalSource === null) !== (externalId === null)) {
+      throw new AppException(
+        422,
+        'IMPORT_EXTERNAL_IDENTITY_INCOMPLETE',
+        'External identity cần đủ source và id.',
+      );
+    }
+    return {
+      rowNumber,
+      proposedFeatureId: randomUUID(),
+      targetFeatureId: null,
+      geometry,
+      geometryKind,
+      radiusM,
+      properties,
+      externalSource,
+      externalId,
+    };
   }
 
   private async readBounded(key: string): Promise<Buffer> {

@@ -14,7 +14,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
 import { apiJsonResponse, genericObjectSchema } from '../common/openapi/response-schemas';
@@ -46,6 +46,7 @@ export class LayersController {
   @Post('layer-groups')
   @Roles('editor')
   @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayerGroup' })
   @apiJsonResponse(201, genericObjectSchema)
   createGroup(
@@ -66,6 +67,12 @@ export class LayersController {
   @Post('layers')
   @Roles('editor')
   @UseGuards(CsrfGuard)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayer' })
   @apiJsonResponse(201, genericObjectSchema)
   async createLayer(
@@ -119,6 +126,13 @@ export class LayersController {
   @Post('revisions/:revisionId/features')
   @Roles('editor')
   @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createFeature' })
   @apiJsonResponse(201, genericObjectSchema)
   async createFeature(
@@ -145,6 +159,8 @@ export class LayersController {
   @Patch('revisions/:revisionId/features/:featureId')
   @Roles('editor')
   @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'updateFeature' })
   @apiJsonResponse(200, genericObjectSchema)
   async updateFeature(
@@ -172,6 +188,8 @@ export class LayersController {
   @HttpCode(200)
   @Roles('editor')
   @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'deleteFeature' })
   @apiJsonResponse(200, genericObjectSchema)
   async deleteFeature(

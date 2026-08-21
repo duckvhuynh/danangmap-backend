@@ -350,7 +350,17 @@ export const externalPlaceSchema: SchemaObject = {
 
 export const importJobSchema: SchemaObject = {
   type: 'object',
-  required: ['id', 'revisionId', 'status', 'format', 'mode', 'file', 'progress', 'counts'],
+  required: [
+    'id',
+    'revisionId',
+    'status',
+    'format',
+    'mode',
+    'file',
+    'progress',
+    'counts',
+    'canApplyWithSkipInvalid',
+  ],
   properties: {
     id: uuid,
     revisionId: uuid,
@@ -363,7 +373,21 @@ export const importJobSchema: SchemaObject = {
       properties: { name: { type: 'string' }, sizeBytes: { type: 'integer' } },
     },
     progress: { type: 'integer', minimum: 0, maximum: 100 },
-    counts: { type: 'object', additionalProperties: { type: 'number' } },
+    counts: {
+      type: 'object',
+      additionalProperties: { type: 'number' },
+      properties: {
+        total: { type: 'integer' },
+        valid: { type: 'integer' },
+        warning: { type: 'integer' },
+        invalid: { type: 'integer' },
+        matched: { type: 'integer' },
+        new: { type: 'integer' },
+        applied: { type: 'integer' },
+        skipped: { type: 'integer' },
+      },
+    },
+    canApplyWithSkipInvalid: { type: 'boolean' },
     failureCode: nullableString,
     createdAt: dateTime,
     updatedAt: dateTime,

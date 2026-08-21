@@ -8,7 +8,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { RawResponse } from '../common/http/raw-response.decorator';
 import type { RequestWithContext } from '../common/http/request-context';
@@ -54,6 +54,9 @@ export class PublicApiController {
   @Get('layers/:slug/features')
   @RawResponse()
   @ApiOperation({ operationId: 'listPublicFeatures' })
+  @ApiQuery({ name: 'bbox', required: false, type: String, example: '108.1,15.9,108.4,16.2' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 5000 })
+  @ApiQuery({ name: 'filter', required: false, type: String, example: 'type:eq:Phường' })
   @apiRawJsonResponse(200, publicFeatureCollectionSchema)
   async features(
     @Param('slug') slug: string,
@@ -102,6 +105,17 @@ export class PublicApiController {
 
   @Get('search')
   @ApiOperation({ operationId: 'searchPublicMap' })
+  @ApiQuery({ name: 'q', required: true, type: String, minLength: 2, maxLength: 200 })
+  @ApiQuery({ name: 'sources', required: false, type: String, example: 'internal,place' })
+  @ApiQuery({
+    name: 'layerIds',
+    required: false,
+    type: String,
+    description: 'Comma-separated UUIDs; tối đa 20 layer.',
+  })
+  @ApiQuery({ name: 'center', required: false, type: String, example: '16.0544,108.2022' })
+  @ApiQuery({ name: 'radiusM', required: false, type: Number, minimum: 1, maximum: 50000 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 30 })
   @apiJsonResponse(200, { type: 'array', items: publicSearchItemSchema }, publicSearchMetaSchema)
   search(
     @Query('q') q: string,
@@ -123,6 +137,7 @@ export class PublicApiController {
 
   @Get('places/:placeId')
   @ApiOperation({ operationId: 'getExternalPlace' })
+  @ApiQuery({ name: 'fields', required: false, type: String, example: 'name,address,position' })
   @apiJsonResponse(200, externalPlaceSchema)
   place(@Param('placeId') placeId: string, @Query('fields') fields?: string) {
     return this.publicApi.placeDetails(placeId, fields);

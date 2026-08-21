@@ -7,18 +7,33 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
+  Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCookieAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import type { RequestWithContext } from '../common/http/request-context';
-import { apiJsonResponse, importJobSchema } from '../common/openapi/response-schemas';
+import {
+  apiJsonResponse,
+  genericObjectSchema,
+  importJobSchema,
+} from '../common/openapi/response-schemas';
 import { Principal, Roles } from '../identity/auth.decorators';
 import { CsrfGuard, RolesGuard, SessionGuard } from '../identity/auth.guards';
-import { CreateImportDto } from './import.dto';
+import { ApplyImportDto, CreateImportDto, UpdateImportMappingDto } from './import.dto';
 import { MAX_IMPORT_BYTES } from './import-file.inspector';
 import { ImportUploadGuard } from './import-upload.guard';
 import { ImportsService } from './imports.service';
@@ -41,6 +56,13 @@ export class ImportsController {
     }),
   )
   @ApiConsumes('multipart/form-data')
+  @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiBody({
     schema: {
       type: 'object',
@@ -75,5 +97,72 @@ export class ImportsController {
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
     return this.imports.get(importId, principal);
+  }
+
+  @Patch('imports/:importId/mapping')
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'updateSpatialImportMapping' })
+  @apiJsonResponse(200, importJobSchema)
+  mapping(
+    @Param('importId', ParseUUIDPipe) importId: string,
+    @Body() dto: UpdateImportMappingDto,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    return this.imports.updateMapping(importId, dto, principal);
+  }
+
+  @Post('imports/:importId\\:validate')
+  @HttpCode(202)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'validateSpatialImport' })
+  @apiJsonResponse(202, importJobSchema)
+  validate(
+    @Param('importId', ParseUUIDPipe) importId: string,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    return this.imports.validate(importId, principal);
+  }
+
+  @Get('imports/:importId/issues')
+  @Roles('editor', 'system_admin')
+  @ApiQuery({ name: 'cursor', required: false, type: Number, minimum: 0 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 200 })
+  @ApiOperation({ operationId: 'listSpatialImportIssues' })
+  @apiJsonResponse(200, { type: 'array', items: genericObjectSchema }, genericObjectSchema)
+  issues(
+    @Param('importId', ParseUUIDPipe) importId: string,
+    @Query('cursor') cursor: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    return this.imports.issues(importId, cursor, limit, principal);
+  }
+
+  @Post('imports/:importId\\:apply')
+  @HttpCode(202)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'applySpatialImport' })
+  @apiJsonResponse(202, importJobSchema)
+  apply(
+    @Param('importId', ParseUUIDPipe) importId: string,
+    @Body() dto: ApplyImportDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    return this.imports.apply(importId, dto, ifMatch, idempotencyKey, request.requestId, principal);
   }
 }

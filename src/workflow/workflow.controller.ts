@@ -9,7 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestWithContext } from '../common/http/request-context';
 import { apiJsonResponse, workflowResultSchema } from '../common/openapi/response-schemas';
 import { Principal, Roles } from '../identity/auth.decorators';
@@ -34,6 +34,12 @@ export class WorkflowController {
   @Post('revisions/:revisionId\\:submit')
   @HttpCode(202)
   @Roles('editor')
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'submitRevision' })
   @apiJsonResponse(202, workflowResultSchema)
   submit(
@@ -49,6 +55,12 @@ export class WorkflowController {
 
   @Post('revisions/:revisionId\\:approve')
   @Roles('reviewer')
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'approveRevision' })
   @apiJsonResponse(201, workflowResultSchema)
   approve(
@@ -64,6 +76,12 @@ export class WorkflowController {
 
   @Post('revisions/:revisionId\\:request-changes')
   @Roles('reviewer')
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'requestRevisionChanges' })
   @apiJsonResponse(201, workflowResultSchema)
   requestChanges(
@@ -80,6 +98,12 @@ export class WorkflowController {
   @Post('revisions/:revisionId\\:publish')
   @HttpCode(202)
   @Roles('publisher')
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'publishRevision' })
   @apiJsonResponse(202, workflowResultSchema)
   publish(
@@ -95,6 +119,12 @@ export class WorkflowController {
 
   @Post('layers/:layerId\\:rollback')
   @Roles('publisher')
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'rollbackLayer' })
   @apiJsonResponse(201, workflowResultSchema)
   rollback(

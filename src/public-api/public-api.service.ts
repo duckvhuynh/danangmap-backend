@@ -367,10 +367,11 @@ export class PublicApiService {
   }
 
   private catalogItem(row: PublishedLayerRow) {
-    const sourceKind = this.stringConfig(
+    const configuredSourceKind = this.stringConfig(
       row.manifest.sourceKind ?? row.renderConfig.sourcePolicy,
       'geojson',
     );
+    const sourceKind = row.featureCount > 1000 ? 'mvt' : configuredSourceKind;
     const generation = Number(row.generation);
     return {
       id: row.id,

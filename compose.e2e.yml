@@ -25,10 +25,13 @@ services:
       FRONTEND_ORIGINS: http://localhost:3000
       COOKIE_SECURE: 'false'
       GEO_SERVICE_BASE_URL: ''
+      API_BASE_URL: http://api:4000
     command: ['npm', 'run', 'test:integration']
     depends_on:
       api:
         condition: service_healthy
+      worker:
+        condition: service_started
     restart: 'no'
 
   frontend:

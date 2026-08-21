@@ -9,6 +9,8 @@ import { CryptoModule } from './common/crypto/crypto.module';
 import { AuditModule } from './audit/audit.module';
 import { IdentityModule } from './identity/identity.module';
 import { LayersModule } from './layers/layers.module';
+import { PublicApiModule } from './public-api/public-api.module';
+import { ImportsModule } from './imports/imports.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { LayersModule } from './layers/layers.module';
     AuditModule,
     IdentityModule,
     LayersModule,
+    PublicApiModule,
+    ImportsModule,
     HealthModule,
   ],
 })

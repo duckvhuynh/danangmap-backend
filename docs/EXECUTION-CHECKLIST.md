@@ -98,17 +98,17 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: private key không xuất hiện trong catalog/GeoJSON/detail hoặc cache serialization.
 - [ ] **VS-022 — Backend:** Sinh OpenAPI và pin artifact cho frontend. Mapping: `B-055`, `Q-007`.
   - Acceptance: stable operation IDs; lint xanh; generated-client command reproducible.
-- [ ] **VS-023 — Frontend:** Scaffold selected theme/app shells sau D3. Mapping: `F-002`, `F-003`.
+- [x] **VS-023 — Frontend:** Scaffold selected theme/app shells sau D3. Mapping: `F-002`, `F-003`. Evidence: frontend `9c70b65` + implementation captures/design QA.
   - Acceptance: semantic tokens, Tabler-only icons, no raw blue trong component, radius/shadow đúng `DESIGN.md`.
 - [ ] **VS-024 — Frontend:** Generated client boundary và cookie/CSRF-ready fetch wrapper. Mapping: `F-004`, `F-047`.
   - Acceptance: frontend không gọi handwritten DTO endpoint; CI phát hiện generated client stale.
-- [ ] **VS-025 — Frontend:** Mapbox runtime lifecycle và Street/Light switch. Mapping: `F-005`, `F-006`, `F-007`.
+- [x] **VS-025 — Frontend:** Mapbox runtime lifecycle và Street/Light switch. Mapping: `F-005`, `F-006`, `F-007`. Evidence: style rehydration unit test và client boundary tại `9c70b65`; live-map visual fidelity còn chờ restricted token.
   - Acceptance: init/cleanup một lần; rehydrate custom layer sau style load; không có Satellite hoặc URL map-state.
 - [ ] **VS-026 — Frontend:** Catalog/layer toggle và Point/Polygon fixture render. Mapping: `F-008`, `F-009`, `F-010`.
   - Acceptance: data từ API; loading/empty/layer-error độc lập; source/layer ID deterministic.
 - [ ] **VS-027 — Frontend:** Feature detail và viewport list alternative. Mapping: `F-012`, `F-015`.
   - Acceptance: schema-driven public fields; private/unknown field không render; keyboard flow hoạt động ngoài canvas.
-- [ ] **VS-028 — Frontend:** Responsive floating controls từ derived artifacts. Mapping: `F-016`, `F-017`, `F-018`.
+- [x] **VS-028 — Frontend:** Responsive floating controls từ derived artifacts. Mapping: `F-016`, `F-017`, `F-018`. Evidence: desktop/mobile/degraded Playwright captures tại `9c70b65`.
   - Acceptance: desktop floating panels/mobile single sheet; 44 px target; no query/hash state.
 
 ### 4.4 Controlled publication path
@@ -130,7 +130,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 ### 4.5 Docker E2E và evidence
 
-- [ ] **VS-036 — QA/Ops:** Hoàn thiện API/worker/frontend multi-stage non-root images. Mapping: `B-002`, `Q-008`.
+- [x] **VS-036 — QA/Ops:** Hoàn thiện API/worker/frontend multi-stage non-root images. Mapping: `B-002`, `Q-008`. Evidence: backend `1767787`, frontend `9c70b65`; images build và frontend/backend health pass.
   - Acceptance: reproducible lockfile build; runtime container non-root; healthcheck có timeout.
 - [x] **VS-037 — QA/Ops:** Fresh DB migrate/seed test. Mapping: `Q-009`. Evidence: clean volumes, migration/seed exit 0 và 4 PostGIS integration tests tại `1767787`.
   - Acceptance: isolated empty volumes; không cần thao tác thủ công ngoài documented entrypoint.
@@ -173,15 +173,15 @@ Không đóng milestone issue chỉ từ commit tồn tại. Issue chỉ đượ
 ## 6. Quality gates bắt buộc
 
 - [ ] OpenAPI lint/diff pass; generated frontend client không stale.
-- [ ] TypeScript typecheck, lint, unit và production build pass ở cả hai repo.
+- [x] TypeScript typecheck, lint, unit và production build pass ở cả hai repo. Evidence: backend `1767787`, frontend `9c70b65`.
 - [x] TypeORM `synchronize=false`; fresh migration chạy trên PostGIS thật. Evidence: backend `1767787`.
 - [ ] Public projection leak test có field private fixture và trả `0` leak.
 - [ ] Mọi admin route trong slice có allow và deny assertion.
 - [ ] ETag stale write, idempotency retry và publication failure đều có assertion.
 - [ ] Public non-map controls có keyboard path; không có axe critical/serious trong flow slice.
 - [ ] Frontend không gọi Geo Service hoặc Mapbox Geocoding/Directions trực tiếp.
-- [ ] Dexie/session/localStorage không chứa credential; nếu Dexie chưa thuộc slice thì không tạo stub tuyên bố recovery hoàn chỉnh.
-- [ ] Docker images non-root; secrets chỉ qua environment; log/fixture không chứa token thật.
+- [x] Dexie/session/localStorage không chứa credential; scoped recovery fixture tests pass tại frontend `9c70b65`. Recovery/server conflict E2E vẫn là gate riêng.
+- [x] Docker images non-root; secrets chỉ qua environment; log/fixture không chứa token thật. Evidence: backend `1767787`, frontend `9c70b65`.
 - [ ] E2E core dùng mock Mapbox/Geo Service xác định; staging smoke thật là gate M8 riêng.
 - [ ] No-backup accepted risk vẫn mở và phải sign-off lại trước production; snapshot không được gọi là backup.
 
@@ -192,6 +192,7 @@ Không đóng milestone issue chỉ từ commit tồn tại. Issue chỉ đượ
 | BLK-01 | Closed at `0899ebd` | Badge `v2` và visible gradient trên mobile CTA đã được loại bỏ | Giữ visual regression review trong implementation; thay đổi hướng phải qua design review mới |
 | BLK-02 | Open trước production integration | Geo Service OpenAPI chỉ có generic response | Backend cần fixture response thật và versioned runtime schema; slice public map không được giả response như contract production |
 | BLK-03 | Open cho cutover | Manifest authoritative dữ liệu v1 chưa có | Product/Data hoàn tất D-001..D-002 trước migration rehearsal |
+| BLK-04 | Open cho final visual fidelity | Chưa có URL-restricted `NEXT_PUBLIC_MAPBOX_TOKEN`; live labels/marker/polygon/Terra Draw không thể so sánh trung thực với source rasters | Ops/Product cấp public token giới hạn domain; chạy lại bốn viewport + focused map crops và cập nhật frontend `design-qa.md` |
 | R-01 | Accepted, vẫn phải review M8 | Không có backup PostGIS/MinIO | Không chạy destructive production migration; release sign-off phải nêu giới hạn phục hồi |
 | R-06 | Critical | Draft/private leak | Central projection + automated fixture là gate merge |
 | R-07 | Critical | Workflow bypass | Backend deny matrix là gate merge; ẩn button frontend không đủ |

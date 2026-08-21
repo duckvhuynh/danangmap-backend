@@ -29,7 +29,8 @@
     "seed:prod": "node dist/scripts/seed.js",
     "openapi:export": "node scripts/export-openapi.mjs",
     "openapi:client": "openapi-typescript openapi/openapi.json -o openapi/generated-client-types.ts",
-    "openapi:check": "npm run openapi:export && npm run openapi:client && git diff --exit-code -- openapi",
+    "openapi:validate": "node scripts/validate-openapi.mjs",
+    "openapi:check": "npm run openapi:export && npm run openapi:client && npm run openapi:validate && git diff --exit-code -- openapi",
     "audit:prod": "npm audit --omit=dev --audit-level=high"
   },
   "dependencies": {

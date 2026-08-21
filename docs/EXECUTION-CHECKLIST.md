@@ -22,8 +22,8 @@ Slice đầu tiên chỉ cần fixture Point và Polygon để chứng minh ki�
 | D1 — Derived design artifacts | `COMPLETE` | Ba artifact commit tại frontend `2d35ec5`; badge/CTA visual QA follow-up hoàn tất tại `0899ebd` |
 | D2 — Design source of truth | `COMPLETE` | `DESIGN.md` đã ghi decision/date/artifact, Tabler Icons, blue tokens, Google Maps-like radius/shadow và trạng thái `SELECTED_READY_TO_SCAFFOLD` |
 | D3 — UI scaffold unlocked | `UNLOCKED` | Selection/source-of-truth gate đạt tại `2d35ec5`; visual QA hoàn tất tại `0899ebd`; commit design phải là ancestor của commit UI đầu tiên |
-| V1 — Published read slice | `NOT_STARTED` | Contract, PostGIS seed, frontend map và Docker E2E cùng pass |
-| V2 — Controlled publication slice | `NOT_STARTED` | Ba actor, deny matrix, atomic pointer và public generation assertions pass |
+| V1 — Published read slice | `IN_PROGRESS` | Frontend public source và backend foundation đang triển khai; contract, published read API và Docker E2E chưa cùng pass |
+| V2 — Controlled publication slice | `IN_PROGRESS` | Backend workflow/admin shell source đã bắt đầu; ba actor, deny matrix, atomic pointer và public generation assertions chưa đủ evidence |
 
 Frontend gate issue `#1` có đủ evidence để đóng tại `2d35ec5` + `0899ebd`. Backend M0 issue `#1` vẫn mở cho tới khi các exit criteria M0 còn lại trong `PLANS.md` có bằng chứng.
 
@@ -63,9 +63,9 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 ### 4.2 Repository và Docker foundation
 
-- [ ] **VS-007 — Backend:** Scaffold NestJS API/worker workspace và fail-fast config. Mapping: `B-001`.
+- [x] **VS-007 — Backend:** Scaffold NestJS API/worker workspace và fail-fast config. Mapping: `B-001`. Evidence: backend `1767787`.
   - Acceptance: install/build/unit command dùng lockfile và chạy độc lập cho API/worker.
-- [ ] **VS-008 — Backend:** Tạo TypeORM datasource PostGIS với `synchronize=false`. Mapping: `B-003`.
+- [x] **VS-008 — Backend:** Tạo TypeORM datasource PostGIS với `synchronize=false`. Mapping: `B-003`. Evidence: fresh Docker migration + PostGIS integration tại `1767787`.
   - Acceptance: migration baseline chạy trên database trống; PostGIS extension được xác nhận.
 - [ ] **VS-009 — Backend:** Kết nối Redis/BullMQ và worker lifecycle tối thiểu. Mapping: `B-004`.
   - Acceptance: enqueue/consume fixture job; graceful shutdown không nhận job mới.
@@ -73,7 +73,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: object key do server kiểm soát; không public bucket; probe/test xanh.
 - [ ] **VS-011 — Backend:** Request ID, problem envelope và structured redacted log. Mapping: `B-007`.
   - Acceptance: success/error có request ID; fixture secret/private value không xuất hiện log.
-- [ ] **VS-012 — Backend:** Liveness/readiness và migration-version check. Mapping: `B-006`.
+- [x] **VS-012 — Backend:** Liveness/readiness và migration-version check. Mapping: `B-006`. Evidence: Docker live/ready HTTP 200 tại `1767787`.
   - Acceptance: liveness không gọi dependency; readiness fail khi DB/Redis/migration chưa sẵn sàng.
 - [x] **VS-013 — Frontend:** Thiết lập Next.js non-UI tooling. Mapping: `F-001`. Evidence: frontend `fb73d95`.
   - Acceptance: lint, typecheck, unit và production build chạy; task này không tạo production screen trước D3.
@@ -132,7 +132,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 - [ ] **VS-036 — QA/Ops:** Hoàn thiện API/worker/frontend multi-stage non-root images. Mapping: `B-002`, `Q-008`.
   - Acceptance: reproducible lockfile build; runtime container non-root; healthcheck có timeout.
-- [ ] **VS-037 — QA/Ops:** Fresh DB migrate/seed test. Mapping: `Q-009`.
+- [x] **VS-037 — QA/Ops:** Fresh DB migrate/seed test. Mapping: `Q-009`. Evidence: clean volumes, migration/seed exit 0 và 4 PostGIS integration tests tại `1767787`.
   - Acceptance: isolated empty volumes; không cần thao tác thủ công ngoài documented entrypoint.
 - [ ] **VS-038 — QA/Frontend:** Playwright published read path. Mapping: `Q-011`.
   - Acceptance: `/` direct map, catalog, toggle, Point/Polygon, detail, Street/Light, list, mobile sheet, no URL state.
@@ -174,7 +174,7 @@ Không đóng milestone issue chỉ từ commit tồn tại. Issue chỉ đượ
 
 - [ ] OpenAPI lint/diff pass; generated frontend client không stale.
 - [ ] TypeScript typecheck, lint, unit và production build pass ở cả hai repo.
-- [ ] TypeORM `synchronize=false`; fresh migration chạy trên PostGIS thật.
+- [x] TypeORM `synchronize=false`; fresh migration chạy trên PostGIS thật. Evidence: backend `1767787`.
 - [ ] Public projection leak test có field private fixture và trả `0` leak.
 - [ ] Mọi admin route trong slice có allow và deny assertion.
 - [ ] ETag stale write, idempotency retry và publication failure đều có assertion.

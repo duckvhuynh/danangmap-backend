@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const pinnedFrontendSha = 'c1217cd831114351158b819d121c908460dc5e9d';
+const pinnedFrontendSha = '244538488ecb4fd26f910c33d4a499ef23a7d040';
 const frontendContext = resolve(process.env.DANANGMAP_FRONTEND_CONTEXT ?? '../danangmap-frontend');
 const frontendSha = git(['-C', frontendContext, 'rev-parse', 'HEAD']).trim();
 const expectedSha = process.env.DANANGMAP_FRONTEND_SHA?.trim();

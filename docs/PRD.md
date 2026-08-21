@@ -173,7 +173,9 @@ API, schema, Docker, CI và deployment được thiết kế để bổ sung l�
 - System Admin tạo tài khoản thủ công, gửi invite hoặc import file tài khoản.
 - Invite có token một lần, thời hạn và trạng thái; không lưu token thô.
 - MFA thuộc MVP; ưu tiên TOTP với recovery codes một lần.
-- Có reset password, khóa/rate-limit đăng nhập, thu hồi session và vô hiệu hóa tài khoản.
+- Tài khoản tạo thủ công phải đổi temporary password trước khi dùng bất kỳ route admin/domain nào; backend guard trả lỗi rõ ràng cho đến khi hoàn tất.
+- Đổi password phải rotate session hiện tại và revoke toàn bộ session còn lại. Revoke-all bao gồm cả session đang gọi, xóa cookie và buộc login lại; retry tuần tự bằng cookie cũ trả `401`.
+- Password reset request luôn trả generic `202` cho cả email có/không có account, có idempotency và rate limit. Token một lần chỉ được copy/paste và gửi trong request body, không nằm trong URL/browser storage/log; confirm thành công revoke mọi authenticated/pre-auth session và yêu cầu login + MFA lại.
 - Invite và password reset được gửi qua mail adapter/SMTP có retry, template và audit; token bí mật không xuất hiện trong log hoặc event payload.
 - Mọi mutation dùng cookie phải kiểm tra CSRF token được bind với session và Origin/Referer allow-list.
 - Role hệ thống: Editor, Reviewer, Publisher, System Admin; mỗi tài khoản có đúng một role chính tại một thời điểm. Đổi role phải revoke session và separation-of-duties vẫn xét toàn bộ lịch sử participant của revision.
@@ -399,7 +401,7 @@ MVP chỉ được coi là chấp nhận khi:
 - Layer/schema/style/feature được quản lý động; mọi geometry type đã khóa có fixture và test.
 - Terra Draw authoring, Dexie recovery và optimistic conflict flow vượt qua E2E desktop.
 - Import 4 format vượt qua toàn bộ guardrail 25 MiB/100.000 record/100.000 vertex mỗi feature/2.000.000 vertex tổng/250 MiB expanded/64 KiB properties/10 sheet/1 selected/256 cột/20.000 DB issues + MinIO full report, cùng atomic/skip-invalid, append/replace/upsert và UUID semantics.
-- Manual/invite/import account, mail delivery, password reset, CSRF, MFA, session revocation và strict Editor/Reviewer/Publisher được kiểm thử cả allow và deny.
+- Manual/invite/import account, mail delivery, generic password-reset request, reset token body-only, forced password change, CSRF, MFA, session rotation/revocation (gồm caller và old-cookie retry `401`) và strict Editor/Reviewer/Publisher được kiểm thử cả allow và deny.
 - Publication/rollback dùng snapshot, atomic và không rò draft/private data.
 - Public search hợp nhất internal + Geo Service và vẫn dùng được khi external source lỗi.
 - Attachment MinIO đi qua quarantine/scan/binding và tuân thủ public/private policy.

@@ -83,6 +83,7 @@ services:
       DATABASE_SSL: 'false'
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      ASYNC_PUBLICATION_ENABLED: ${ASYNC_PUBLICATION_ENABLED:-false}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: 'false'

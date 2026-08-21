@@ -13,6 +13,13 @@ export const configuration = () => ({
     port: Number(process.env.REDIS_PORT ?? 6379),
     password: process.env.REDIS_PASSWORD || undefined,
   },
+  publication: {
+    asyncEnabled: process.env.ASYNC_PUBLICATION_ENABLED === 'true',
+    dispatchIntervalMs: Number(process.env.PUBLICATION_DISPATCH_INTERVAL_MS ?? 2_000),
+    dispatchBatchSize: Number(process.env.PUBLICATION_DISPATCH_BATCH_SIZE ?? 25),
+    outboxLeaseSeconds: Number(process.env.PUBLICATION_OUTBOX_LEASE_SECONDS ?? 30),
+    maxAttempts: Number(process.env.PUBLICATION_MAX_ATTEMPTS ?? 5),
+  },
   minio: {
     endpoint: process.env.MINIO_ENDPOINT ?? 'localhost',
     port: Number(process.env.MINIO_PORT ?? 9000),

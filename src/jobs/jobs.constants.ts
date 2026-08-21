@@ -12,3 +12,6 @@ export const MAIL_QUEUE = 'identity-mail';
 export const MAIL_SWEEP_JOB = 'sweep-mail-outbox';
 export const MAIL_DELIVER_JOB = 'deliver-mail-outbox';
 export const MAIL_SWEEP_SCHEDULER = 'identity-mail-sweep';
+
+export const PUBLICATION_QUEUE = 'publication-builds';
+export const PUBLICATION_BUILD_JOB = 'build-publication';

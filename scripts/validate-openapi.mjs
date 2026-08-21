@@ -69,6 +69,8 @@ const strictlyTypedResponseOperations = new Set([
   'approveRevision',
   'requestRevisionChanges',
   'publishRevision',
+  'getPublicationJob',
+  'listLayerPublicationJobs',
   'listLayerRevisionHistory',
   'getRevisionHistory',
   'getRevisionDiff',
@@ -175,6 +177,8 @@ const parameterContracts = {
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
+  getPublicationJob: [['header', 'If-None-Match', false]],
+  listLayerPublicationJobs: [['header', 'If-None-Match', false]],
   rollbackLayer: [
     ['header', 'If-Match', true],
     ['header', 'Idempotency-Key', true],
@@ -308,7 +312,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     seen.set(operationId, `${method.toUpperCase()} ${path}`);
   }
 }
-if (seen.size !== 73) throw new Error(`Expected 73 OpenAPI operations, received ${seen.size}`);
+if (seen.size !== 75) throw new Error(`Expected 75 OpenAPI operations, received ${seen.size}`);
 const csrfOperation = document.paths?.['/api/v1/auth/csrf']?.get;
 if (csrfOperation?.operationId !== 'getCsrfToken') {
   throw new Error('CSRF GET must use the truthful getCsrfToken operation ID');
@@ -449,6 +453,51 @@ if (
   JSON.stringify(userImportApply?.properties?.validRowPolicy?.enum) !== JSON.stringify(['invite'])
 ) {
   throw new Error('User import apply policy drifted from invite-only contract');
+}
+const publishDto = document.components?.schemas?.PublishRevisionDto;
+if (
+  !publishDto?.required?.includes('releaseNote') ||
+  publishDto.required?.includes('clientIntent') ||
+  JSON.stringify(publishDto?.properties?.clientIntent?.enum) !== JSON.stringify(['desktop'])
+) {
+  throw new Error('Feature-gated publish clientIntent contract drifted');
+}
+const publishOperation = operationsById.get('publishRevision');
+const publishConflictCodes =
+  publishOperation?.responses?.['409']?.content?.['application/problem+json']?.schema?.properties
+    ?.code?.enum ?? [];
+if (!publishConflictCodes.includes('IDEMPOTENCY_RESPONSE_INCOMPATIBLE')) {
+  throw new Error('Publish must declare the safe incompatible-receipt replay branch');
+}
+for (const header of ['ETag', 'Location', 'Retry-After']) {
+  if (!publishOperation?.responses?.['202']?.headers?.[header]) {
+    throw new Error(`Async publication admission is missing ${header}`);
+  }
+}
+for (const operationId of ['getPublicationJob', 'listLayerPublicationJobs']) {
+  const operation = operationsById.get(operationId);
+  if (!operation?.responses?.['200']?.headers?.ETag || !operation.responses?.['304']) {
+    throw new Error(`${operationId} must declare ETag and 304`);
+  }
+}
+const publicationJobData =
+  operationsById.get('getPublicationJob')?.responses?.['200']?.content?.['application/json']?.schema
+    ?.properties?.data;
+if (
+  JSON.stringify(publicationJobData?.properties?.status?.enum) !==
+    JSON.stringify(['queued', 'building', 'succeeded', 'failed']) ||
+  publicationJobData?.properties?.progress?.properties?.totalUnits?.nullable !== true ||
+  publicationJobData?.properties?.progress?.properties?.percent?.nullable !== true ||
+  publicationJobData?.properties?.failure?.additionalProperties !== false
+) {
+  throw new Error('Publication job status/progress/failure contract is not bounded and typed');
+}
+if (
+  !generatedTypes.includes('getPublicationJob: {') ||
+  !generatedTypes.includes('listLayerPublicationJobs: {') ||
+  !generatedTypes.includes('status: "queued" | "building" | "succeeded" | "failed";')
+) {
+  throw new Error('Generated publication job client types are missing');
 }
 const createUserImport = operationsById.get('createUserImport');
 const createUserImportResponse =

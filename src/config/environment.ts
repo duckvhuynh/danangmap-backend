@@ -30,6 +30,11 @@ const environmentSchema = z
     REDIS_HOST: z.string().min(1).default('localhost'),
     REDIS_PORT: z.coerce.number().int().min(1).max(65535).default(6379),
     REDIS_PASSWORD: z.string().optional(),
+    ASYNC_PUBLICATION_ENABLED: booleanString,
+    PUBLICATION_DISPATCH_INTERVAL_MS: z.coerce.number().int().min(500).max(60_000).default(2_000),
+    PUBLICATION_DISPATCH_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
+    PUBLICATION_OUTBOX_LEASE_SECONDS: z.coerce.number().int().min(10).max(300).default(30),
+    PUBLICATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
     MINIO_ENDPOINT: z.string().min(1).default('localhost'),
     MINIO_PORT: z.coerce.number().int().min(1).max(65535).default(9000),
     MINIO_USE_SSL: booleanString,
@@ -84,6 +89,13 @@ const environmentSchema = z
     MAIL_WORKER_HEARTBEAT_STALE_SECONDS: z.coerce.number().int().min(30).max(600).default(120),
   })
   .superRefine((value, context) => {
+    if (value.NODE_ENV === 'production' && value.ASYNC_PUBLICATION_ENABLED) {
+      context.addIssue({
+        code: 'custom',
+        path: ['ASYNC_PUBLICATION_ENABLED'],
+        message: 'must remain false in production until the durable builder is complete',
+      });
+    }
     if (value.MAIL_DELIVERY_REQUIRED && !value.SMTP_ENABLED) {
       context.addIssue({
         code: 'custom',

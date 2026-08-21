@@ -265,14 +265,14 @@ Mỗi field có:
 | WFL-002 | Submit khóa revision, chạy validation đầy đủ và ghi manifest/checksum. |
 | WFL-003 | Request changes bắt buộc comment; approve có comment tùy chọn. |
 | WFL-004 | Separation-of-duties được kiểm tra ở mọi transition và rollback bằng participant history bất biến. Create/update/delete feature và import apply ghi `edit`; actor từng edit/review vẫn bị deny publish/rollback sau khi đổi role; System Admin không bypass. |
-| WFL-005 | Checkpoint MVP hiện tại publish đồng bộ: request chỉ trả terminal sau khi snapshot và active pointer commit nguyên tử. Client dùng trạng thái indeterminate trong lúc chờ; chỉ snapshot đã commit có `progress=100`, không tạo phần trăm trung gian giả. |
+| WFL-005 | Mặc định `ASYNC_PUBLICATION_ENABLED=false`, publish đồng bộ không đổi: request chỉ trả terminal sau khi snapshot và active pointer commit nguyên tử. Client dùng trạng thái indeterminate trong lúc chờ; chỉ snapshot đã commit có `progress=100`, không tạo phần trăm trung gian giả. |
 | WFL-006 | Public cache chỉ invalidate sau khi pointer đổi thành công. |
 | WFL-007 | Rollback chỉ đến snapshot `published` đã từng active, yêu cầu reason + `clientIntent=desktop` + publication-pointer `If-Match`, tạo generation mới và không xóa lịch sử. Thiếu/sai intent trả `BAD_REQUEST` không mutation. History ETag, pointer ETag và public cache ETag là ba domain riêng. |
 | WFL-008 | Mọi transition, import apply và mutation quan trọng có audit event/request ID. |
 | WFL-009 | Request changes atomically cập nhật original + tạo đúng một successor khi chưa có active draft; response trả `originalRevisionId`, `draftRevisionId`, `supersedesRevisionId`. Nếu đã có draft, toàn command fail không đổi dữ liệu. |
 | WFL-010 | Revision diff đồng bộ trả summary và feature-level cursor page tối đa 25 entry, gồm added/removed/modified geometry, circle radius, public properties và redacted-change marker. Query có feature/vertex bound và trả `DIFF_TOO_LARGE` thay vì chạy không giới hạn. |
 | WFL-011 | Attachment diff báo explicit `ATTACHMENT_CONTRACT_PENDING` tới khi backend #29 có canonical versioned binding; không suy ra từ JSON properties hoặc dùng empty array làm bằng chứng không đổi. |
-| WFL-012 | Durable BullMQ publication job, observable queued/building/failed state và measured monotonic progress là follow-up; backend #30/frontend #19 tiếp tục Open/In Progress khi checkpoint chỉ có terminal progress. |
+| WFL-012 | Checkpoint default-off đầu tiên của durable publication đã có transactional queued job + outbox + idempotent Bull dispatch/reconciliation và read model ETag/cursor/redaction. Khi cờ thử nghiệm bật, admission bắt buộc `clientIntent=desktop` trước transaction. Chưa có builder/worker/pointer switch nên production config phải fail khi cờ bật; backend #30/frontend #19 tiếp tục Open/In Progress. |
 
 ### 7.6 Public data
 
@@ -410,7 +410,7 @@ Cancel hợp lệ ở `uploaded|inspecting|mapping_required|validating|ready`.
 
 ### 11.3 Publication execution
 
-Checkpoint hiện tại là synchronous terminal-only:
+Đường mặc định hiện tại là synchronous terminal-only:
 
 ```text
 approved ── one HTTP transaction ──► published + active pointer switched
@@ -419,14 +419,14 @@ approved ── one HTTP transaction ──► published + active pointer switch
 
 Frontend hiển thị indeterminate trong lúc POST đang chạy. Publication history/detail chỉ trả `progress=100` sau commit; row không có measured progress trả `null`, không gán 50% theo phase.
 
-Durable publication job sau đây là follow-up có thiết kế/PR riêng, chưa được checkpoint hiện tại tuyên bố:
+Checkpoint durable đầu tiên sau đây chỉ được admission khi `ASYNC_PUBLICATION_ENABLED=true`:
 
 ```text
-queued → building → validating → switching → completed
-                 └──────────────► failed
+approved ── transaction ──► publishing + queued job + pending outbox
+                                      └── deterministic Bull dispatch/reconciliation
 ```
 
-Follow-up chỉ hợp lệ khi job row được commit trước work, BullMQ retry/crash recovery idempotent và progress monotonic được đo từ work thật. Không đổi active pointer trước `switching`; failed giữ nguyên publication cũ.
+Job row được commit trước queue work; Postgres là source of truth và Redis loss được reconcile bằng deterministic job ID. Detail/list trả ETag/304, cursor bounded và failure redacted. Chunk này không có active builder/worker nên job không rời `queued` và pointer không đổi. Follow-up mới được phép chuyển `queued → building → ...` khi progress monotonic đo từ work thật, retry/crash recovery idempotent và pointer switch nguyên tử đã được chứng minh.
 
 ## 12. Ma trận kiểm thử bắt buộc
 

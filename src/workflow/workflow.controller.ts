@@ -15,12 +15,7 @@ import { apiJsonResponse, workflowResultSchema } from '../common/openapi/respons
 import { Principal, Roles } from '../identity/auth.decorators';
 import { CsrfGuard, RolesGuard, SessionGuard } from '../identity/auth.guards';
 import { requireIdempotencyKey } from '../layers/etag';
-import {
-  PublishRevisionDto,
-  RequestChangesDto,
-  SubmitRevisionDto,
-  WorkflowCommentDto,
-} from '../layers/layer.dto';
+import { RequestChangesDto, SubmitRevisionDto, WorkflowCommentDto } from '../layers/layer.dto';
 import { WorkflowService } from './workflow.service';
 
 @ApiTags('workflow')
@@ -92,27 +87,5 @@ export class WorkflowController {
   ) {
     requireIdempotencyKey(key);
     return this.workflow.requestChanges(revisionId, dto, principal, request.requestId, key!);
-  }
-
-  @Post('revisions/:revisionId\\:publish')
-  @HttpCode(202)
-  @Roles('publisher')
-  @ApiHeader({
-    name: 'Idempotency-Key',
-    required: true,
-    schema: { type: 'string', format: 'uuid' },
-  })
-  @ApiHeader({ name: 'X-CSRF-Token', required: true })
-  @ApiOperation({ operationId: 'publishRevision' })
-  @apiJsonResponse(202, workflowResultSchema)
-  publish(
-    @Param('revisionId', ParseUUIDPipe) revisionId: string,
-    @Body() dto: PublishRevisionDto,
-    @Headers('idempotency-key') key: string | undefined,
-    @Req() request: RequestWithContext,
-    @Principal() principal: NonNullable<RequestWithContext['principal']>,
-  ) {
-    requireIdempotencyKey(key);
-    return this.workflow.publish(revisionId, dto, principal, request.requestId, key!);
   }
 }

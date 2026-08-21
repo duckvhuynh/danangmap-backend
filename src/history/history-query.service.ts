@@ -57,6 +57,7 @@ const LAYER_AUDIT_ACTION_PATTERNS: Record<string, readonly string[]> = {
     'revision.approved',
     'revision.changes_requested',
     'revision.published',
+    'publication.queued',
     'publication.rolled_back',
   ],
   publisher: [
@@ -64,6 +65,7 @@ const LAYER_AUDIT_ACTION_PATTERNS: Record<string, readonly string[]> = {
     'revision.approved',
     'revision.changes_requested',
     'revision.published',
+    'publication.queued',
     'publication.rolled_back',
   ],
 };
@@ -92,6 +94,7 @@ const CONTENT_AUDIT_METADATA_KEYS = new Set([
   'id',
   'impact',
   'items',
+  'jobId',
   'layerId',
   'lockVersion',
   'mode',
@@ -163,6 +166,7 @@ const AUDIT_ACTION_METADATA_KEYS: Record<string, readonly string[]> = {
     'clientIntent',
     'publicCacheVersion',
   ],
+  'publication.queued': ['jobId', 'layerId', 'revisionId', 'clientIntent'],
   'revision.approved': ['comment'],
   'revision.changes_requested': ['comment', 'successorRevisionId'],
   'revision.config_updated': ['impact'],

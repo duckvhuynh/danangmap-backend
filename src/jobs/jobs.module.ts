@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
-import { IMPORT_QUEUE, MAIL_QUEUE, USER_IMPORT_QUEUE } from './jobs.constants';
+import { IMPORT_QUEUE, MAIL_QUEUE, PUBLICATION_QUEUE, USER_IMPORT_QUEUE } from './jobs.constants';
 
 @Global()
 @Module({
@@ -24,6 +24,7 @@ import { IMPORT_QUEUE, MAIL_QUEUE, USER_IMPORT_QUEUE } from './jobs.constants';
       { name: IMPORT_QUEUE },
       { name: USER_IMPORT_QUEUE },
       { name: MAIL_QUEUE },
+      { name: PUBLICATION_QUEUE },
     ),
   ],
   exports: [BullModule],

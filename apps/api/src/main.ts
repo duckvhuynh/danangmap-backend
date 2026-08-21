@@ -63,7 +63,7 @@ export async function createApplication() {
       'If-None-Match',
       'Idempotency-Key',
     ],
-    exposedHeaders: ['X-Request-Id', 'ETag', 'Retry-After'],
+    exposedHeaders: ['X-Request-Id', 'ETag', 'Location', 'Retry-After'],
   });
   app.useGlobalPipes(
     new ValidationPipe({

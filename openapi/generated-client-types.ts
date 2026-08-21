@@ -567,22 +567,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/revisions/{revisionId}:publish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["publishRevision"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/public/layers": {
         parameters: {
             query?: never;
@@ -1031,6 +1015,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/revisions/{revisionId}:publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Uses the legacy atomic synchronous path while ASYNC_PUBLICATION_ENABLED=false. When enabled, clientIntent=desktop is required and the committed queued job is returned. */
+        post: operations["publishRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/publication-jobs/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicationJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layers/{layerId}/publication-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listLayerPublicationJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -1333,9 +1366,6 @@ export interface components {
         RequestChangesDto: {
             comment: string;
         };
-        PublishRevisionDto: {
-            releaseNote: string;
-        };
         ImportGeometryMappingDto: {
             /** @enum {string} */
             kind: "geojson" | "coordinates" | "wkt" | "kml_geometry";
@@ -1396,6 +1426,15 @@ export interface components {
              * @enum {string}
              */
             clientIntent: "desktop";
+        };
+        PublishRevisionDto: {
+            releaseNote: string;
+            /**
+             * @description Required only when ASYNC_PUBLICATION_ENABLED=true.
+             * @example desktop
+             * @enum {string}
+             */
+            clientIntent?: "desktop";
         };
     };
     responses: never;
@@ -4357,61 +4396,6 @@ export interface operations {
             };
         };
     };
-    publishRevision: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": string;
-                "Idempotency-Key": string;
-            };
-            path: {
-                revisionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PublishRevisionDto"];
-            };
-        };
-        responses: {
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: {
-                            /** Format: uuid */
-                            revisionId: string;
-                            status: string;
-                        } | {
-                            /** Format: uuid */
-                            originalRevisionId: string;
-                            /** Format: uuid */
-                            draftRevisionId: string;
-                            /** Format: uuid */
-                            supersedesRevisionId: string;
-                            originalStatus: string;
-                            draftStatus: string;
-                            draftEtag: string;
-                        } | {
-                            /** Format: uuid */
-                            publicationId?: string;
-                            /** Format: uuid */
-                            snapshotId: string;
-                            generation: number;
-                            /** @enum {string} */
-                            status: "completed";
-                        };
-                        meta: {
-                            requestId: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
     listPublicLayers: {
         parameters: {
             query?: never;
@@ -7271,6 +7255,566 @@ export interface operations {
                         status: number;
                         /** @enum {string} */
                         code: "ETAG_REQUIRED" | "IDEMPOTENCY_KEY_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    publishRevision: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRevisionDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    /** @description Opaque version token. */
+                    ETag?: string;
+                    /** @description Suggested polling delay in seconds for a nonterminal job. */
+                    "Retry-After"?: number;
+                    /** @description Durable publication job URL when async publication is enabled. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            publicationId?: string;
+                            /** Format: uuid */
+                            snapshotId: string;
+                            generation: number;
+                            /** @enum {string} */
+                            status: "completed";
+                        } | {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            layerId: string;
+                            /** Format: uuid */
+                            revisionId: string;
+                            /** @enum {string} */
+                            status: "queued" | "building" | "succeeded" | "failed";
+                            /** @enum {string} */
+                            phase: "queued" | "preparing" | "scanning_features" | "switching" | "completed" | "failed";
+                            progress: {
+                                completedUnits: number;
+                                totalUnits: number | null;
+                                /** @enum {string} */
+                                unit: "features";
+                                percent: number | null;
+                            };
+                            attempt: number;
+                            result: {
+                                /** Format: uuid */
+                                snapshotId: string;
+                                generation: number;
+                            } | null;
+                            failure: {
+                                code: string;
+                                userMessage: string;
+                                /** Format: uuid */
+                                requestId: string | null;
+                                retryable: boolean;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            startedAt: string | null;
+                            /** Format: date-time */
+                            finishedAt: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "CSRF_INVALID" | "SEPARATION_OF_DUTIES";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "IDEMPOTENCY_IN_PROGRESS" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_RESPONSE_INCOMPATIBLE" | "PUBLICATION_BASE_STALE" | "PUBLICATION_JOB_ACTIVE" | "WORKFLOW_TRANSITION_INVALID";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "IDEMPOTENCY_KEY_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    getPublicationJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string;
+            };
+            path: {
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token. */
+                    ETag?: string;
+                    /** @description Suggested polling delay in seconds for a nonterminal job. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            layerId: string;
+                            /** Format: uuid */
+                            revisionId: string;
+                            /** @enum {string} */
+                            status: "queued" | "building" | "succeeded" | "failed";
+                            /** @enum {string} */
+                            phase: "queued" | "preparing" | "scanning_features" | "switching" | "completed" | "failed";
+                            progress: {
+                                completedUnits: number;
+                                totalUnits: number | null;
+                                /** @enum {string} */
+                                unit: "features";
+                                percent: number | null;
+                            };
+                            attempt: number;
+                            result: {
+                                /** Format: uuid */
+                                snapshotId: string;
+                                generation: number;
+                            } | null;
+                            failure: {
+                                code: string;
+                                userMessage: string;
+                                /** Format: uuid */
+                                requestId: string | null;
+                                retryable: boolean;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            startedAt: string | null;
+                            /** Format: date-time */
+                            finishedAt: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description The publication job representation is unchanged. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
+    listLayerPublicationJobs: {
+        parameters: {
+            query?: {
+                status?: "queued" | "building" | "succeeded" | "failed";
+                revisionId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: {
+                "If-None-Match"?: string;
+            };
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token. */
+                    ETag?: string;
+                    /** @description Suggested polling delay in seconds for a nonterminal job. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                /** Format: uuid */
+                                revisionId: string;
+                                /** @enum {string} */
+                                status: "queued" | "building" | "succeeded" | "failed";
+                                /** @enum {string} */
+                                phase: "queued" | "preparing" | "scanning_features" | "switching" | "completed" | "failed";
+                                progress: {
+                                    completedUnits: number;
+                                    totalUnits: number | null;
+                                    /** @enum {string} */
+                                    unit: "features";
+                                    percent: number | null;
+                                };
+                                attempt: number;
+                                result: {
+                                    /** Format: uuid */
+                                    snapshotId: string;
+                                    generation: number;
+                                } | null;
+                                failure: {
+                                    code: string;
+                                    userMessage: string;
+                                    /** Format: uuid */
+                                    requestId: string | null;
+                                    retryable: boolean;
+                                } | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                startedAt: string | null;
+                                /** Format: date-time */
+                                finishedAt: string | null;
+                                /** Format: date-time */
+                                updatedAt: string;
+                            }[];
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            /** @description The publication job representation is unchanged. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "BAD_REQUEST" | "VALIDATION_FAILED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "AUTH_SESSION_EXPIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "ROLE_FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @enum {string} */
+                        code: "NOT_FOUND";
                         message: string;
                         details: {
                             [key: string]: unknown;

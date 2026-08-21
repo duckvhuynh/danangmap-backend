@@ -34,8 +34,52 @@ describe('environment validation', () => {
         GEO_SERVICE_RETRY_ATTEMPTS: 3,
         GEO_SERVICE_BREAKER_FAILURE_THRESHOLD: 10,
         TRUST_PROXY_HOPS: 1,
+        ASYNC_PUBLICATION_ENABLED: false,
       }),
     );
+  });
+
+  it('keeps async publication disabled by default and validates bounded dispatcher settings', () => {
+    expect(validateEnvironment(baseline).ASYNC_PUBLICATION_ENABLED).toBe(false);
+    expect(
+      validateEnvironment({
+        ...baseline,
+        ASYNC_PUBLICATION_ENABLED: 'true',
+        PUBLICATION_DISPATCH_BATCH_SIZE: '100',
+        PUBLICATION_OUTBOX_LEASE_SECONDS: '300',
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        ASYNC_PUBLICATION_ENABLED: true,
+        PUBLICATION_DISPATCH_BATCH_SIZE: 100,
+        PUBLICATION_OUTBOX_LEASE_SECONDS: 300,
+      }),
+    );
+    expect(() => validateEnvironment({ ...baseline, ASYNC_PUBLICATION_ENABLED: 'yes' })).toThrow(
+      'ASYNC_PUBLICATION_ENABLED',
+    );
+    expect(() =>
+      validateEnvironment({ ...baseline, PUBLICATION_DISPATCH_BATCH_SIZE: '101' }),
+    ).toThrow('PUBLICATION_DISPATCH_BATCH_SIZE');
+  });
+
+  it('refuses the admission-only async publication flag in production', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseline,
+        NODE_ENV: 'production',
+        ASYNC_PUBLICATION_ENABLED: 'true',
+      }),
+    ).toThrow(
+      'ASYNC_PUBLICATION_ENABLED: must remain false in production until the durable builder is complete',
+    );
+    expect(
+      validateEnvironment({
+        ...baseline,
+        NODE_ENV: 'production',
+        ASYNC_PUBLICATION_ENABLED: 'false',
+      }).ASYNC_PUBLICATION_ENABLED,
+    ).toBe(false);
   });
 
   it('rejects unsafe Geo Service retry and breaker settings', () => {

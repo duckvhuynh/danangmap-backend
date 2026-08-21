@@ -967,7 +967,8 @@ Layer vẫn chỉ có một active draft. Nếu đã tồn tại draft khác, co
 
 ```json
 {
-  "releaseNote": "Xuất bản dữ liệu trụ sở tháng 08/2026."
+  "releaseNote": "Xuất bản dữ liệu trụ sở tháng 08/2026.",
+  "clientIntent": "desktop"
 }
 ```
 
@@ -984,9 +985,18 @@ Response `202`:
 }
 ```
 
-Checkpoint hiện tại publish **đồng bộ** trong một transaction: HTTP request chỉ trả sau khi snapshot, pointer, revision state, participant, workflow event, audit và idempotency receipt đã commit. Trong lúc POST còn chạy, client chỉ hiển thị trạng thái indeterminate; không có publication ID đã commit để polling và không được dựng phần trăm giả.
+Mặc định `ASYNC_PUBLICATION_ENABLED=false`, publish giữ nguyên đường **đồng bộ** trong một transaction: HTTP request chỉ trả sau khi snapshot, pointer, revision state, participant, workflow event, audit và idempotency receipt đã commit. Trong lúc POST còn chạy, client chỉ hiển thị trạng thái indeterminate; không có publication ID đã commit để polling và không được dựng phần trăm giả. Ở chế độ này `clientIntent` chưa bắt buộc để giữ tương thích contract hiện hữu. Validation cấu hình từ chối `ASYNC_PUBLICATION_ENABLED=true` khi `NODE_ENV=production` cho đến khi builder/pointer switch hoàn tất.
 
-Publication history/detail chỉ báo `progress=100` cho snapshot `published` đã commit. Nếu gặp row `building|failed` do dữ liệu tương thích tương lai mà chưa có durable measured progress thì `progress=null`; không suy diễn 50% hoặc 100% từ tên status. Publish đồng bộ thất bại trả Problem Details cùng `requestId` và không tạo success snapshot/pointer/audit. Durable `queued → building → validating → switching` qua BullMQ, failure record và monotonic measured progress là follow-up riêng; chưa phải capability của checkpoint này.
+Khi bật cờ thử nghiệm, `clientIntent="desktop"` là bắt buộc và được kiểm tra trước transaction. Admission commit atomically receipt, lock/precondition/SoD, revision `publishing`, durable `publication_jobs` row trạng thái `queued`, outbox, workflow event và audit; sau đó trả `202` với job representation, `Location`, `ETag`, `Retry-After` và `Cache-Control: private, no-store`. Cùng idempotency key/body replay đúng response + ETag; key/body khác trả 409. Chunk hiện tại **chưa chạy builder, chưa đổi public pointer và không được bật ở production**; worker build/pointer switch vẫn là phần tiếp theo của backend #30.
+
+Publication job dùng trạng thái `queued|building|succeeded|failed`, phase `queued|preparing|scanning_features|switching|completed|failed`, và progress đo theo feature. `percent=null` cho đến khi biết `totalUnits`; không suy diễn tiến độ từ phase. Failure response chỉ có stable code, thông báo an toàn, correlation `requestId` và `retryable`, không trả stack/raw error. Hai read API có cursor/ETag/304 và chỉ dành cho admin content roles:
+
+| Method | Path | Mô tả |
+|---|---|---|
+| GET | `/api/v1/admin/publication-jobs/{jobId}` | Job detail đã redacted; `If-None-Match` có thể trả 304 |
+| GET | `/api/v1/admin/layers/{layerId}/publication-jobs` | Cursor page tối đa 100; filter `status`, `revisionId` |
+
+Publication history/detail của synchronous snapshot chỉ báo `progress=100` cho snapshot `published` đã commit. Nếu gặp row tương thích tương lai không có durable measured progress thì `progress=null`; không suy diễn 50% hoặc 100% từ tên status. Publish đồng bộ thất bại trả Problem Details cùng `requestId` và không tạo success snapshot/pointer/audit.
 
 Public pointer chỉ đổi sau build + validate thành công. Public cache/catalog được revalidate sau commit bằng public ETag/generation mới; frontend không dùng `activePointerEtag` để cache public response.
 

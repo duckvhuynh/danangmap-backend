@@ -334,7 +334,7 @@ Các endpoint geocode/reverse geocode, nearby, find place và directions đượ
 
 ## 12. Design gate bắt buộc
 
-**Trạng thái: `SELECTED_READY_TO_SCAFFOLD`. Product owner đã phê duyệt Direction 1 — Civic Focus (refined) ngày 2026-08-21; UI scaffold được mở sau commit frontend `2d35ec5`.**
+**Trạng thái: `SELECTED_READY_TO_SCAFFOLD`. Product owner đã phê duyệt Direction 1 — Civic Focus (refined) ngày 2026-08-21; UI scaffold được mở sau commit frontend `2d35ec5`, và visual QA follow-up hoàn tất tại `0899ebd`.**
 
 Ba public desktop visual directions gốc vẫn được giữ trong frontend repository:
 
@@ -349,7 +349,7 @@ Artifact được chọn và các màn hình derive, đều xuất phát từ Di
 3. Admin editor desktop: `docs/visual-directions/direction-1-admin-editor-desktop.png`.
 4. Admin review mobile: `docs/visual-directions/direction-1-admin-review-mobile.png`.
 
-`danangmap-frontend/docs/DESIGN.md` ghi decision/date, Tabler Icons, semantic blue, radius/elevation của floating controls và trạng thái `SELECTED_READY_TO_SCAFFOLD`. Refined asset là bản hoàn thiện của Direction 1 đã chọn, không phải visual direction thứ tư. Implementation UI từ sau commit `2d35ec5` phải bám source/derived artifacts này; thay đổi hướng cần một vòng product/design review mới.
+`danangmap-frontend/docs/DESIGN.md` ghi decision/date, Tabler Icons, semantic blue, radius/elevation của floating controls và trạng thái `SELECTED_READY_TO_SCAFFOLD`. Refined asset là bản hoàn thiện của Direction 1 đã chọn, không phải visual direction thứ tư. Follow-up `0899ebd` loại badge phiên bản khỏi public identity và làm phẳng CTA mobile theo no-gradient rule. Implementation UI từ sau commit `2d35ec5` phải bám source/derived artifacts mới nhất; thay đổi hướng cần một vòng product/design review mới.
 
 ## 13. Chỉ số thành công MVP
 

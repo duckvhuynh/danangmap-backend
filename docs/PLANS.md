@@ -23,14 +23,14 @@ Nguyên tắc:
 
 ## 2. Gate thiết kế bắt buộc
 
-**GATE-DESIGN status: `SELECTED_READY_TO_SCAFFOLD`; selection, derived artifacts và source-of-truth update được ghi tại frontend commit `2d35ec5` ngày 2026-08-21.**
+**GATE-DESIGN status: `SELECTED_READY_TO_SCAFFOLD`; selection/source-of-truth được ghi tại frontend `2d35ec5`, visual QA follow-up hoàn tất tại `0899ebd` ngày 2026-08-21. `C-016` đã hoàn tất.**
 
 - Ba public desktop visual directions gốc vẫn được giữ tại `docs/visual-directions/direction-1.png`, `direction-2.png`, `direction-3.png` trong `danangmap-frontend`.
 - Product owner đã phê duyệt **Direction 1 — Civic Focus (refined)** tại `docs/visual-directions/direction-1-refined.png`; đây là refinement của Direction 1, không phải hướng thứ tư.
 - Product Design đã derive đúng hướng được chọn thành `direction-1-public-mobile.png`, `direction-1-admin-editor-desktop.png` và `direction-1-admin-review-mobile.png`.
 - `DESIGN.md` đã ghi decision/date, Tabler Icons, semantic blue, Google Maps web-like control radius/elevation và trạng thái `SELECTED_READY_TO_SCAFFOLD`.
 - UI scaffold, shadcn theme/component và production screen được phép bắt đầu từ sau commit `2d35ec5`, phải bám source/derived artifacts và không trộn Direction 2/3 nếu chưa có vòng review mới.
-- Artifact QA follow-up còn mở trước khi đóng frontend `C-016` issue: bỏ badge `v2` trên public mobile và loại visible gradient khỏi primary buttons ở public mobile/admin review mobile. Việc này không mở lại quyết định selection nhưng là acceptance bắt buộc của no-gradient rule.
+- Visual QA follow-up `0899ebd` đã bỏ badge `v2` trên public mobile và làm phẳng primary CTA ở public mobile/admin review mobile; frontend `C-016` issue có đủ evidence để đóng.
 
 ## 3. Dependency map
 
@@ -60,7 +60,7 @@ flowchart TD
   P --> Q[Production cutover]
 ```
 
-Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Các bước selection/derive đã hoàn tất tại `2d35ec5`; vị trí hiện tại trên đường găng là UI/backend foundation và vertical slice theo `docs/EXECUTION-CHECKLIST.md`.
+Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Các bước selection/derive/visual QA đã hoàn tất tại `2d35ec5` + `0899ebd`; vị trí hiện tại trên đường găng là UI/backend foundation và vertical slice theo `docs/EXECUTION-CHECKLIST.md`.
 
 ## 4. Milestone và exit criteria
 

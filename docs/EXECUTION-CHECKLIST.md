@@ -19,13 +19,13 @@ Slice đầu tiên chỉ cần fixture Point và Polygon để chứng minh ki�
 | Gate | Trạng thái | Bằng chứng bắt buộc để chuyển trạng thái |
 | --- | --- | --- |
 | D0 — PO chọn visual | `APPROVED` | PO đã approve Direction 1 refined ngày 2026-08-21 |
-| D1 — Derived design artifacts | `QA_FIX_PENDING` | Ba artifact đã commit tại frontend `2d35ec5`; public mobile còn badge `v2`, public/review mobile còn visible primary-button gradient cần loại bỏ |
+| D1 — Derived design artifacts | `COMPLETE` | Ba artifact commit tại frontend `2d35ec5`; badge/CTA visual QA follow-up hoàn tất tại `0899ebd` |
 | D2 — Design source of truth | `COMPLETE` | `DESIGN.md` đã ghi decision/date/artifact, Tabler Icons, blue tokens, Google Maps-like radius/shadow và trạng thái `SELECTED_READY_TO_SCAFFOLD` |
-| D3 — UI scaffold unlocked | `UNLOCKED` | Selection/source-of-truth gate đạt tại `2d35ec5`; commit này phải là ancestor của commit UI đầu tiên; artifact QA vẫn phải hoàn tất trước khi đóng issue |
+| D3 — UI scaffold unlocked | `UNLOCKED` | Selection/source-of-truth gate đạt tại `2d35ec5`; visual QA hoàn tất tại `0899ebd`; commit design phải là ancestor của commit UI đầu tiên |
 | V1 — Published read slice | `NOT_STARTED` | Contract, PostGIS seed, frontend map và Docker E2E cùng pass |
 | V2 — Controlled publication slice | `NOT_STARTED` | Ba actor, deny matrix, atomic pointer và public generation assertions pass |
 
-Frontend gate issue `#1` vẫn mở cho tới khi follow-up commit loại badge `v2` trên public mobile, loại visible gradient trên primary buttons của public/review mobile và có visual reinspection evidence. Backend M0 issue `#1` vẫn mở cho tới khi các exit criteria M0 còn lại trong `PLANS.md` có bằng chứng.
+Frontend gate issue `#1` có đủ evidence để đóng tại `2d35ec5` + `0899ebd`. Backend M0 issue `#1` vẫn mở cho tới khi các exit criteria M0 còn lại trong `PLANS.md` có bằng chứng.
 
 ## 3. Backlog integrity
 
@@ -50,13 +50,13 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 - [x] **VS-001 — Frontend/Design:** Commit `direction-1-refined.png` với checksum và ghi PO decision. Mapping: `C-006`.
   - Acceptance: đúng một hướng được chọn; ba hướng gốc vẫn giữ làm lịch sử; chưa scaffold UI.
-- [ ] **VS-002 — Frontend/Design:** Derive public mobile từ đúng Direction 1 refined. Mapping: `C-016`.
+- [x] **VS-002 — Frontend/Design:** Derive public mobile từ đúng Direction 1 refined. Mapping: `C-016`.
   - Acceptance: một bottom sheet active, search/touch target/safe area và map visibility được thể hiện.
 - [x] **VS-003 — Frontend/Design:** Derive admin editor desktop theo geojson.io interaction model. Mapping: `C-016`.
   - Acceptance: top bar, draw rail, feature explorer, map, inspector và resizable data panel được thể hiện.
-- [ ] **VS-004 — Frontend/Design:** Derive admin review mobile. Mapping: `C-016`.
+- [x] **VS-004 — Frontend/Design:** Derive admin review mobile. Mapping: `C-016`.
   - Acceptance: chỉ view/comment/approve/request changes; không có draw/import/schema/publish/rollback.
-- [ ] **VS-005 — Frontend/Design:** Khóa `DESIGN.md` và design QA. Mapping: `C-016`.
+- [x] **VS-005 — Frontend/Design:** Khóa `DESIGN.md` và design QA. Mapping: `C-016`.
   - Acceptance: Tabler Icons; primary `#1A73E8` cùng tint semantic; control radius/elevation kiểu Google Maps web; không gradient/glass; trạng thái `SELECTED_READY_TO_SCAFFOLD`.
 - [ ] **VS-006 — Backend/API:** Chọn operation IDs và schemas tối thiểu cho catalog, GeoJSON, detail, auth principal, batch mutation và workflow command. Mapping: `C-003`, `B-055`.
   - Acceptance: không đổi envelope, ETag, idempotency, CSRF, privacy hoặc generation semantics đã baseline.
@@ -189,7 +189,7 @@ Không đóng milestone issue chỉ từ commit tồn tại. Issue chỉ đượ
 
 | ID | Trạng thái | Ảnh hưởng | Owner/next action |
 | --- | --- | --- | --- |
-| BLK-01 | Open; không khóa scaffold | Artifact QA còn badge `v2` và visible gradient trái no-gradient rule | Frontend tạo follow-up commit, mở từng raster để kiểm tra lại; sau đó mới đóng FE issue `#1` |
+| BLK-01 | Closed at `0899ebd` | Badge `v2` và visible gradient trên mobile CTA đã được loại bỏ | Giữ visual regression review trong implementation; thay đổi hướng phải qua design review mới |
 | BLK-02 | Open trước production integration | Geo Service OpenAPI chỉ có generic response | Backend cần fixture response thật và versioned runtime schema; slice public map không được giả response như contract production |
 | BLK-03 | Open cho cutover | Manifest authoritative dữ liệu v1 chưa có | Product/Data hoàn tất D-001..D-002 trước migration rehearsal |
 | R-01 | Accepted, vẫn phải review M8 | Không có backup PostGIS/MinIO | Không chạy destructive production migration; release sign-off phải nêu giới hạn phục hồi |

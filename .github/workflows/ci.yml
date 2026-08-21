@@ -49,7 +49,7 @@ jobs:
     env:
       DANANGMAP_BACKEND_SHA: ${{ github.event.pull_request.head.sha }}
       DANANGMAP_FRONTEND_CONTEXT: ${{ github.workspace }}/.crossstack/danangmap-frontend
-      DANANGMAP_FRONTEND_SHA: b1e313d4f113d290ef82387ed2c632a5e7b88f05
+      DANANGMAP_FRONTEND_SHA: 323eb4eb5c9e03205e5048791b44d9bad3e113d0
       DANANGMAP_FULLSTACK_RUNS: '2'
     steps:
       - name: Checkout exact backend revision
@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: duckvhuynh/danangmap-frontend
-          ref: b1e313d4f113d290ef82387ed2c632a5e7b88f05
+          ref: 323eb4eb5c9e03205e5048791b44d9bad3e113d0
           path: .crossstack/danangmap-frontend
           persist-credentials: false
       - uses: actions/setup-node@v4

@@ -28,7 +28,7 @@ services:
   frontend:
     ports: !reset []
     labels:
-      danangmap.frontend.revision: b1e313d4f113d290ef82387ed2c632a5e7b88f05
+      danangmap.frontend.revision: 323eb4eb5c9e03205e5048791b44d9bad3e113d0
     build:
       args:
         NEXT_PUBLIC_API_BASE_URL: https://gateway
@@ -60,6 +60,7 @@ services:
   fullstack-smoke:
     environment:
       FRONTEND_PUBLIC_ORIGIN: https://gateway
+      CROSSSTACK_PUBLICATION_LAYER_SLUG: cross-stack-publication
     depends_on:
       gateway:
         condition: service_healthy
@@ -70,7 +71,7 @@ services:
       context: ${DANANGMAP_FRONTEND_CONTEXT:-../danangmap-frontend}
       dockerfile: Dockerfile.e2e
       labels:
-        danangmap.frontend.revision: b1e313d4f113d290ef82387ed2c632a5e7b88f05
+        danangmap.frontend.revision: 323eb4eb5c9e03205e5048791b44d9bad3e113d0
     environment:
       CI: 'true'
       DANANGMAP_REAL_STACK: 'true'
@@ -79,6 +80,20 @@ services:
       DANANGMAP_ADMIN_LOGIN: ${DANANGMAP_ADMIN_LOGIN:-admin}
       DANANGMAP_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe-Admin-2026!}
       DANANGMAP_ADMIN_TOTP_SECRET: ${SEED_MFA_SECRET:-JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP}
+      DANANGMAP_GATE_B_ENABLED: 'true'
+      DANANGMAP_GATE_B_EDITOR_LOGIN: editor
+      DANANGMAP_GATE_B_EDITOR_PASSWORD: ${SEED_EDITOR_PASSWORD:-ChangeMe-Editor-2026!}
+      DANANGMAP_GATE_B_REVIEWER_LOGIN: reviewer
+      DANANGMAP_GATE_B_REVIEWER_PASSWORD: ${SEED_REVIEWER_PASSWORD:-ChangeMe-Reviewer-2026!}
+      DANANGMAP_GATE_B_PUBLISHER_LOGIN: publisher
+      DANANGMAP_GATE_B_PUBLISHER_PASSWORD: ${SEED_PUBLISHER_PASSWORD:-ChangeMe-Publisher-2026!}
+      DANANGMAP_GATE_B_TOTP_SECRET: ${SEED_MFA_SECRET:-JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP}
+      DANANGMAP_GATE_B_LAYER_SLUG: cross-stack-publication
+      DANANGMAP_GATE_B_BASE_GENERATION: '1'
+      DANANGMAP_GATE_B_BASE_FEATURE_NAME: Điểm nền Gate B
+      DANANGMAP_GATE_B_IMPORTED_FEATURE_NAME: Điểm nhập Gate B
+      DANANGMAP_GATE_B_PRIVATE_FIELD_KEY: internal_note
+      DANANGMAP_GATE_B_PRIVATE_VALUE: Gate B private value
     command:
       ['npx', 'playwright', 'test', '--config=playwright.real.config.ts', '--project=real-stack']
     volumes:

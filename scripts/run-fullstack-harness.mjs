@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const pinnedFrontendSha = 'b1e313d4f113d290ef82387ed2c632a5e7b88f05';
+const pinnedFrontendSha = '323eb4eb5c9e03205e5048791b44d9bad3e113d0';
 const frontendContext = resolve(process.env.DANANGMAP_FRONTEND_CONTEXT ?? '../danangmap-frontend');
 const frontendSha = git(['-C', frontendContext, 'rev-parse', 'HEAD']).trim();
 const expectedSha = process.env.DANANGMAP_FRONTEND_SHA?.trim();
@@ -149,7 +149,7 @@ async function assertNoRouteMocks(directory) {
   const files = await sourceFiles(directory);
   if (files.length === 0) throw new Error(`No real-stack browser tests found under ${directory}`);
   const forbidden = [
-    { pattern: /\b(?:page|context)\s*\.\s*route\s*\(/u, label: 'page/context.route' },
+    { pattern: /\b[$\p{ID_Start}_][$\p{ID_Continue}_]*\s*\.\s*route\s*\(/u, label: '*.route' },
     { pattern: /\broute\s*\.\s*(?:fulfill|abort|fallback)\s*\(/u, label: 'route response mock' },
   ];
   const violations = [];

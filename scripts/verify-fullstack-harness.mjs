@@ -30,6 +30,10 @@ const catalogBody = await catalog.json();
 if (!catalogBody?.data?.some((layer) => layer?.slug === 'schools')) {
   throw new Error('Seeded public catalog is unavailable to the full-stack harness');
 }
+const fixtureSlug = process.env.CROSSSTACK_PUBLICATION_LAYER_SLUG;
+if (fixtureSlug && !catalogBody?.data?.some((layer) => layer?.slug === fixtureSlug)) {
+  throw new Error('Cross-stack publication fixture is unavailable to the full-stack harness');
+}
 
 console.log(
   JSON.stringify({

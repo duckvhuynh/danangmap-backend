@@ -25,6 +25,8 @@ services:
     extends:
       file: compose.yml
       service: seed
+    environment:
+      SEED_CROSSSTACK_FIXTURES: 'true'
 
   api:
     extends:

@@ -20,6 +20,12 @@ const ids = {
   boundaryVersion: '50000000-0000-4000-8000-000000000002',
   schoolSnapshot: '60000000-0000-4000-8000-000000000001',
   boundarySnapshot: '60000000-0000-4000-8000-000000000002',
+  workflowLayer: '20000000-0000-4000-8000-000000000003',
+  workflowPublishedRevision: '30000000-0000-4000-8000-000000000003',
+  workflowDraftRevision: '30000000-0000-4000-8000-000000000004',
+  workflowFeature: '40000000-0000-4000-8000-000000000003',
+  workflowVersion: '50000000-0000-4000-8000-000000000003',
+  workflowSnapshot: '60000000-0000-4000-8000-000000000003',
 } as const;
 
 const schoolGeometry = { type: 'Point', coordinates: [108.24620601721108, 16.047487976029515] };
@@ -42,6 +48,7 @@ const boundaryGeometry = {
     ],
   ],
 };
+const workflowGeometry = { type: 'Point', coordinates: [108.215, 16.072] };
 
 function encrypted(value: string): string {
   const key = createHash('sha256')
@@ -266,6 +273,128 @@ async function seedCatalog(): Promise<void> {
      VALUES($1,$2,now()),($3,$4,now())
      ON CONFLICT(layer_id) DO UPDATE SET active_snapshot_id=EXCLUDED.active_snapshot_id,pointer_updated_at=now()`,
     [ids.schoolLayer, ids.schoolSnapshot, ids.boundaryLayer, ids.boundarySnapshot],
+  );
+
+  if (process.env.SEED_CROSSSTACK_FIXTURES === 'true') {
+    await seedCrossStackPublicationFixture();
+  }
+}
+
+async function seedCrossStackPublicationFixture(): Promise<void> {
+  await AppDataSource.query(
+    `INSERT INTO layers(id,slug,group_id,display_order,created_by)
+     VALUES($1,'cross-stack-publication',$2,90,$3)
+     ON CONFLICT(id) DO NOTHING`,
+    [ids.workflowLayer, ids.groupEducation, ids.editor],
+  );
+  await AppDataSource.query(
+    `
+      INSERT INTO layer_revisions(
+        id,layer_id,revision_no,status,title,description,geometry_mode,allowed_geometry_kinds,
+        style,render_config,popup_config,schema_version,lock_version,cursor_seq,created_by,
+        submitted_at,approved_at,published_at,supersedes_revision_id
+      ) VALUES
+        ($1,$2,1,'published','Điểm kiểm thử công bố','Baseline công khai chỉ dành cho cross-stack E2E.',
+         'point',ARRAY['point'],'{"point":{"color":"#1A73E8","radius":7,"cluster":false}}',
+         '{"minZoom":8,"maxZoom":18,"cluster":false,"sourcePolicy":"geojson"}',
+         '{"titleField":"name","fieldKeys":["name","address"],"showCoordinates":false}',
+         1,1,0,$3,now(),now(),now(),NULL),
+        ($4,$2,2,'draft','Điểm kiểm thử công bố','Draft xác định cho Editor → Reviewer → Publisher E2E.',
+         'point',ARRAY['point'],'{"point":{"color":"#1A73E8","radius":7,"cluster":false}}',
+         '{"minZoom":8,"maxZoom":18,"cluster":false,"sourcePolicy":"geojson"}',
+         '{"titleField":"name","fieldKeys":["name","address"],"showCoordinates":false}',
+         1,1,0,$3,NULL,NULL,NULL,$1)
+      ON CONFLICT(id) DO NOTHING
+    `,
+    [ids.workflowPublishedRevision, ids.workflowLayer, ids.editor, ids.workflowDraftRevision],
+  );
+  await AppDataSource.query(
+    `
+      INSERT INTO layer_fields(
+        revision_id,key,label,type,icon,required,public,searchable,filterable,sortable,display_order
+      ) VALUES
+        ($1,'name','Tên điểm','text','map-pin',true,true,true,false,true,10),
+        ($1,'address','Địa chỉ','address','map-pin',false,true,true,false,false,20),
+        ($1,'internal_note','Ghi chú nội bộ','long_text','note',false,false,false,false,false,30),
+        ($2,'name','Tên điểm','text','map-pin',true,true,true,false,true,10),
+        ($2,'address','Địa chỉ','address','map-pin',false,true,true,false,false,20),
+        ($2,'internal_note','Ghi chú nội bộ','long_text','note',false,false,false,false,false,30)
+      ON CONFLICT(revision_id,key) DO NOTHING
+    `,
+    [ids.workflowPublishedRevision, ids.workflowDraftRevision],
+  );
+  const properties = {
+    name: 'Điểm nền Gate B',
+    address: 'Trung tâm hành chính Đà Nẵng',
+    internal_note: 'Baseline private field must never be public',
+  };
+  await AppDataSource.query(
+    `INSERT INTO features(id,layer_id,external_source,external_id)
+     VALUES($1,$2,'cross-stack-seed','baseline-1')
+     ON CONFLICT(id) DO NOTHING`,
+    [ids.workflowFeature, ids.workflowLayer],
+  );
+  await AppDataSource.query(
+    `INSERT INTO feature_versions(
+       id,feature_id,revision_id,geometry,geometry_kind,properties,radius_m,checksum,created_by
+     ) VALUES(
+       $1,$2,$3,ST_SetSRID(ST_GeomFromGeoJSON($4),4326),'point',$5::jsonb,NULL,$6,$7
+     ) ON CONFLICT(id) DO NOTHING`,
+    [
+      ids.workflowVersion,
+      ids.workflowFeature,
+      ids.workflowPublishedRevision,
+      JSON.stringify(workflowGeometry),
+      JSON.stringify(properties),
+      checksum({ workflowGeometry, properties }),
+      ids.editor,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO revision_features(revision_id,feature_id,feature_version_id,ordinal)
+     VALUES($1,$3,$4,1),($2,$3,$4,1)
+     ON CONFLICT DO NOTHING`,
+    [
+      ids.workflowPublishedRevision,
+      ids.workflowDraftRevision,
+      ids.workflowFeature,
+      ids.workflowVersion,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO revision_participants(revision_id,user_id,participation_type)
+     VALUES
+       ($1,$3,'edit'),($1,$4,'review'),($1,$5,'publish'),
+       ($2,$3,'edit')
+     ON CONFLICT DO NOTHING`,
+    [
+      ids.workflowPublishedRevision,
+      ids.workflowDraftRevision,
+      ids.editor,
+      ids.reviewer,
+      ids.publisher,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO publication_snapshots(
+       id,layer_id,revision_id,status,generation,feature_count,bounds,checksum,manifest,published_by,published_at
+     ) VALUES(
+       $1,$2,$3,'published',1,1,ARRAY[108.215,16.072,108.215,16.072],$4,
+       '{"sourceKind":"geojson","sourceLayer":"features","crossStackFixture":true}',$5,now()
+     ) ON CONFLICT(id) DO NOTHING`,
+    [
+      ids.workflowSnapshot,
+      ids.workflowLayer,
+      ids.workflowPublishedRevision,
+      checksum(ids.workflowFeature),
+      ids.publisher,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO layer_publications(layer_id,active_snapshot_id,pointer_updated_at)
+     VALUES($1,$2,now())
+     ON CONFLICT(layer_id) DO NOTHING`,
+    [ids.workflowLayer, ids.workflowSnapshot],
   );
 }
 

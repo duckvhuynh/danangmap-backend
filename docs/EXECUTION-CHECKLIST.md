@@ -1,7 +1,7 @@
 # DanangMap v2 — Execution Checklist
 
 > Trạng thái: `ACTIVE`
-> Cập nhật: 2026-08-21
+> Cập nhật: 2026-08-22
 > Phạm vi gần nhất: history/diff/rollback/audit checkpoint trên controlled publication, four-format import, Docker E2E
 > Nguồn yêu cầu: `PRD.md`, `SRS.md`, `API-CONTRACT.md`, `PLANS.md`, `../../danangmap-frontend/docs/DESIGN.md`
 
@@ -24,10 +24,12 @@ Slice đầu tiên chỉ cần fixture Point và Polygon để chứng minh ki�
 | D2 — Design source of truth | `COMPLETE` | `DESIGN.md` đã ghi decision/date/artifact, Tabler Icons, blue tokens, Google Maps-like radius/shadow và trạng thái `SELECTED_READY_TO_SCAFFOLD` |
 | D3 — UI scaffold unlocked | `UNLOCKED` | Selection/source-of-truth gate đạt tại `2d35ec5`; visual QA hoàn tất tại `0899ebd`; commit design phải là ancestor của commit UI đầu tiên |
 | V1 — Published read slice | `IN_PROGRESS` | Backend typed public API/query policy (`7ec3bc7`, `efc1a29`) và frontend pin/consume (`aa0380b`, `3fd3e027`) riêng lẻ xanh; issue #9 đã đóng, còn cross-stack issue #11 chưa đạt |
-| V2 — Controlled publication slice | `IN_PROGRESS` | History checkpoint có OpenAPI 73 operations, unit 47, integration 38, E2E 41; synchronous terminal-only publish + rollback/history/diff/audit có evidence nhưng backend #30/frontend #19 vẫn mở cho durable job progress, attachment diff và browser UI |
-| V3 — Four-format import slice | `IN_PROGRESS` | Backend bốn parser/equivalence đạt tại `bd5013b` + CI `32448008945`; frontend typed wizard pin cùng contract đạt tại `ab806d6`; browser cross-stack/imported-feature publication chưa đạt |
+| V2 — Controlled publication slice | `IN_PROGRESS` | Synchronous history/diff/rollback/audit checkpoint đã được chấp nhận tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040`: OpenAPI 73 operations, unit 67, integration 40, E2E 41 và hai run browser HTTPS fresh-volume 5/5. Backend #30/frontend #19 vẫn mở cho durable BullMQ progress, attachment diff và regression keyboard/screen-reader rõ ràng; không có Mapbox visual QA trong evidence này. |
+| V3 — Four-format import slice | `COMPLETE` | Backend `bd5013b` chứng minh equivalence CSV/XLSX/GeoJSON/KML; frontend typed wizard `ab806d6`; real browser imported-feature submit/approve/publish/public pass hai lần tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040`. |
 
 Frontend gate issue `#1` có đủ evidence để đóng tại `2d35ec5` + `0899ebd`. Backend M0 issue `#1` vẫn mở cho tới khi các exit criteria M0 còn lại trong `PLANS.md` có bằng chứng.
+
+`V3 COMPLETE` chỉ đóng vertical slice IMP-008. Milestone M4 vẫn `IN_PROGRESS` cho attachment quarantine/scan/binding, Geo Service/external partial-failure và các exit criteria còn lại; trạng thái này không đóng issue M4 liên quan.
 
 ## 3. Backlog integrity
 
@@ -130,13 +132,14 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 - [ ] **VS-035 — Frontend:** Review/approve và publish progress surfaces. Mapping: `F-040`, `F-041`, `F-042`.
   - Acceptance: role/action visibility, backend deny state và three-actor happy path rõ; publish desktop-only; checkpoint đồng bộ dùng indeterminate khi POST chạy rồi terminal success/problem, không hiển thị phần trăm giả.
 
-- [ ] **VS-035A — Backend:** Canonical history/diff/rollback/audit checkpoint. Mapping: `B-033`, `B-064`, `Q-005`, `Q-027`; tracking backend `#30`.
-  - Partial evidence: OpenAPI 73 operations; unit 47, integration 38, E2E 41. Chín endpoint canonical, bounded feature-level diff, pointer ETag riêng, role-scoped immutable audit và atomic rollback có test; issue vẫn Open/In Progress.
-  - Acceptance còn lại trước Done: attachment diff từ canonical binding sau backend #29; không dùng JSON properties/empty array thay thế.
+- [x] **VS-035A — Backend:** Canonical synchronous history/diff/rollback/audit checkpoint. Mapping: `B-033`, `B-064`, `Q-005`, `Q-027`; tracking backend `#30`.
+  - Evidence: backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7`; OpenAPI 73 operations; unit 67, integration 40, E2E 41. Chín endpoint canonical, bounded feature-level diff, pointer ETag riêng, role-scoped immutable audit và atomic rollback có test; hai run browser thật ở VS-041 đều pass.
+  - Boundary: attachment diff vẫn explicit `ATTACHMENT_CONTRACT_PENDING` tới khi canonical binding của backend #29 tồn tại; không dùng JSON properties/empty array thay thế. Backend #30 vẫn Open/In Progress cho VS-035B và capability deferred này.
 - [ ] **VS-035B — Backend/Worker:** Durable publication-job progress. Mapping: `B-031`, `B-032`; tracking backend `#30`.
   - Acceptance: committed job row trước work, BullMQ retry/crash recovery idempotent, observable queued/building/failed, measured monotonic progress và final pointer switch nguyên tử. Không đưa vào checkpoint synchronous bằng fake `50%`.
-- [ ] **VS-035C — Frontend:** Real history/diff/rollback/audit UI. Mapping: `F-040..F-044`, `Q-015`; tracking frontend `#19`.
-  - Acceptance: generated client pin đúng artifact; feature cursor/exact-vs-bbox/redacted/unavailable states; indeterminate synchronous publish; pointer-ETag rollback; public ETag/generation revalidation; mobile không publish/rollback.
+- [x] **VS-035C — Frontend:** Real synchronous history/diff/rollback/audit UI checkpoint. Mapping: `F-040..F-044`, `Q-015`; tracking frontend `#19`.
+  - Evidence: frontend `244538488ecb4fd26f910c33d4a499ef23a7d040` pin đúng backend contract; feature cursor/exact-vs-bbox/redacted/unavailable states, indeterminate synchronous publish, pointer-ETag rollback, public ETag/generation revalidation và mobile không publish/rollback pass trong hai run VS-041.
+  - Boundary: frontend #19 vẫn Open/In Progress cho durable async progress UX, attachment diff và regression keyboard/screen-reader rõ ràng; checkpoint này không tuyên bố Mapbox visual QA.
 
 ### 4.5 Four-format import path
 
@@ -154,7 +157,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: `POST /imports/{id}:apply` dùng ETag + idempotency; false-skip commit `0`; true-skip chỉ valid; retry không duplicate; `feature_id` missing match tạo server UUID; wrong-layer/malformed ID thành deterministic issue.
 - [x] **IMP-007 — Frontend:** Wizard tối thiểu upload → mapping → validate/issues → apply. Mapping: `F-036`, `F-037`, `F-038`, phần reconnect/result của `F-039`. Evidence: frontend `ab806d6` pin OpenAPI backend `bd5013b`; api/type/lint, Vitest 51/51, build, desktop CSV Playwright, Docker health 200.
   - Acceptance: bốn format chọn được; XLSX inspection/sheet, CSV encoding/delimiter, geometry/field/mode, hai upsert key, skip-invalid và terminal/error states rõ; UI không tự parse file lớn hoặc lưu binary vào Dexie; ambiguous upload retry giữ cùng request/key.
-- [ ] **IMP-008 — QA/Cross-repo:** Fixture equivalence và UI integration. Mapping: `Q-003`, `Q-004`, `Q-008`, `Q-015`. Partial evidence: backend `bd5013b` chứng minh CSV coordinates/WKT, XLSX, GeoJSON, KML cùng normalized 2 valid + 1 invalid; skip false/true/retry trên PostGIS/Redis/MinIO thật. Frontend `ab806d6` có typed wizard + desktop CSV mocked-contract Playwright; real browser/API publication còn mở.
+- [x] **IMP-008 — QA/Cross-repo:** Fixture equivalence và UI integration. Mapping: `Q-003`, `Q-004`, `Q-008`, `Q-015`. Evidence: backend `bd5013b` chứng minh CSV coordinates/WKT, XLSX, GeoJSON, KML cùng normalized 2 valid + 1 invalid; skip false/true/retry trên PostGIS/Redis/MinIO thật. Frontend `ab806d6` có typed wizard; real browser/API tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040` chứng minh một imported feature đi qua submit/approve/publish/public trong cả hai run fresh-volume.
   - Acceptance: bốn fixture tương đương tạo cùng normalized records/counts trong Docker; UI E2E ít nhất một format; imported record đi tiếp qua submit/approve/publish/public. Tracking: backend issue `#11`.
 
 `cancel` và full report-download vẫn thuộc `B-048`, `B-052`, `F-038`, `F-039` và không được tuyên bố Done từ slice tối thiểu này.
@@ -168,11 +171,12 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 - [ ] **VS-038 — QA/Frontend:** Playwright published read path. Mapping: `Q-011`.
   - Acceptance: `/` direct map, catalog, toggle, Point/Polygon, detail, Street/Light, list, mobile sheet, no URL state.
 - [ ] **VS-039 — QA/Cross-repo:** Playwright controlled publication path. Mapping: `Q-005`, `Q-015`.
-  - Acceptance: three actors pass; self-review/participant-publish/admin-bypass deny; public generation chỉ đổi sau publish success. Draft PR backend `#13` chứng minh backend HTTP path nhưng chưa chạy frontend/browser; tracking: backend issue `#11`.
+  - Partial evidence: exact-SHA browser runs tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040` chứng minh three actors, Editor approve deny và public generation chỉ đổi sau publish success; backend API suite bao phủ participant-publish/System Admin bypass. Còn thiếu assertion browser trực tiếp cho toàn bộ participant-publish/admin-bypass deny trước khi đánh dấu Done; tracking: backend issue `#11`.
 - [ ] **VS-040 — QA/Cross-repo:** Failure-path assertions và artifact capture.
   - Acceptance: PostGIS unavailable readiness fail; API problem envelope; public partial layer failure; publication build fail giữ snapshot; screenshots/traces lưu khi test fail.
-- [ ] **VS-041 — QA/Cross-repo:** Re-run Docker E2E từ môi trường sạch.
-  - Acceptance: hai run liên tiếp pass, seed không duplicate, không dùng volume/data developer, teardown chỉ xóa volume mang project name E2E. Draft PR backend `#13` có hai fresh-volume image/readiness/CORS/catalog smoke runs pin frontend `ab806d6`; browser journeys chưa đạt.
+- [x] **VS-041 — QA/Cross-repo:** Re-run Docker E2E từ môi trường sạch.
+  - Evidence: backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040`; hai run HTTPS fresh-volume liên tiếp pass 5/5 real-stack specs, không route/service mock, seed reset giữa spec và teardown không để lại project container/volume/network.
+  - Local evidence: `artifacts/fullstack/2026-08-21T19-07-31.934Z-244538488ecb-run-1` và `artifacts/fullstack/2026-08-21T19-09-53.800Z-244538488ecb-run-2`. Hai thư mục bị `.gitignore` và không công khai, nhưng dùng ACL kế thừa chứ chưa strict ACL-restricted và chưa có manifest tự ràng buộc SHA/project/spec exit/checksum/residual. Hardening sau phải đưa evidence vào kho bảo vệ và sinh manifest; không hồi tố tuyên bố bằng chứng này là public hoặc cryptographically bound.
 
 Lệnh chuẩn dự kiến sau khi compose được triển khai:
 
@@ -229,7 +233,7 @@ Không đóng milestone issue chỉ từ commit tồn tại. Issue chỉ đượ
 | BLK-05 | Closed at backend `09c4c98` + frontend `3fd3e027`; issue #8 closed | Explicit admin spatial schemas, generic-only drift guard và generated-derived FE models đã có; runtime decoder chỉ còn là trust-boundary defense | Giữ stale-artifact/API checks trong CI; schema mới không quay lại generic-only body |
 | BLK-06 | Closed at backend `efc1a29` + frontend `3fd3e027`; issue #9 closed | Typed public queries, bbox+limit client và >1.000 feature MVT policy đã có test/CI | Paging/cursor chỉ mở lại nếu product chọn hybrid list vượt full-GeoJSON threshold |
 | BLK-07 | Open, backend issue #10 | Login có thể trả `mfaEnrollmentRequired=true` nhưng chưa có `/auth/mfa/enroll` và `/auth/mfa/enroll/confirm` | Backend hoàn tất pre-auth enrollment/recovery-code one-time và Docker HTTP lifecycle; frontend không giả luồng enrollment |
-| BLK-08 | Closed at backend `e62c478` + `d5ca105`; issue #12 closed | Durable DB receipt/request-hash/original-result semantics có domain tests thực: Docker integration 6 suites/18 pass; root verification OpenAPI/typecheck/unit pass; follow-up CI `32445758290` xanh toàn bộ | Giữ receipt replay/concurrency suite trong CI; issue #11 và M4 vẫn mở riêng cho browser cross-stack, UI và bốn format |
+| BLK-08 | Closed at backend `e62c478` + `d5ca105`; issue #12 closed | Durable DB receipt/request-hash/original-result semantics có domain tests thực: Docker integration 6 suites/18 pass; root verification OpenAPI/typecheck/unit pass; follow-up CI `32445758290` xanh toàn bộ | Giữ receipt replay/concurrency suite trong CI; issue #11 và M4 vẫn mở cho browser deny/public-read/failure paths còn lại, attachment và external integration; V3/IMP-008 đã complete riêng |
 | R-01 | Accepted, vẫn phải review M8 | Không có backup PostGIS/MinIO | Không chạy destructive production migration; release sign-off phải nêu giới hạn phục hồi |
 | R-06 | Critical | Draft/private leak | Central projection + automated fixture là gate merge |
 | R-07 | Critical | Workflow bypass | Backend deny matrix là gate merge; ẩn button frontend không đủ |

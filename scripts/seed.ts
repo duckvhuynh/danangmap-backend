@@ -58,7 +58,7 @@ function checksum(value: unknown): string {
 }
 
 async function seedUsers(): Promise<void> {
-  const secret = process.env.SEED_MFA_SECRET ?? 'JBSWY3DPEHPK3PXP';
+  const secret = process.env.SEED_MFA_SECRET ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
   const users = [
     [
       ids.admin,

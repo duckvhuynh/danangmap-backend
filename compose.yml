@@ -25,7 +25,7 @@ x-backend-environment: &backend-environment
   SEED_EDITOR_PASSWORD: ChangeMe-Editor-2026!
   SEED_REVIEWER_PASSWORD: ChangeMe-Reviewer-2026!
   SEED_PUBLISHER_PASSWORD: ChangeMe-Publisher-2026!
-  SEED_MFA_SECRET: JBSWY3DPEHPK3PXP
+  SEED_MFA_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
 
 services:
   postgres:

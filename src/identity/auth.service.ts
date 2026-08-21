@@ -96,7 +96,7 @@ export class AuthService {
       secret,
       token: code.replaceAll(' ', ''),
       epochTolerance: 30,
-    });
+    }).catch(() => ({ valid: false }));
     if (!verification.valid) {
       throw new AppException(401, 'AUTH_MFA_INVALID', 'Mã xác thực không hợp lệ.');
     }

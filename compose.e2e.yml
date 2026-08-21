@@ -37,13 +37,47 @@ services:
   frontend:
     profiles: ['fullstack']
     build:
-      context: ../danangmap-frontend
+      context: ${DANANGMAP_FRONTEND_CONTEXT:-../danangmap-frontend}
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/api/v1
+        NEXT_PUBLIC_API_BASE_URL: ${DANANGMAP_BROWSER_API_BASE_URL:-http://localhost:4000}
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN:-}
+        NEXT_PUBLIC_DANANGMAP_DEMO_MODE: 'false'
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/api/v1
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - '3000:3000'
+      - '${DANANGMAP_FRONTEND_PORT:-3000}:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+
+  fullstack-smoke:
+    profiles: ['fullstack']
+    build:
+      context: .
+      target: test
+    environment:
+      API_BASE_URL: http://api:4000
+      FRONTEND_BASE_URL: http://frontend:3000
+      FRONTEND_PUBLIC_ORIGIN: http://localhost:3000
+    command: ['node', 'scripts/verify-fullstack-harness.mjs']
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_started
+      frontend:
+        condition: service_healthy
+    restart: 'no'

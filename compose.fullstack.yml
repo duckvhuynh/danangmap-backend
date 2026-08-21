@@ -1,0 +1,29 @@
+name: danangmap-fullstack
+
+include:
+  - compose.e2e.yml
+
+services:
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  minio:
+    ports: !reset []
+
+  api:
+    ports: !reset []
+    environment:
+      FRONTEND_ORIGINS: http://frontend:3000,http://localhost:3000
+
+  frontend:
+    ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://api:4000
+
+  fullstack-smoke:
+    environment:
+      FRONTEND_PUBLIC_ORIGIN: http://frontend:3000

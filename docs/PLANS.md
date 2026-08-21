@@ -60,7 +60,7 @@ flowchart TD
   P --> Q[Production cutover]
 ```
 
-Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Các bước selection/derive/visual QA đã hoàn tất tại `2d35ec5` + `0899ebd`; vị trí hiện tại trên đường găng là UI/backend foundation và vertical slice theo `docs/EXECUTION-CHECKLIST.md`.
+Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Các bước selection/derive/visual QA đã hoàn tất tại `2d35ec5` + `0899ebd`; backend bốn-format import/equivalence đã có local Docker evidence tại `bd5013b` và đang chờ CI `32448008945`. Vị trí hiện tại trên đường găng là frontend import contract pin, three-actor browser cross-stack và các gate còn mở trong `docs/EXECUTION-CHECKLIST.md`.
 
 ## 4. Milestone và exit criteria
 
@@ -69,12 +69,14 @@ flowchart TD
 | M0 — Baseline & design decision | PRD/SRS/API/DESIGN/PLAN, ADR, 3 assets, chọn option, derive admin/mobile | Tài liệu baseline được duyệt; `C-016` done; không còn quyết định P0 mở |
 | M1 — Foundation | Repo tooling, Docker, PostGIS, Redis worker, MinIO, CI, health, branch protection | Fresh Docker stack khởi động; migrations chạy; `C-017` và required checks hoạt động |
 | M2 — Identity & spatial core | Account/MFA/session/RBAC, layer/schema/feature/version/geometry | CRUD + allow/deny integration tests xanh; geometry fixtures hợp lệ |
-| M3 — Workflow & publication | Draft, review, approve, publish, rollback, audit, public projection | Separation-of-duties deny tests xanh; publish atomic; private/draft leak = 0 |
-| M4 — Import, attachment & external search | 4 parsers, import guardrails, quarantine/scan/binding, MinIO, Geo Service adapter | Boundary suite 25 MiB/record/vertex/XLSX/property/report; atomic/skip-invalid; attachment clean-only; partial external failure đạt |
-| M5 — Public map | Full map, street/light, GeoJSON/MVT, layers/renderers/search/detail/list/mobile | Public Playwright desktop/mobile và accessibility checks xanh |
+| M3 — Workflow & publication | Draft, review, approve, publish, rollback, audit, public projection | Separation-of-duties deny tests xanh; publish atomic; durable idempotency replay/concurrency trả original result; private/draft leak = 0; circle giữ canonical `Point + radiusM` qua mutation/public projection và MVT sinh polygon theo bán kính mét |
+| M4 — Import, attachment & external search | 4 parsers, import guardrails, quarantine/scan/binding, MinIO, Geo Service adapter | Boundary suite 25 MiB/record/vertex/XLSX/property/report; atomic/skip-invalid; import apply idempotency dùng durable receipt/hash; attachment clean-only; partial external failure đạt |
+| M5 — Public map | Full map, street/light, GeoJSON/MVT, layers/renderers/search/detail/list/mobile | Public Playwright desktop/mobile và accessibility checks xanh; circle hiển thị theo bán kính mét bằng polygonal representation, không dùng marker bán kính pixel cố định |
 | M6 — Admin application | User/layer/schema/editor/Dexie/import/review/publish UI | Desktop authoring + crash recovery + mobile review E2E xanh |
 | M7 — V1 migration | Manifest, transforms, rehearsals, reconciliation | Count/checksum/geometry report và product-owner sign-off |
 | M8 — Hardening & release | Performance/security, Coolify staging, runbooks, cutover | Go/no-go signed; smoke xanh; accepted no-backup risk được ghi nhận |
+
+`bd5013b` chỉ đóng sub-gate backend parser/mapping/apply/equivalence và upload replay của M4. M4 vẫn `In Progress` cho frontend wizard/cross-stack, attachment quarantine/scan/binding, Geo Service/external partial-failure và toàn bộ exit criteria còn lại; CI `32448008945` phải xanh trước khi coi evidence backend đã ổn định.
 
 ## 5. Issue-ready backlog
 

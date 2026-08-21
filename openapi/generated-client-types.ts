@@ -936,7 +936,10 @@ export interface operations {
                             mustChangePassword: boolean;
                         }[];
                         meta: {
-                            [key: string]: unknown;
+                            requestId: string;
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
                         };
                     };
                 };
@@ -946,7 +949,10 @@ export interface operations {
     createUser: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -963,7 +969,28 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            username: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            status: string;
+                            mfaEnabled: boolean;
+                            mustChangePassword: boolean;
+                        } | {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            /** @enum {string} */
+                            status: "pending";
+                            /** Format: date-time */
+                            expiresAt: string;
                         };
                         meta: {
                             requestId: string;
@@ -976,7 +1003,10 @@ export interface operations {
     createInvite: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -986,14 +1016,23 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            /** @enum {string} */
+                            status: "pending";
+                            /** Format: date-time */
+                            expiresAt: string;
                         };
                         meta: {
                             requestId: string;

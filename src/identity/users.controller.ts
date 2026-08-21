@@ -1,11 +1,13 @@
-import { Body, Controller, Get, Headers, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AppException } from '../common/http/app.exception';
+import { Body, Controller, Get, Headers, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestWithContext } from '../common/http/request-context';
+import { requireIdempotencyKey } from '../layers/etag';
 import {
   apiJsonResponse,
   authPrincipalSchema,
-  genericObjectSchema,
+  inviteResultSchema,
+  userCreationResultSchema,
+  userListMetaSchema,
 } from '../common/openapi/response-schemas';
 import { Principal, Roles } from './auth.decorators';
 import { CreateInviteDto, CreateUserDto } from './auth.dto';
@@ -22,7 +24,7 @@ export class UsersController {
   @Get('users')
   @Roles('system_admin')
   @ApiOperation({ operationId: 'listUsers' })
-  @apiJsonResponse(200, { type: 'array', items: authPrincipalSchema }, genericObjectSchema)
+  @apiJsonResponse(200, { type: 'array', items: authPrincipalSchema }, userListMetaSchema)
   async listUsers() {
     return {
       data: await this.auth.listUsers(),
@@ -33,30 +35,43 @@ export class UsersController {
   @Post('users')
   @Roles('system_admin')
   @UseGuards(CsrfGuard)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createUser' })
-  @apiJsonResponse(201, genericObjectSchema)
+  @apiJsonResponse(201, userCreationResultSchema)
   async createUser(
     @Body() dto: CreateUserDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: RequestWithContext,
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
-    return this.auth.createUser(dto, principal.id, principal.role, request.requestId);
+    const key = requireIdempotencyKey(idempotencyKey);
+    return this.auth.createUser(dto, principal.id, principal.role, request.requestId, key);
   }
 
   @Post('invites')
+  @HttpCode(202)
   @Roles('system_admin')
   @UseGuards(CsrfGuard)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createInvite' })
-  @apiJsonResponse(201, genericObjectSchema)
+  @apiJsonResponse(202, inviteResultSchema)
   async createInvite(
     @Body() dto: CreateInviteDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: RequestWithContext,
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
-    if (!idempotencyKey) {
-      throw new AppException(428, 'IDEMPOTENCY_KEY_REQUIRED', 'Thiếu Idempotency-Key.');
-    }
-    return this.auth.createInvite(dto, principal.id, principal.role, request.requestId);
+    const key = requireIdempotencyKey(idempotencyKey);
+    return this.auth.createInvite(dto, principal.id, principal.role, request.requestId, key);
   }
 }

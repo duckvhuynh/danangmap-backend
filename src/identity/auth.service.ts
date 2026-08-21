@@ -3,10 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import argon2 from 'argon2';
 import { verify } from 'otplib';
-import { IsNull, Repository } from 'typeorm';
+import { DataSource, type EntityManager, IsNull, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
+import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import type { CreateInviteDto, CreateUserDto, LoginDto } from './auth.dto';
 import {
   AdminSessionEntity,
@@ -31,6 +32,8 @@ export class AuthService {
     private readonly crypto: CryptoService,
     private readonly audit: AuditService,
     private readonly config: ConfigService,
+    private readonly dataSource: DataSource,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
   async login(dto: LoginDto, metadata: RequestMetadata) {
@@ -155,14 +158,86 @@ export class AuthService {
     return users.map((user) => this.toPrincipal(user));
   }
 
-  async createUser(dto: CreateUserDto, actorId: string, actorRole: string, requestId: string) {
+  async createUser(
+    dto: CreateUserDto,
+    actorId: string,
+    actorRole: string,
+    requestId: string,
+    idempotencyKey: string,
+  ) {
     if (dto.delivery === 'manual' && !dto.temporaryPassword) {
       throw new AppException(422, 'VALIDATION_FAILED', 'Mật khẩu tạm là bắt buộc.');
     }
-    if (dto.delivery === 'invite') {
-      return this.createInvite({ ...dto, expiresInHours: 72 }, actorId, actorRole, requestId);
-    }
-    const user = await this.users.save({
+    const requestDigest = this.idempotency.digest({ dto });
+    return this.dataSource.transaction(async (manager) => {
+      const claim = await this.idempotency.claim<Record<string, unknown>>(
+        manager,
+        actorId,
+        'user.create',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!claim.owner) return this.replayed(claim.response);
+      const response =
+        dto.delivery === 'invite'
+          ? await this.createInviteRecord(
+              manager,
+              { ...dto, expiresInHours: 72 },
+              actorId,
+              actorRole,
+              requestId,
+            )
+          : await this.createManualUser(manager, dto, actorId, actorRole, requestId);
+      await this.idempotency.complete(
+        manager,
+        actorId,
+        'user.create',
+        idempotencyKey,
+        response,
+        201,
+      );
+      return response;
+    });
+  }
+
+  async createInvite(
+    dto: CreateInviteDto,
+    actorId: string,
+    actorRole: string,
+    requestId: string,
+    idempotencyKey: string,
+  ) {
+    const requestDigest = this.idempotency.digest({ dto });
+    return this.dataSource.transaction(async (manager) => {
+      const claim = await this.idempotency.claim<Record<string, unknown>>(
+        manager,
+        actorId,
+        'invite.create',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!claim.owner) return this.replayed(claim.response);
+      const response = await this.createInviteRecord(manager, dto, actorId, actorRole, requestId);
+      await this.idempotency.complete(
+        manager,
+        actorId,
+        'invite.create',
+        idempotencyKey,
+        response,
+        202,
+      );
+      return response;
+    });
+  }
+
+  private async createManualUser(
+    manager: EntityManager,
+    dto: CreateUserDto,
+    actorId: string,
+    actorRole: string,
+    requestId: string,
+  ) {
+    const user = await manager.save(UserEntity, {
       email: dto.email.trim(),
       emailNormalized: dto.email.trim().toLowerCase(),
       username: dto.username.trim(),
@@ -178,30 +253,57 @@ export class AuthService {
       lockedUntil: null,
       disabledAt: null,
     });
-    await this.audit.append({
+    await this.insertAudit(
+      manager,
       actorId,
       actorRole,
-      action: 'user.created_manual',
-      resourceType: 'user',
-      resourceId: user.id,
       requestId,
-      metadata: { assignedRole: dto.role },
-    });
+      'user.created_manual',
+      'user',
+      user.id,
+      {
+        assignedRole: dto.role,
+      },
+    );
     return this.toPrincipal(user);
   }
 
-  async createInvite(dto: CreateInviteDto, actorId: string, actorRole: string, requestId: string) {
-    const idempotencyProbe = await this.invites.findOne({
-      where: { email: dto.email.trim().toLowerCase(), usedAt: IsNull(), revokedAt: IsNull() },
+  private async createInviteRecord(
+    manager: EntityManager,
+    dto: CreateInviteDto,
+    actorId: string,
+    actorRole: string,
+    requestId: string,
+  ) {
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+      `invite:${normalizedEmail}`,
+    ]);
+    const idempotencyProbe = await manager.findOne(InviteEntity, {
+      where: { email: normalizedEmail, usedAt: IsNull(), revokedAt: IsNull() },
       order: { createdAt: 'DESC' },
     });
     if (idempotencyProbe?.expiresAt && idempotencyProbe.expiresAt > new Date()) {
+      if (
+        idempotencyProbe.username !== dto.username.trim().toLowerCase() ||
+        idempotencyProbe.displayName !== dto.displayName.trim() ||
+        idempotencyProbe.role !== dto.role
+      ) {
+        throw new AppException(
+          409,
+          'INVITE_ACTIVE_CONFLICT',
+          'Email đã có lời mời đang hoạt động với thông tin khác.',
+        );
+      }
       return this.inviteResponse(idempotencyProbe);
+    }
+    if (idempotencyProbe) {
+      await manager.update(InviteEntity, idempotencyProbe.id, { revokedAt: new Date() });
     }
     const token = this.crypto.randomToken();
     const expiresAt = new Date(Date.now() + dto.expiresInHours * 60 * 60_000);
-    const invite = await this.invites.save({
-      email: dto.email.trim().toLowerCase(),
+    const invite = await manager.save(InviteEntity, {
+      email: normalizedEmail,
       username: dto.username.trim().toLowerCase(),
       displayName: dto.displayName.trim(),
       role: dto.role,
@@ -211,7 +313,7 @@ export class AuthService {
       usedAt: null,
       revokedAt: null,
     });
-    await this.mailOutbox.insert({
+    await manager.insert(MailOutboxEntity, {
       templateKey: 'identity.invite',
       recipientEmail: invite.email,
       payloadEncrypted: this.crypto.encrypt(JSON.stringify({ inviteId: invite.id, token })),
@@ -220,16 +322,41 @@ export class AuthService {
       nextAttemptAt: new Date(),
       correlationId: requestId,
     });
-    await this.audit.append({
+    await this.insertAudit(
+      manager,
       actorId,
       actorRole,
-      action: 'invite.created',
-      resourceType: 'invite',
-      resourceId: invite.id,
       requestId,
-      metadata: { assignedRole: dto.role },
-    });
+      'invite.created',
+      'invite',
+      invite.id,
+      {
+        assignedRole: dto.role,
+      },
+    );
     return this.inviteResponse(invite);
+  }
+
+  private async insertAudit(
+    manager: EntityManager,
+    actorId: string,
+    actorRole: string,
+    requestId: string,
+    action: string,
+    resourceType: string,
+    resourceId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    await manager.query(
+      `INSERT INTO audit_logs(actor_id,actor_role,action,resource_type,resource_id,request_id,metadata)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)`,
+      [actorId, actorRole, action, resourceType, resourceId, requestId, JSON.stringify(metadata)],
+    );
+  }
+
+  private replayed<T>(response: T | null): T {
+    if (response) return response;
+    throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
   }
 
   private async recordFailedLogin(user: UserEntity): Promise<void> {

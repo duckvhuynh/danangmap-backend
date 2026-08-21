@@ -93,7 +93,12 @@ export class LayersController {
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
     requireIdempotencyKey(idempotencyKey);
-    const result = await this.layers.createLayer(dto, principal, request.requestId);
+    const result = await this.layers.createLayer(
+      dto,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
     response.setHeader('ETag', result.etag);
     return { layer: result.layer, draftRevision: result.draftRevision };
   }
@@ -161,6 +166,7 @@ export class LayersController {
       ifMatch,
       principal,
       request.requestId,
+      idempotencyKey!,
     );
     response.setHeader('ETag', result.etag);
     return { feature: result.feature, serverCursor: result.serverCursor };

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Queue } from 'bullmq';
 import { Client } from 'minio';
 import { AppException } from '../src/common/http/app.exception';
+import { IdempotencyService } from '../src/common/idempotency/idempotency.service';
 import AppDataSource from '../src/database/data-source';
 import type { ImportFileInspector } from '../src/imports/import-file.inspector';
 import { ImportJobEntity } from '../src/imports/import.entity';
@@ -102,6 +103,7 @@ describe('GeoJSON import validation and atomic apply', () => {
       AppDataSource,
       {} as StorageService,
       {} as ImportFileInspector,
+      new IdempotencyService(),
     );
     await minio.putObject('danangmap', objectKey, payload, payload.byteLength, {
       'Content-Type': 'application/geo+json',
@@ -168,6 +170,11 @@ describe('GeoJSON import validation and atomic apply', () => {
         .catch(() => undefined),
     ]);
     if (AppDataSource.isInitialized) {
+      await AppDataSource.query(
+        `DELETE FROM command_receipts
+         WHERE actor_id=$1 AND operation='import.apply' AND idempotency_key=$2`,
+        [editorId, applyKey],
+      );
       await AppDataSource.query('DELETE FROM import_jobs WHERE id=ANY($1::uuid[])', [
         [importId, emptyReplaceImportId],
       ]);

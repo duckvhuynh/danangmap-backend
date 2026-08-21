@@ -50,7 +50,7 @@ export class WorkflowController {
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
     requireIdempotencyKey(key);
-    return this.workflow.submit(revisionId, dto, principal, request.requestId);
+    return this.workflow.submit(revisionId, dto, principal, request.requestId, key!);
   }
 
   @Post('revisions/:revisionId\\:approve')
@@ -71,7 +71,7 @@ export class WorkflowController {
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
     requireIdempotencyKey(key);
-    return this.workflow.approve(revisionId, dto, principal, request.requestId);
+    return this.workflow.approve(revisionId, dto, principal, request.requestId, key!);
   }
 
   @Post('revisions/:revisionId\\:request-changes')
@@ -92,7 +92,7 @@ export class WorkflowController {
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
     requireIdempotencyKey(key);
-    return this.workflow.requestChanges(revisionId, dto, principal, request.requestId);
+    return this.workflow.requestChanges(revisionId, dto, principal, request.requestId, key!);
   }
 
   @Post('revisions/:revisionId\\:publish')
@@ -114,7 +114,7 @@ export class WorkflowController {
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
     requireIdempotencyKey(key);
-    return this.workflow.publish(revisionId, dto, principal, request.requestId);
+    return this.workflow.publish(revisionId, dto, principal, request.requestId, key!);
   }
 
   @Post('layers/:layerId\\:rollback')
@@ -135,6 +135,6 @@ export class WorkflowController {
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
     requireIdempotencyKey(key);
-    return this.workflow.rollback(layerId, dto, principal, request.requestId);
+    return this.workflow.rollback(layerId, dto, principal, request.requestId, key!);
   }
 }

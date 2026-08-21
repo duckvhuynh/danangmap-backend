@@ -4,6 +4,7 @@ import { DataSource, IsNull, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
+import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import type { GeometryKind } from '../domain/enums';
 import type {
   CreateLayerDto,
@@ -55,6 +56,7 @@ export class LayersService {
     private readonly schema: LayerSchemaService,
     private readonly crypto: CryptoService,
     private readonly audit: AuditService,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
   async listGroups() {
@@ -99,14 +101,24 @@ export class LayersService {
     return rows as unknown[];
   }
 
-  async createLayer(dto: CreateLayerDto, actor: Actor, requestId: string) {
+  async createLayer(dto: CreateLayerDto, actor: Actor, requestId: string, idempotencyKey: string) {
     this.schema.validateLayer(
       dto.geometryMode,
       dto.allowedGeometryKinds,
       dto.fields,
       dto.popupConfig,
     );
+    const requestDigest = this.idempotency.digest({ dto });
     return this.dataSource.transaction(async (manager) => {
+      const receipt = await this.idempotency.claim<{
+        layer: LayerEntity;
+        draftRevision: LayerRevisionEntity;
+        etag: string;
+      }>(manager, actor.id, 'layer.create', idempotencyKey, requestDigest);
+      if (!receipt.owner) {
+        if (receipt.response) return receipt.response;
+        throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
+      }
       if (dto.groupId) {
         const group = await manager.findOneBy(LayerGroupEntity, {
           id: dto.groupId,
@@ -170,16 +182,20 @@ export class LayersService {
         userId: actor.id,
         participationType: 'edit',
       });
-      await manager.insert('audit_logs', {
-        actor_id: actor.id,
-        actor_role: actor.role,
-        action: 'layer.created',
-        resource_type: 'layer',
-        resource_id: layer.id,
-        request_id: requestId,
-        metadata: JSON.stringify({ revisionId: revision.id }),
+      await this.insertAudit(manager, actor, requestId, 'layer.created', 'layer', layer.id, {
+        revisionId: revision.id,
       });
-      return { layer, draftRevision: revision, etag: revisionEtag(revision.id, 1) };
+      const response = { layer, draftRevision: revision, etag: revisionEtag(revision.id, 1) };
+      await this.idempotency.complete(
+        manager,
+        actor.id,
+        'layer.create',
+        idempotencyKey,
+        response,
+        201,
+        response.etag,
+      );
+      return response;
     });
   }
 
@@ -253,19 +269,35 @@ export class LayersService {
     ifMatch: string | undefined,
     actor: Actor,
     requestId: string,
+    idempotencyKey: string,
   ) {
     const expectedVersion = requireRevisionVersion(ifMatch, revisionId);
-    const context = await this.getEditableContext(revisionId);
-    this.assertGeometryAllowed(context.revision.allowedGeometryKinds, dto.geometryKind);
-    await this.geometry.validate(dto.geometry, dto.geometryKind, dto.radiusM);
-    this.schema.validateProperties(context.fields as unknown as LayerFieldDto[], dto.properties);
-    this.assertExternalIdentity(dto.externalSource, dto.externalId);
+    const requestDigest = this.idempotency.digest({ revisionId, dto, ifMatch });
     return this.dataSource.transaction(async (manager) => {
+      const receipt = await this.idempotency.claim<{
+        feature: Record<string, unknown>;
+        serverCursor: string;
+        etag: string;
+      }>(manager, actor.id, 'feature.create', idempotencyKey, requestDigest);
+      if (!receipt.owner) {
+        if (receipt.response) return receipt.response;
+        throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
+      }
+      const revision = await manager.findOneBy(LayerRevisionEntity, { id: revisionId });
+      if (!revision) throw new AppException(404, 'NOT_FOUND', 'Không tìm thấy revision.');
+      if (revision.status !== 'draft') {
+        throw new AppException(409, 'REVISION_NOT_EDITABLE', 'Revision không ở trạng thái draft.');
+      }
+      const fields = await manager.findBy(LayerFieldEntity, { revisionId });
+      this.assertGeometryAllowed(revision.allowedGeometryKinds, dto.geometryKind);
+      await this.geometry.validate(dto.geometry, dto.geometryKind, dto.radiusM);
+      this.schema.validateProperties(fields as unknown as LayerFieldDto[], dto.properties);
+      this.assertExternalIdentity(dto.externalSource, dto.externalId);
       const locked = await this.lockRevision(manager, revisionId, expectedVersion);
       const featureRows = (await manager.query(
         `INSERT INTO features(layer_id, external_source, external_id)
          VALUES ($1,$2,$3) RETURNING id`,
-        [context.revision.layerId, dto.externalSource ?? null, dto.externalId ?? null],
+        [revision.layerId, dto.externalSource ?? null, dto.externalId ?? null],
       )) as Array<{ id: string }>;
       const featureId = featureRows[0]!.id;
       const checksum = this.featureChecksum(dto.geometry, dto.properties, dto.radiusM);
@@ -314,7 +346,7 @@ export class LayersService {
       await this.insertAudit(manager, actor, requestId, 'feature.created', 'feature', featureId, {
         revisionId,
       });
-      return {
+      const response = {
         feature: {
           type: 'Feature',
           id: featureId,
@@ -333,6 +365,16 @@ export class LayersService {
         serverCursor: Buffer.from(String(locked.cursorSeq)).toString('base64url'),
         etag: revisionEtag(revisionId, locked.lockVersion),
       };
+      await this.idempotency.complete(
+        manager,
+        actor.id,
+        'feature.create',
+        idempotencyKey,
+        response,
+        201,
+        response.etag,
+      );
+      return response;
     });
   }
 

@@ -6,6 +6,7 @@ import { basename } from 'node:path';
 import type { Queue } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { AppException } from '../common/http/app.exception';
+import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import type { RequestWithContext } from '../common/http/request-context';
 import {
   IMPORT_APPLY_JOB,
@@ -31,6 +32,7 @@ export class ImportsService {
     private readonly dataSource: DataSource,
     private readonly storage: StorageService,
     private readonly inspector: ImportFileInspector,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
   async create(
@@ -319,16 +321,32 @@ export class ImportsService {
       ifMatch,
       (await this.ownedJob(id, actor)).revisionId,
     );
-    const requestDigest = createHash('sha256')
-      .update(
-        JSON.stringify({
-          expectedVersion,
-          skipInvalid: dto.skipInvalid,
-          acknowledgedWarningCodes: [...dto.acknowledgedWarningCodes].sort(),
-        }),
-      )
-      .digest('hex');
+    const requestDigest = this.idempotency.digest({
+      id,
+      expectedVersion,
+      dto: {
+        ...dto,
+        acknowledgedWarningCodes: [...dto.acknowledgedWarningCodes].sort(),
+      },
+    });
     const transition = await this.dataSource.transaction(async (manager) => {
+      const receipt = await this.idempotency.claim<ReturnType<ImportsService['response']>>(
+        manager,
+        actor.id,
+        'import.apply',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!receipt.owner && !receipt.pending) {
+        if (!receipt.response) {
+          throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
+        }
+        return {
+          response: receipt.response,
+          shouldEnqueue: false,
+          shouldComplete: false,
+        };
+      }
       const job = await manager
         .getRepository(ImportJobEntity)
         .createQueryBuilder('job')
@@ -346,7 +364,18 @@ export class ImportsService {
           priorApply?.idempotencyKey === idempotencyKey &&
           priorApply.requestDigest === requestDigest
         ) {
-          return { job, shouldEnqueue: false };
+          const response = receipt.response ?? this.response(job);
+          if (receipt.owner) {
+            await this.idempotency.prepare(
+              manager,
+              actor.id,
+              'import.apply',
+              idempotencyKey,
+              response,
+              202,
+            );
+          }
+          return { response, shouldEnqueue: true, shouldComplete: true };
         }
         throw new AppException(
           409,
@@ -399,26 +428,43 @@ export class ImportsService {
       job.status = 'applying';
       job.progress = 0;
       job.failureCode = null;
-      return { job: await manager.save(ImportJobEntity, job), shouldEnqueue: true };
+      const saved = await manager.save(ImportJobEntity, job);
+      const response = this.response(saved);
+      await this.idempotency.prepare(
+        manager,
+        actor.id,
+        'import.apply',
+        idempotencyKey,
+        response,
+        202,
+      );
+      return { response, shouldEnqueue: true, shouldComplete: true };
     });
     if (transition.shouldEnqueue) {
-      try {
-        await this.queue.add(
-          IMPORT_APPLY_JOB,
-          { importId: id },
-          {
-            jobId: `apply-${id}-${idempotencyKey}`,
-            attempts: 1,
-            removeOnComplete: 1000,
-            removeOnFail: 5000,
-          },
-        );
-      } catch (error) {
-        await this.jobs.update(id, { status: 'ready', progress: 100 });
-        throw error;
-      }
+      await this.queue.add(
+        IMPORT_APPLY_JOB,
+        { importId: id },
+        {
+          jobId: `apply-${id}-${idempotencyKey}`,
+          attempts: 1,
+          removeOnComplete: 1000,
+          removeOnFail: 5000,
+        },
+      );
     }
-    return this.response(transition.job);
+    if (transition.shouldComplete) {
+      await this.dataSource.transaction((manager) =>
+        this.idempotency.complete(
+          manager,
+          actor.id,
+          'import.apply',
+          idempotencyKey,
+          transition.response,
+          202,
+        ),
+      );
+    }
+    return transition.response;
   }
 
   private response(job: ImportJobEntity) {

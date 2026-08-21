@@ -11,10 +11,12 @@ import { IdentityModule } from './identity/identity.module';
 import { LayersModule } from './layers/layers.module';
 import { PublicApiModule } from './public-api/public-api.module';
 import { ImportsModule } from './imports/imports.module';
+import { IdempotencyModule } from './common/idempotency/idempotency.module';
 
 @Module({
   imports: [
     AppConfigModule,
+    IdempotencyModule,
     DatabaseModule,
     CryptoModule,
     StorageModule,

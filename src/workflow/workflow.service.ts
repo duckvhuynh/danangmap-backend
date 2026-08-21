@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
+import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import type {
   PublishRevisionDto,
   RequestChangesDto,
@@ -38,10 +39,26 @@ export class WorkflowService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly crypto: CryptoService,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
-  async submit(revisionId: string, dto: SubmitRevisionDto, actor: Actor, requestId: string) {
+  async submit(
+    revisionId: string,
+    dto: SubmitRevisionDto,
+    actor: Actor,
+    requestId: string,
+    idempotencyKey: string,
+  ) {
+    const requestDigest = this.idempotency.digest({ revisionId, dto });
     return this.dataSource.transaction(async (manager) => {
+      const receipt = await this.idempotency.claim<{ revisionId: string; status: string }>(
+        manager,
+        actor.id,
+        'revision.submit',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!receipt.owner) return this.replayed(receipt.response);
       const revision = await this.lockRevision(manager, revisionId);
       if (revision.status !== 'draft') this.invalidTransition();
       if (revision.created_by !== actor.id) {
@@ -74,12 +91,36 @@ export class WorkflowService {
         summary: dto.summary,
         reviewerNote: dto.reviewerNote ?? null,
       });
-      return { revisionId, status: 'in_review' };
+      const response = { revisionId, status: 'in_review' };
+      await this.idempotency.complete(
+        manager,
+        actor.id,
+        'revision.submit',
+        idempotencyKey,
+        response,
+        202,
+      );
+      return response;
     });
   }
 
-  async approve(revisionId: string, dto: WorkflowCommentDto, actor: Actor, requestId: string) {
+  async approve(
+    revisionId: string,
+    dto: WorkflowCommentDto,
+    actor: Actor,
+    requestId: string,
+    idempotencyKey: string,
+  ) {
+    const requestDigest = this.idempotency.digest({ revisionId, dto });
     return this.dataSource.transaction(async (manager) => {
+      const receipt = await this.idempotency.claim<{ revisionId: string; status: string }>(
+        manager,
+        actor.id,
+        'revision.approve',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!receipt.owner) return this.replayed(receipt.response);
       const revision = await this.lockRevision(manager, revisionId);
       if (revision.status !== 'in_review') this.invalidTransition();
       await this.assertCanReview(manager, revision, actor.id);
@@ -96,7 +137,16 @@ export class WorkflowService {
       await this.audit(manager, actor, requestId, 'revision.approved', revisionId, {
         comment: dto.comment ?? null,
       });
-      return { revisionId, status: 'approved' };
+      const response = { revisionId, status: 'approved' };
+      await this.idempotency.complete(
+        manager,
+        actor.id,
+        'revision.approve',
+        idempotencyKey,
+        response,
+        201,
+      );
+      return response;
     });
   }
 
@@ -105,8 +155,18 @@ export class WorkflowService {
     dto: RequestChangesDto,
     actor: Actor,
     requestId: string,
+    idempotencyKey: string,
   ) {
+    const requestDigest = this.idempotency.digest({ revisionId, dto });
     return this.dataSource.transaction(async (manager) => {
+      const receipt = await this.idempotency.claim<Record<string, unknown>>(
+        manager,
+        actor.id,
+        'revision.request_changes',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!receipt.owner) return this.replayed(receipt.response);
       const revision = await this.lockRevision(manager, revisionId);
       if (revision.status !== 'in_review') this.invalidTransition();
       await this.assertCanReview(manager, revision, actor.id);
@@ -179,7 +239,7 @@ export class WorkflowService {
         comment: dto.comment,
         successorRevisionId: successorId,
       });
-      return {
+      const response = {
         originalRevisionId: revisionId,
         draftRevisionId: successorId,
         supersedesRevisionId: revisionId,
@@ -187,11 +247,36 @@ export class WorkflowService {
         draftStatus: 'draft',
         draftEtag: revisionEtag(successorId, 1),
       };
+      await this.idempotency.complete(
+        manager,
+        actor.id,
+        'revision.request_changes',
+        idempotencyKey,
+        response,
+        201,
+        response.draftEtag,
+      );
+      return response;
     });
   }
 
-  async publish(revisionId: string, dto: PublishRevisionDto, actor: Actor, requestId: string) {
+  async publish(
+    revisionId: string,
+    dto: PublishRevisionDto,
+    actor: Actor,
+    requestId: string,
+    idempotencyKey: string,
+  ) {
+    const requestDigest = this.idempotency.digest({ revisionId, dto });
     return this.dataSource.transaction(async (manager) => {
+      const receipt = await this.idempotency.claim<Record<string, unknown>>(
+        manager,
+        actor.id,
+        'revision.publish',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!receipt.owner) return this.replayed(receipt.response);
       const revision = await this.lockRevision(manager, revisionId);
       if (revision.status !== 'approved') this.invalidTransition();
       if (await this.hasAnyParticipation(manager, revisionId, actor.id, ['edit', 'review'])) {
@@ -273,17 +358,41 @@ export class WorkflowService {
         generation,
         releaseNote: dto.releaseNote,
       });
-      return {
+      const response = {
         publicationId: snapshotId,
         snapshotId,
         generation: Number(generation),
         status: 'completed',
       };
+      await this.idempotency.complete(
+        manager,
+        actor.id,
+        'revision.publish',
+        idempotencyKey,
+        response,
+        202,
+      );
+      return response;
     });
   }
 
-  async rollback(layerId: string, dto: RollbackDto, actor: Actor, requestId: string) {
+  async rollback(
+    layerId: string,
+    dto: RollbackDto,
+    actor: Actor,
+    requestId: string,
+    idempotencyKey: string,
+  ) {
+    const requestDigest = this.idempotency.digest({ layerId, dto });
     return this.dataSource.transaction(async (manager) => {
+      const receipt = await this.idempotency.claim<Record<string, unknown>>(
+        manager,
+        actor.id,
+        'layer.rollback',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!receipt.owner) return this.replayed(receipt.response);
       const targetRows = (await manager.query(
         `SELECT * FROM publication_snapshots WHERE id=$1 AND layer_id=$2 AND status='published' FOR SHARE`,
         [dto.targetSnapshotId, layerId],
@@ -332,7 +441,16 @@ export class WorkflowService {
         activeSnapshotId: snapshotId,
         reason: dto.reason,
       });
-      return { snapshotId, generation: Number(generation), status: 'completed' };
+      const response = { snapshotId, generation: Number(generation), status: 'completed' };
+      await this.idempotency.complete(
+        manager,
+        actor.id,
+        'layer.rollback',
+        idempotencyKey,
+        response,
+        201,
+      );
+      return response;
     });
   }
 
@@ -423,5 +541,10 @@ export class WorkflowService {
       'WORKFLOW_TRANSITION_INVALID',
       'Chuyển trạng thái revision không hợp lệ.',
     );
+  }
+
+  private replayed<T>(response: T | null): T {
+    if (response) return response;
+    throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
   }
 }

@@ -59,6 +59,35 @@ export const authPrincipalSchema: SchemaObject = {
   },
 };
 
+export const inviteResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'email', 'role', 'status', 'expiresAt'],
+  properties: {
+    id: uuid,
+    email: { type: 'string', format: 'email' },
+    role: { type: 'string', enum: ['editor', 'reviewer', 'publisher', 'system_admin'] },
+    status: { type: 'string', enum: ['pending'] },
+    expiresAt: dateTime,
+  },
+};
+
+export const userCreationResultSchema: SchemaObject = {
+  oneOf: [authPrincipalSchema, inviteResultSchema],
+};
+
+export const userListMetaSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['requestId', 'nextCursor', 'hasMore', 'limit'],
+  properties: {
+    requestId: { type: 'string' },
+    nextCursor: nullableString,
+    hasMore: { type: 'boolean' },
+    limit: { type: 'integer', minimum: 1, maximum: 200 },
+  },
+};
+
 export const loginResultSchema: SchemaObject = {
   type: 'object',
   required: ['status', 'mfaEnrollmentRequired', 'challengeExpiresAt'],

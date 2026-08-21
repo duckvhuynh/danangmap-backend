@@ -13,6 +13,9 @@ const rawOperations = new Set([
   'getPublicTile',
 ]);
 const strictlyTypedResponseOperations = new Set([
+  'listUsers',
+  'createUser',
+  'createInvite',
   'listLayerGroups',
   'createLayerGroup',
   'listAdminLayers',
@@ -34,6 +37,14 @@ const strictlyTypedResponseOperations = new Set([
   'rollbackLayer',
 ]);
 const parameterContracts = {
+  createUser: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  createInvite: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
   listPublicFeatures: [
     ['query', 'bbox', false],
     ['query', 'limit', false],

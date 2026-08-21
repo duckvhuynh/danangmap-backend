@@ -7,6 +7,8 @@ Tài liệu này chuyển PRD/SRS/API Contract/Design thành dependency map, mil
 - `duckvhuynh/danangmap-frontend`
 - `duckvhuynh/danangmap-backend`
 
+Checklist thực thi theo task 30–60 phút, vertical slice, Docker E2E và commit checkpoint được duy trì tại `docs/EXECUTION-CHECKLIST.md`. `PLANS.md` vẫn là nguồn dependency/milestone đầy đủ; checklist không thay thế bất kỳ acceptance criteria nào trong backlog 169 ID.
+
 Nguyên tắc:
 
 1. Backend/OpenAPI là contract source of truth; frontend dùng generated typed client và không tự suy đoán response.

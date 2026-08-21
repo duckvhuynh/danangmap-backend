@@ -75,7 +75,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: success/error có request ID; fixture secret/private value không xuất hiện log.
 - [ ] **VS-012 — Backend:** Liveness/readiness và migration-version check. Mapping: `B-006`.
   - Acceptance: liveness không gọi dependency; readiness fail khi DB/Redis/migration chưa sẵn sàng.
-- [ ] **VS-013 — Frontend:** Thiết lập Next.js non-UI tooling. Mapping: `F-001`.
+- [x] **VS-013 — Frontend:** Thiết lập Next.js non-UI tooling. Mapping: `F-001`. Evidence: frontend `fb73d95`.
   - Acceptance: lint, typecheck, unit và production build chạy; task này không tạo production screen trước D3.
 - [ ] **VS-014 — QA/Ops:** Tạo compose E2E skeleton với network, healthcheck và isolated project naming. Mapping: `Q-008`.
   - Acceptance: PostGIS, Redis, MinIO/init, mail capture, scanner/mock placeholders có dependency rõ; volume của developer không được dùng.

@@ -31,6 +31,7 @@ export class LayerEntity {
   @Column({ type: 'text' }) slug: string;
   @Column({ name: 'group_id', type: 'uuid', nullable: true }) groupId: string | null;
   @Column({ name: 'display_order', type: 'integer', default: 0 }) displayOrder: number;
+  @Column({ name: 'default_visible', type: 'boolean', default: true }) defaultVisible: boolean;
   @Column({ name: 'created_by', type: 'uuid' }) createdBy: string;
   @Column({ name: 'archived_at', type: 'timestamptz', nullable: true }) archivedAt: Date | null;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;

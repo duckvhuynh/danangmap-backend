@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
-import type { AuditService } from '../src/audit/audit.service';
 import { CryptoService } from '../src/common/crypto/crypto.service';
 import { AppException } from '../src/common/http/app.exception';
 import { IdempotencyService } from '../src/common/idempotency/idempotency.service';
@@ -125,6 +124,7 @@ describe('Domain command idempotency', () => {
     const dto = {
       slug: `receipt-layer-${createLayerKey.slice(0, 8)}`,
       displayOrder: 1,
+      defaultVisible: true,
       title: 'Receipt layer',
       geometryMode: 'point' as const,
       allowedGeometryKinds: ['point' as const],
@@ -434,7 +434,6 @@ describe('Domain command idempotency', () => {
       new GeometryService(AppDataSource),
       new LayerSchemaService(),
       crypto,
-      {} as AuditService,
       new IdempotencyService(),
     );
   }

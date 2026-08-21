@@ -40,6 +40,7 @@ interface Envelope<T> {
 
 describe('Controlled publication HTTP E2E', () => {
   const startedAt = new Date();
+  const groupIds: string[] = [];
   const layerIds: string[] = [];
   const revisionIds: string[] = [];
   let editor: AuthenticatedActor;
@@ -117,6 +118,9 @@ describe('Controlled publication HTTP E2E', () => {
           ]);
           await manager.query('DELETE FROM layers WHERE id=ANY($1::uuid[])', [layerIds]);
         }
+        if (groupIds.length) {
+          await manager.query('DELETE FROM layer_groups WHERE id=ANY($1::uuid[])', [groupIds]);
+        }
         await manager.query(
           `DELETE FROM audit_logs
            WHERE actor_id=ANY($1::uuid[]) AND occurred_at >= $2`,
@@ -141,12 +145,58 @@ describe('Controlled publication HTTP E2E', () => {
   });
 
   it('keeps a draft private, enforces role separation, and publishes exactly one generation', async () => {
+    const groupKey = randomUUID();
+    await expectProblem(
+      mutate(
+        systemAdmin,
+        '/api/v1/admin/layer-groups',
+        {
+          slug: `workflow-denied-${randomUUID().slice(0, 8)}`,
+          title: 'System Admin không được tạo group',
+        },
+        undefined,
+        { idempotencyKey: randomUUID() },
+      ),
+      403,
+      'ROLE_FORBIDDEN',
+    );
+    const groupSlug = `workflow-group-${randomUUID().slice(0, 8)}`;
+    const createGroup = await mutate(
+      editor,
+      '/api/v1/admin/layer-groups',
+      {
+        slug: groupSlug,
+        title: 'Nhóm kiểm thử workflow',
+        description: 'Group được tạo qua HTTP thật.',
+        displayOrder: 70,
+        defaultVisible: true,
+      },
+      201,
+      { idempotencyKey: groupKey },
+    );
+    const group = (await json<Envelope<{ id: string }>>(createGroup)).data;
+    groupIds.push(group.id);
+    const groupReplay = await mutate(
+      editor,
+      '/api/v1/admin/layer-groups',
+      {
+        slug: groupSlug,
+        title: 'Nhóm kiểm thử workflow',
+        description: 'Group được tạo qua HTTP thật.',
+        displayOrder: 70,
+        defaultVisible: true,
+      },
+      201,
+      { idempotencyKey: groupKey },
+    );
+    expect((await json<Envelope<{ id: string }>>(groupReplay)).data.id).toBe(group.id);
     layerSlug = `workflow-e2e-${randomUUID().slice(0, 8)}`;
     const createLayer = await mutate(
       editor,
       '/api/v1/admin/layers',
       {
         slug: layerSlug,
+        groupId: group.id,
         title: 'Điểm dịch vụ E2E',
         geometryMode: 'point',
         allowedGeometryKinds: ['point'],
@@ -158,6 +208,7 @@ describe('Controlled publication HTTP E2E', () => {
             required: true,
             public: true,
             searchable: true,
+            validation: { minLength: 2, maxLength: 120 },
           },
           {
             key: 'internal_note',
@@ -168,9 +219,17 @@ describe('Controlled publication HTTP E2E', () => {
             offlineCache: false,
           },
         ],
-        style: { point: { color: '#1A73E8', radius: 7 } },
-        renderConfig: { sourcePolicy: 'geojson', minZoom: 8, maxZoom: 18 },
-        popupConfig: { titleField: 'name', fieldKeys: ['name'] },
+        style: {
+          point: {
+            color: '#1A73E8',
+            radius: 7,
+            strokeColor: '#FFFFFF',
+            strokeWidth: 2,
+            cluster: true,
+          },
+        },
+        renderConfig: { sourcePolicy: 'geojson', minZoom: 8, maxZoom: 18, cluster: true },
+        popupConfig: { titleField: 'name', fieldKeys: ['name'], showCoordinates: false },
       },
       201,
       { idempotencyKey: randomUUID() },
@@ -189,6 +248,47 @@ describe('Controlled publication HTTP E2E', () => {
     revisionIds.push(revisionId);
     let revisionEtag = requiredHeader(createLayer, 'etag');
     expect(created.draftRevision.status).toBe('draft');
+    const revisionResponse = await fetch(`${apiBaseUrl}/api/v1/admin/revisions/${revisionId}`, {
+      headers: { Cookie: editor.cookie },
+    });
+    expect(revisionResponse.status).toBe(200);
+    expect(requiredHeader(revisionResponse, 'etag')).toBe(revisionEtag);
+    const revisionRoundTrip = (
+      await json<
+        Envelope<{
+          revision: {
+            style: Record<string, unknown>;
+            renderConfig: Record<string, unknown>;
+            popupConfig: Record<string, unknown>;
+          };
+          fields: Array<{ key: string; validation: Record<string, unknown> }>;
+        }>
+      >(revisionResponse)
+    ).data;
+    expect(revisionRoundTrip.revision.style).toEqual({
+      point: {
+        color: '#1A73E8',
+        radius: 7,
+        strokeColor: '#FFFFFF',
+        strokeWidth: 2,
+        cluster: true,
+      },
+    });
+    expect(revisionRoundTrip.revision.renderConfig).toEqual({
+      sourcePolicy: 'geojson',
+      minZoom: 8,
+      maxZoom: 18,
+      cluster: true,
+    });
+    expect(revisionRoundTrip.revision.popupConfig).toEqual({
+      titleField: 'name',
+      fieldKeys: ['name'],
+      showCoordinates: false,
+    });
+    expect(revisionRoundTrip.fields.find((field) => field.key === 'name')?.validation).toEqual({
+      minLength: 2,
+      maxLength: 120,
+    });
     await expectPublicMissing(layerSlug);
 
     const createFeature = await mutate(

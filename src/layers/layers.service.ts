@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
-import { AuditService } from '../audit/audit.service';
+import { DataSource, IsNull, QueryFailedError, Repository } from 'typeorm';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
@@ -11,6 +10,8 @@ import type {
   CreateLayerGroupDto,
   FeatureMutationDto,
   LayerFieldDto,
+  LayerRenderConfigDto,
+  LayerStyleDto,
   UpdateFeatureDto,
 } from './layer.dto';
 import {
@@ -55,7 +56,6 @@ export class LayersService {
     private readonly geometry: GeometryService,
     private readonly schema: LayerSchemaService,
     private readonly crypto: CryptoService,
-    private readonly audit: AuditService,
     private readonly idempotency: IdempotencyService,
   ) {}
 
@@ -66,29 +66,62 @@ export class LayersService {
     });
   }
 
-  async createGroup(dto: CreateLayerGroupDto, actor: Actor, requestId: string) {
-    const group = await this.groups.save({
-      slug: dto.slug,
-      title: dto.title,
-      description: dto.description ?? null,
-      displayOrder: dto.displayOrder,
-      defaultVisible: dto.defaultVisible,
-      archivedAt: null,
-    });
-    await this.audit.append({
-      actorId: actor.id,
-      actorRole: actor.role,
-      action: 'layer_group.created',
-      resourceType: 'layer_group',
-      resourceId: group.id,
-      requestId,
-    });
-    return group;
+  async createGroup(
+    dto: CreateLayerGroupDto,
+    actor: Actor,
+    requestId: string,
+    idempotencyKey: string,
+  ) {
+    const requestDigest = this.idempotency.digest({ dto });
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const receipt = await this.idempotency.claim<LayerGroupEntity>(
+          manager,
+          actor.id,
+          'layer_group.create',
+          idempotencyKey,
+          requestDigest,
+        );
+        if (!receipt.owner) {
+          if (receipt.response) return receipt.response;
+          throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
+        }
+        const group = await manager.save(LayerGroupEntity, {
+          slug: dto.slug,
+          title: dto.title,
+          description: dto.description ?? null,
+          displayOrder: dto.displayOrder,
+          defaultVisible: dto.defaultVisible,
+          archivedAt: null,
+        });
+        await this.insertAudit(
+          manager,
+          actor,
+          requestId,
+          'layer_group.created',
+          'layer_group',
+          group.id,
+          {},
+        );
+        await this.idempotency.complete(
+          manager,
+          actor.id,
+          'layer_group.create',
+          idempotencyKey,
+          group,
+          201,
+        );
+        return group;
+      });
+    } catch (error) {
+      this.rethrowSlugConflict(error, 'uq_layer_groups_slug_active', 'Nhóm layer');
+    }
   }
 
   async listLayers() {
     const rows: unknown = await this.dataSource.query(`
       SELECT l.id, l.slug, l.group_id AS "groupId", l.display_order AS "displayOrder",
+             l.default_visible AS "defaultVisible",
              l.archived_at AS "archivedAt", r.id AS "revisionId", r.title,
              r.status, r.geometry_mode AS "geometryMode", r.updated_at AS "updatedAt"
       FROM layers l
@@ -107,96 +140,103 @@ export class LayersService {
       dto.allowedGeometryKinds,
       dto.fields,
       dto.popupConfig,
+      dto.style,
+      dto.renderConfig,
     );
     const requestDigest = this.idempotency.digest({ dto });
-    return this.dataSource.transaction(async (manager) => {
-      const receipt = await this.idempotency.claim<{
-        layer: LayerEntity;
-        draftRevision: LayerRevisionEntity;
-        etag: string;
-      }>(manager, actor.id, 'layer.create', idempotencyKey, requestDigest);
-      if (!receipt.owner) {
-        if (receipt.response) return receipt.response;
-        throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
-      }
-      if (dto.groupId) {
-        const group = await manager.findOneBy(LayerGroupEntity, {
-          id: dto.groupId,
-          archivedAt: IsNull(),
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const receipt = await this.idempotency.claim<{
+          layer: LayerEntity;
+          draftRevision: LayerRevisionEntity;
+          etag: string;
+        }>(manager, actor.id, 'layer.create', idempotencyKey, requestDigest);
+        if (!receipt.owner) {
+          if (receipt.response) return receipt.response;
+          throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
+        }
+        if (dto.groupId) {
+          const group = await manager.findOneBy(LayerGroupEntity, {
+            id: dto.groupId,
+            archivedAt: IsNull(),
+          });
+          if (!group) throw new AppException(404, 'NOT_FOUND', 'Không tìm thấy nhóm layer.');
+        }
+        const layer = await manager.save(LayerEntity, {
+          slug: dto.slug,
+          groupId: dto.groupId ?? null,
+          displayOrder: dto.displayOrder,
+          defaultVisible: dto.defaultVisible,
+          createdBy: actor.id,
+          archivedAt: null,
         });
-        if (!group) throw new AppException(404, 'NOT_FOUND', 'Không tìm thấy nhóm layer.');
-      }
-      const layer = await manager.save(LayerEntity, {
-        slug: dto.slug,
-        groupId: dto.groupId ?? null,
-        displayOrder: dto.displayOrder,
-        createdBy: actor.id,
-        archivedAt: null,
+        const revision = await manager.save(LayerRevisionEntity, {
+          layerId: layer.id,
+          revisionNo: 1,
+          status: 'draft',
+          title: dto.title,
+          description: dto.description ?? null,
+          geometryMode: dto.geometryMode,
+          allowedGeometryKinds: dto.allowedGeometryKinds,
+          style: this.sanitizeStyle(dto.style),
+          renderConfig: this.sanitizeRenderConfig(dto.renderConfig),
+          popupConfig: structuredClone(dto.popupConfig) as Record<string, unknown>,
+          schemaVersion: 1,
+          lockVersion: 1,
+          cursorSeq: '0',
+          createdBy: actor.id,
+          supersedesRevisionId: null,
+          submittedAt: null,
+          approvedAt: null,
+          publishedAt: null,
+        });
+        await manager.save(
+          LayerFieldEntity,
+          dto.fields.map((field) =>
+            manager.create(LayerFieldEntity, {
+              revisionId: revision.id,
+              key: field.key,
+              label: field.label,
+              description: field.description ?? null,
+              type: field.type,
+              icon: field.icon ?? null,
+              required: field.required,
+              public: field.public,
+              searchable: field.searchable,
+              filterable: field.filterable,
+              sortable: field.sortable,
+              sensitive: field.sensitive,
+              offlineCache: field.sensitive ? false : field.offlineCache,
+              defaultValue: field.defaultValue,
+              validation: structuredClone(field.validation) as Record<string, unknown>,
+              options: field.options,
+              displayOrder: field.displayOrder,
+            }),
+          ),
+        );
+        await manager.insert(RevisionParticipantEntity, {
+          revisionId: revision.id,
+          userId: actor.id,
+          participationType: 'edit',
+        });
+        await this.insertAudit(manager, actor, requestId, 'layer.created', 'layer', layer.id, {
+          revisionId: revision.id,
+        });
+        const response = { layer, draftRevision: revision, etag: revisionEtag(revision.id, 1) };
+        await this.idempotency.complete(
+          manager,
+          actor.id,
+          'layer.create',
+          idempotencyKey,
+          response,
+          201,
+          response.etag,
+        );
+        return response;
       });
-      const revision = await manager.save(LayerRevisionEntity, {
-        layerId: layer.id,
-        revisionNo: 1,
-        status: 'draft',
-        title: dto.title,
-        description: dto.description ?? null,
-        geometryMode: dto.geometryMode,
-        allowedGeometryKinds: dto.allowedGeometryKinds,
-        style: this.sanitizeStyle(dto.style),
-        renderConfig: this.sanitizeRenderConfig(dto.renderConfig),
-        popupConfig: dto.popupConfig,
-        schemaVersion: 1,
-        lockVersion: 1,
-        cursorSeq: '0',
-        createdBy: actor.id,
-        supersedesRevisionId: null,
-        submittedAt: null,
-        approvedAt: null,
-        publishedAt: null,
-      });
-      await manager.save(
-        LayerFieldEntity,
-        dto.fields.map((field) =>
-          manager.create(LayerFieldEntity, {
-            revisionId: revision.id,
-            key: field.key,
-            label: field.label,
-            description: field.description ?? null,
-            type: field.type,
-            icon: field.icon ?? null,
-            required: field.required,
-            public: field.public,
-            searchable: field.searchable,
-            filterable: field.filterable,
-            sortable: field.sortable,
-            sensitive: field.sensitive,
-            offlineCache: field.sensitive ? false : field.offlineCache,
-            defaultValue: field.defaultValue,
-            validation: field.validation,
-            options: field.options,
-            displayOrder: field.displayOrder,
-          }),
-        ),
-      );
-      await manager.insert(RevisionParticipantEntity, {
-        revisionId: revision.id,
-        userId: actor.id,
-        participationType: 'edit',
-      });
-      await this.insertAudit(manager, actor, requestId, 'layer.created', 'layer', layer.id, {
-        revisionId: revision.id,
-      });
-      const response = { layer, draftRevision: revision, etag: revisionEtag(revision.id, 1) };
-      await this.idempotency.complete(
-        manager,
-        actor.id,
-        'layer.create',
-        idempotencyKey,
-        response,
-        201,
-        response.etag,
-      );
-      return response;
-    });
+    } catch (error) {
+      this.rethrowSlugConflict(error, 'uq_layers_slug_active', 'Layer');
+    }
   }
 
   async getRevision(revisionId: string) {
@@ -616,20 +656,23 @@ export class LayersService {
     };
   }
 
-  private sanitizeStyle(style: Record<string, unknown>): Record<string, unknown> {
-    const allowedSections = new Set(['point', 'line', 'polygon']);
-    if (Object.keys(style).some((key) => !allowedSections.has(key))) {
-      throw new AppException(422, 'SCHEMA_VIOLATION', 'Style chứa section không được hỗ trợ.');
-    }
-    return structuredClone(style);
+  private sanitizeStyle(style: LayerStyleDto): Record<string, unknown> {
+    return structuredClone(style) as Record<string, unknown>;
   }
 
-  private sanitizeRenderConfig(config: Record<string, unknown>): Record<string, unknown> {
-    const allowed = new Set(['minZoom', 'maxZoom', 'cluster', 'sourcePolicy']);
-    if (Object.keys(config).some((key) => !allowed.has(key))) {
-      throw new AppException(422, 'SCHEMA_VIOLATION', 'Render config chứa key không được hỗ trợ.');
+  private sanitizeRenderConfig(config: LayerRenderConfigDto): Record<string, unknown> {
+    return structuredClone(config) as Record<string, unknown>;
+  }
+
+  private rethrowSlugConflict(error: unknown, constraint: string, resource: string): never {
+    if (
+      error instanceof QueryFailedError &&
+      (error.driverError as { code?: string; constraint?: string }).code === '23505' &&
+      (error.driverError as { code?: string; constraint?: string }).constraint === constraint
+    ) {
+      throw new AppException(409, 'SLUG_CONFLICT', `${resource} có slug đang hoạt động bị trùng.`);
     }
-    return structuredClone(config);
+    throw error;
   }
 
   private async insertAudit(

@@ -19,6 +19,7 @@ import { Principal, Roles } from '../identity/auth.decorators';
 import { CsrfGuard, RolesGuard, SessionGuard } from '../identity/auth.guards';
 import { CreateImportDto } from './import.dto';
 import { MAX_IMPORT_BYTES } from './import-file.inspector';
+import { ImportUploadGuard } from './import-upload.guard';
 import { ImportsService } from './imports.service';
 
 @ApiTags('imports')
@@ -31,7 +32,7 @@ export class ImportsController {
   @Post('revisions/:revisionId/imports')
   @HttpCode(202)
   @Roles('editor')
-  @UseGuards(CsrfGuard)
+  @UseGuards(CsrfGuard, ImportUploadGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),

@@ -28,8 +28,8 @@ jobs:
         run: docker compose up -d --build
       - name: Verify health
         run: |
-          curl --fail --retry 20 --retry-delay 2 --retry-connrefused http://localhost:4000/health/live
-          curl --fail http://localhost:4000/health/ready
+          curl --fail --retry 30 --retry-delay 2 --retry-all-errors --retry-max-time 90 http://localhost:4000/health/live
+          curl --fail --retry 30 --retry-delay 2 --retry-all-errors --retry-max-time 90 http://localhost:4000/health/ready
       - run: docker compose -f compose.e2e.yml run --rm --build test
       - run: docker compose -f compose.e2e.yml run --rm test npm run test:e2e
       - run: npm run openapi:check

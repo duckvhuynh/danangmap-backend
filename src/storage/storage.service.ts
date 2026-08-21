@@ -33,6 +33,10 @@ export class StorageService implements OnModuleInit {
     return this.client.statObject(this.bucket, key);
   }
 
+  async getObject(key: string) {
+    return this.client.getObject(this.bucket, key);
+  }
+
   async ping(): Promise<void> {
     await this.client.bucketExists(this.bucket);
   }

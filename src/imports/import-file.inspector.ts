@@ -38,13 +38,11 @@ export class ImportFileInspector {
       return 'kml';
     }
     if (extension === '.geojson' || extension === '.json') {
-      let payload: unknown;
-      try {
-        payload = JSON.parse(buffer.toString('utf8'));
-      } catch {
-        throw new AppException(422, 'GEOJSON_INVALID', 'Tệp JSON không phải GeoJSON hợp lệ.');
-      }
-      if (!this.isGeoJson(payload)) {
+      if (
+        !/"type"\s*:\s*"(?:FeatureCollection|Feature|GeometryCollection|Point|MultiPoint|LineString|MultiLineString|Polygon|MultiPolygon)"/.test(
+          text,
+        )
+      ) {
         throw new AppException(422, 'GEOJSON_INVALID', 'Tệp JSON không phải GeoJSON hợp lệ.');
       }
       return 'geojson';
@@ -54,25 +52,6 @@ export class ImportFileInspector {
       415,
       'IMPORT_FORMAT_UNSUPPORTED',
       'Chỉ hỗ trợ CSV, XLSX, GeoJSON và KML.',
-    );
-  }
-
-  private isGeoJson(value: unknown): boolean {
-    if (!value || typeof value !== 'object' || !('type' in value)) return false;
-    const type = (value as { type?: unknown }).type;
-    return (
-      typeof type === 'string' &&
-      [
-        'FeatureCollection',
-        'Feature',
-        'GeometryCollection',
-        'Point',
-        'MultiPoint',
-        'LineString',
-        'MultiLineString',
-        'Polygon',
-        'MultiPolygon',
-      ].includes(type)
     );
   }
 

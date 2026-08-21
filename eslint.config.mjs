@@ -7,6 +7,8 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'coverage/**',
+      'artifacts/**',
+      '.crossstack/**',
       'openapi/generated-client-types.ts',
       'eslint.config.mjs',
       'jest.config.cjs',

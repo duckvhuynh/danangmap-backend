@@ -1,6 +1,8 @@
 node_modules
 dist
 coverage
+artifacts
+.crossstack
 .git
 .env*
 docs/visual-directions

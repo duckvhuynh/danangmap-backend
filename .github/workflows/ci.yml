@@ -41,3 +41,40 @@ jobs:
       - run: npm run openapi:check
       - if: always()
         run: docker compose -f compose.e2e.yml down -v --remove-orphans
+
+  cross-stack-browser:
+    if: github.event_name == 'pull_request' && github.head_ref == 'integration/v2-canonical-backend'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      DANANGMAP_BACKEND_SHA: ${{ github.event.pull_request.head.sha }}
+      DANANGMAP_FRONTEND_CONTEXT: ${{ github.workspace }}/.crossstack/danangmap-frontend
+      DANANGMAP_FRONTEND_SHA: b1e313d4f113d290ef82387ed2c632a5e7b88f05
+      DANANGMAP_FULLSTACK_RUNS: '2'
+    steps:
+      - name: Checkout exact backend revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Checkout exact frontend revision
+        uses: actions/checkout@v4
+        with:
+          repository: duckvhuynh/danangmap-frontend
+          ref: b1e313d4f113d290ef82387ed2c632a5e7b88f05
+          path: .crossstack/danangmap-frontend
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+          cache: npm
+      - run: npm ci
+      - name: Run two fresh-volume browser journeys without route mocks
+        run: npm run test:fullstack:harness
+      - name: Preserve cross-stack reports and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-stack-browser-${{ github.event.pull_request.head.sha }}
+          path: artifacts/fullstack
+          if-no-files-found: error
+          retention-days: 7

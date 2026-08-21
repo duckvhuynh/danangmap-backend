@@ -184,13 +184,19 @@ export class PublicApiService {
            COALESCE((SELECT jsonb_object_agg(entry.key,entry.value)
              FROM jsonb_each(fv.properties) entry
              JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key AND lf.public=true),'{}'::jsonb) AS properties,
-           ST_AsMVTGeom(ST_Transform(fv.geometry,3857),bounds.geom,4096,64,true) AS geom
+           ST_AsMVTGeom(ST_Transform(rendered.geometry,3857),bounds.geom,4096,64,true) AS geom
          FROM bounds,revision_features rf
          JOIN features f ON f.id=rf.feature_id AND f.deleted_at IS NULL
          JOIN feature_versions fv ON fv.id=rf.feature_version_id
+         CROSS JOIN LATERAL (
+           SELECT CASE WHEN fv.geometry_kind='circle'
+             THEN ST_Buffer(fv.geometry::geography,fv.radius_m)::geometry
+             ELSE fv.geometry
+           END AS geometry
+         ) rendered
          WHERE rf.revision_id=$1
-           AND fv.geometry && ST_Transform(bounds.geom,4326)
-           AND ST_Intersects(ST_Transform(fv.geometry,3857),bounds.geom)
+           AND rendered.geometry && ST_Transform(bounds.geom,4326)
+           AND ST_Intersects(ST_Transform(rendered.geometry,3857),bounds.geom)
        ) SELECT ST_AsMVT(tile_rows,'features',4096,'geom') AS tile FROM tile_rows`,
       [snapshot[0].revisionId, z, x, y],
     )) as Array<{ tile: Buffer | null }>;

@@ -37,6 +37,10 @@ export class StorageService implements OnModuleInit {
     return this.client.getObject(this.bucket, key);
   }
 
+  async remove(key: string): Promise<void> {
+    await this.client.removeObject(this.bucket, key);
+  }
+
   async ping(): Promise<void> {
     await this.client.bucketExists(this.bucket);
   }

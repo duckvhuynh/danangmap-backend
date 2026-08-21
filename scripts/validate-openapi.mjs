@@ -26,6 +26,8 @@ const strictlyTypedResponseOperations = new Set([
   'createFeature',
   'updateFeature',
   'deleteFeature',
+  'createSpatialImport',
+  'getSpatialImport',
   'updateSpatialImportMapping',
   'validateSpatialImport',
   'listSpatialImportIssues',
@@ -117,6 +119,7 @@ const resolveSchema = (schema) => {
   return document.components?.schemas?.[schema.$ref.slice(prefix.length)];
 };
 const seen = new Map();
+const operationsById = new Map();
 for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
   for (const [method, operation] of Object.entries(pathItem ?? {})) {
     if (!methods.has(method)) continue;
@@ -200,6 +203,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
         }
       }
     }
+    operationsById.set(operationId, operation);
     seen.set(operationId, `${method.toUpperCase()} ${path}`);
   }
 }
@@ -207,6 +211,57 @@ if (seen.size === 0) throw new Error('OpenAPI document has no operations');
 const tile = document.paths?.['/api/v1/public/tiles/{slug}/{generation}/{z}/{x}/{y}.pbf']?.get;
 if (!tile?.responses?.['200']?.content?.['application/vnd.mapbox-vector-tile']?.schema) {
   throw new Error('MVT success response must declare application/vnd.mapbox-vector-tile');
+}
+const importMapping = document.components?.schemas?.UpdateImportMappingDto;
+for (const optionalField of ['sheet', 'encoding', 'delimiter', 'sourceCrs', 'upsert']) {
+  if (importMapping?.required?.includes(optionalField)) {
+    throw new Error(`Import mapping field must remain optional: ${optionalField}`);
+  }
+}
+const expectedDelimiterTokens = ['comma', 'semicolon', 'tab', 'pipe'];
+if (
+  JSON.stringify(importMapping?.properties?.delimiter?.enum) !==
+  JSON.stringify(expectedDelimiterTokens)
+) {
+  throw new Error('Import delimiter tokens drifted from runtime contract');
+}
+if (!importMapping?.properties?.encoding?.enum?.includes('windows1258')) {
+  throw new Error('Import mapping must declare Windows-1258 encoding');
+}
+const importUpsert = document.components?.schemas?.ImportUpsertMappingDto;
+if (
+  JSON.stringify(importUpsert?.properties?.matchBy?.enum) !==
+  JSON.stringify(['feature_id', 'external_identity'])
+) {
+  throw new Error('Import upsert match keys drifted from runtime contract');
+}
+const createImport = operationsById.get('createSpatialImport');
+const createImportResponse =
+  createImport?.responses?.['202']?.content?.['application/json']?.schema;
+const importJob = resolveSchema(createImportResponse?.properties?.data);
+const expectedImportStatuses = [
+  'uploaded',
+  'inspecting',
+  'mapping_required',
+  'validating',
+  'ready',
+  'applying',
+  'completed',
+  'failed',
+  'cancelled',
+];
+if (
+  JSON.stringify(importJob?.properties?.status?.enum) !== JSON.stringify(expectedImportStatuses)
+) {
+  throw new Error('Import job status enum drifted from runtime contract');
+}
+if (
+  JSON.stringify(importJob?.properties?.inspection?.properties?.parserStatus?.enum) !==
+    JSON.stringify(['pending', 'inspected']) ||
+  !importJob?.properties?.inspection?.required?.includes('sheets') ||
+  !importJob?.properties?.inspection?.required?.includes('limits')
+) {
+  throw new Error('Import inspection descriptor is missing or untyped');
 }
 for (const [name, schema] of Object.entries(document.components?.schemas ?? {})) {
   if (
@@ -226,5 +281,16 @@ if (componentStart < 0 || componentEnd < 0) {
 const generatedComponentSchemas = generatedTypes.slice(componentStart, componentEnd);
 if (generatedComponentSchemas.includes('Record<string, never>')) {
   throw new Error('Generated client contains unusable Record<string, never> request fields');
+}
+if (!generatedTypes.includes('status: "active" | "inactive" | "disabled" | "invited";')) {
+  throw new Error('Generated auth principal status union drifted');
+}
+if (
+  !generatedTypes.includes(
+    'status: "uploaded" | "inspecting" | "mapping_required" | "validating" | "ready" | "applying" | "completed" | "failed" | "cancelled";',
+  ) ||
+  !generatedTypes.includes('parserStatus: "pending" | "inspected";')
+) {
+  throw new Error('Generated import polling unions are missing');
 }
 console.log(`Validated ${seen.size} unique operation IDs and typed success responses.`);

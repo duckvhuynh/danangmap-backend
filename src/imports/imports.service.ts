@@ -45,8 +45,14 @@ export class ImportsService {
   ) {
     if (!file) throw new AppException(400, 'IMPORT_FILE_REQUIRED', 'Thiếu tệp import.');
     const idempotencyKey = requireIdempotencyKey(idempotencyHeader);
+    const format = this.inspector.inspect(file, dto.format);
+    const digest = createHash('sha256').update(file.buffer).digest('hex');
     const existing = await this.jobs.findOneBy({ revisionId, idempotencyKey });
-    if (existing) return this.response(existing);
+    if (existing) {
+      this.assertSameUpload(existing, actor.id, dto, format, digest);
+      await this.enqueueInspection(existing);
+      return this.response(existing);
+    }
 
     const expectedVersion = requireRevisionVersion(ifMatch, revisionId);
     const revision = await this.revisions.findOneBy({ id: revisionId });
@@ -75,12 +81,10 @@ export class ImportsService {
       throw new AppException(429, 'IMPORT_CONCURRENCY_LIMIT', 'Bạn đã có hai import đang xử lý.');
     }
 
-    const format = this.inspector.inspect(file, dto.format);
     const id = randomUUID();
     const safeName = basename(file.originalname)
       .replace(/[^\p{L}\p{N}._-]+/gu, '_')
       .slice(-180);
-    const digest = createHash('sha256').update(file.buffer).digest('hex');
     const objectKey = `quarantine/imports/${revisionId}/${id}/${digest}-${safeName}`;
     await this.storage.putBuffer(
       objectKey,
@@ -108,21 +112,69 @@ export class ImportsService {
       await this.jobs.save(job);
     } catch (error) {
       const raced = await this.jobs.findOneBy({ revisionId, idempotencyKey });
-      if (raced) return this.response(raced);
+      await this.storage.remove(objectKey).catch(() => undefined);
+      if (raced) {
+        this.assertSameUpload(raced, actor.id, dto, format, digest);
+        await this.enqueueInspection(raced);
+        return this.response(raced);
+      }
       throw error;
+    }
+    await this.enqueueInspection(job);
+    return this.response(job);
+  }
+
+  private assertSameUpload(
+    existing: ImportJobEntity,
+    actorId: string,
+    dto: CreateImportDto,
+    format: ImportJobEntity['format'],
+    digest: string,
+  ): void {
+    if (
+      existing.actorId !== actorId ||
+      existing.mode !== dto.mode ||
+      existing.format !== format ||
+      existing.mapping.clientRequestId !== dto.clientRequestId ||
+      existing.mapping.sha256 !== digest
+    ) {
+      throw new AppException(
+        409,
+        'IDEMPOTENCY_KEY_REUSED',
+        'Idempotency-Key đã được dùng với upload khác.',
+      );
+    }
+  }
+
+  private async enqueueInspection(job: ImportJobEntity): Promise<void> {
+    const retryable =
+      ['uploaded', 'inspecting'].includes(job.status) ||
+      (job.status === 'failed' && job.failureCode === 'IMPORT_INSPECT_FAILED');
+    if (!retryable) return;
+    const jobId = `inspect-${job.id}`;
+    const queued = await this.queue.getJob(jobId);
+    if (queued) {
+      const state = await queued.getState();
+      if (state === 'failed') {
+        await queued.retry();
+        return;
+      } else if (state === 'completed') {
+        await queued.remove();
+      } else {
+        return;
+      }
     }
     await this.queue.add(
       IMPORT_INSPECT_JOB,
-      { importId: id },
+      { importId: job.id },
       {
-        jobId: `inspect-${id}`,
+        jobId,
         attempts: 3,
         backoff: { type: 'exponential', delay: 1_000 },
         removeOnComplete: 1000,
         removeOnFail: 5000,
       },
     );
-    return this.response(job);
   }
 
   async get(id: string, actor: NonNullable<RequestWithContext['principal']>) {
@@ -136,7 +188,6 @@ export class ImportsService {
     actor: NonNullable<RequestWithContext['principal']>,
   ) {
     const job = await this.ownedJob(id, actor);
-    this.assertGeoJsonParser(job);
     if (!['mapping_required', 'ready'].includes(job.status)) {
       throw new AppException(
         409,
@@ -144,23 +195,24 @@ export class ImportsService {
         'Import chưa sẵn sàng để cập nhật mapping.',
       );
     }
-    if (dto.geometry.kind !== 'geojson' || dto.sourceCrs !== 'EPSG:4326') {
+    if (dto.sourceCrs !== 'EPSG:4326') {
       throw new AppException(
         422,
         'IMPORT_MAPPING_INVALID',
-        'GeoJSON import yêu cầu geometry.kind=geojson và EPSG:4326.',
+        'Import hiện chỉ hỗ trợ hệ tọa độ EPSG:4326.',
       );
     }
+    this.validateFormatMapping(job.format, dto);
     const entries = Object.entries(dto.fields);
     if (entries.length > 256) {
       throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Mapping hỗ trợ tối đa 256 cột.');
     }
     const revisionFields = await this.fields.findBy({ revisionId: job.revisionId });
     const targetKeys = new Set(revisionFields.map((field) => field.key));
-    const specialTargets = new Set(['external_source', 'external_id']);
+    const specialTargets = new Set(['feature_id', 'external_source', 'external_id']);
     const mappedTargets = new Set<string>();
     for (const [source, target] of entries) {
-      if (!/^[A-Za-z0-9_. -]{1,200}$/.test(source)) {
+      if (!this.isSourceColumn(source)) {
         throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Tên cột nguồn không hợp lệ.');
       }
       if (!targetKeys.has(target) && !specialTargets.has(target)) {
@@ -185,11 +237,25 @@ export class ImportsService {
         'Upsert external identity cần map external_source và external_id.',
       );
     }
-    if (job.mode === 'upsert' && dto.upsert?.matchBy !== 'external_identity') {
+    if (dto.upsert?.matchBy === 'feature_id' && !mappedTargets.has('feature_id')) {
       throw new AppException(
         422,
         'IMPORT_MAPPING_INVALID',
-        'Chế độ upsert cần khai báo upsert.matchBy=external_identity.',
+        'Upsert feature_id cần map cột nguồn vào feature_id.',
+      );
+    }
+    if (mappedTargets.has('feature_id') && dto.upsert?.matchBy !== 'feature_id') {
+      throw new AppException(
+        422,
+        'IMPORT_MAPPING_INVALID',
+        'feature_id chỉ được map khi upsert.matchBy=feature_id.',
+      );
+    }
+    if (job.mode === 'upsert' && !dto.upsert?.matchBy) {
+      throw new AppException(
+        422,
+        'IMPORT_MAPPING_INVALID',
+        'Chế độ upsert cần khai báo upsert.matchBy.',
       );
     }
     if (job.mode !== 'upsert' && dto.upsert !== undefined) {
@@ -220,8 +286,7 @@ export class ImportsService {
   }
 
   async validate(id: string, actor: NonNullable<RequestWithContext['principal']>) {
-    const owned = await this.ownedJob(id, actor);
-    this.assertGeoJsonParser(owned);
+    await this.ownedJob(id, actor);
     const transition = await this.dataSource.transaction(async (manager) => {
       const job = await manager
         .getRepository(ImportJobEntity)
@@ -354,7 +419,7 @@ export class ImportsService {
         .where('job.id=:id', { id })
         .getOne();
       if (!job) throw new AppException(404, 'IMPORT_NOT_FOUND', 'Không tìm thấy import.');
-      if (actor.role !== 'system_admin' && job.actorId !== actor.id) {
+      if (actor.role !== 'editor' || job.actorId !== actor.id) {
         throw new AppException(403, 'IMPORT_FORBIDDEN', 'Bạn không có quyền xem import này.');
       }
       const priorApply = job.mapping.apply as
@@ -468,6 +533,17 @@ export class ImportsService {
   }
 
   private response(job: ImportJobEntity) {
+    const rawInspection = job.mapping.inspection as
+      | {
+          parserStatus?: unknown;
+          sheets?: unknown;
+          maxRecords?: unknown;
+          maxVerticesPerFeature?: unknown;
+          maxVerticesPerJob?: unknown;
+          maxExpandedBytes?: unknown;
+          maxIssues?: unknown;
+        }
+      | undefined;
     return {
       id: job.id,
       revisionId: job.revisionId,
@@ -477,6 +553,20 @@ export class ImportsService {
       file: { name: job.fileName, sizeBytes: job.sizeBytes },
       progress: job.progress,
       counts: job.counts,
+      inspection: {
+        parserStatus:
+          typeof rawInspection?.parserStatus === 'string' ? rawInspection.parserStatus : 'pending',
+        sheets: Array.isArray(rawInspection?.sheets)
+          ? rawInspection.sheets.filter((sheet): sheet is string => typeof sheet === 'string')
+          : [],
+        limits: {
+          maxRecords: this.inspectionLimit(rawInspection?.maxRecords),
+          maxVerticesPerFeature: this.inspectionLimit(rawInspection?.maxVerticesPerFeature),
+          maxVerticesPerJob: this.inspectionLimit(rawInspection?.maxVerticesPerJob),
+          maxExpandedBytes: this.inspectionLimit(rawInspection?.maxExpandedBytes),
+          maxIssues: this.inspectionLimit(rawInspection?.maxIssues),
+        },
+      },
       canApplyWithSkipInvalid: job.status === 'ready' && Number(job.counts.valid ?? 0) > 0,
       failureCode: job.failureCode,
       createdAt: job.createdAt,
@@ -484,22 +574,87 @@ export class ImportsService {
     };
   }
 
+  private inspectionLimit(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
   private async ownedJob(id: string, actor: NonNullable<RequestWithContext['principal']>) {
     const job = await this.jobs.findOneBy({ id });
     if (!job) throw new AppException(404, 'IMPORT_NOT_FOUND', 'Không tìm thấy import.');
-    if (actor.role !== 'system_admin' && job.actorId !== actor.id) {
+    if (actor.role !== 'editor' || job.actorId !== actor.id) {
       throw new AppException(403, 'IMPORT_FORBIDDEN', 'Bạn không có quyền xem import này.');
     }
     return job;
   }
 
-  private assertGeoJsonParser(job: ImportJobEntity): void {
-    if (job.format !== 'geojson') {
+  private validateFormatMapping(format: ImportJobEntity['format'], dto: UpdateImportMappingDto) {
+    const geometryKind = dto.geometry.kind;
+    const geometryColumns = [
+      dto.geometry.longitudeColumn,
+      dto.geometry.latitudeColumn,
+      dto.geometry.geometryColumn,
+    ].filter((column): column is string => column !== undefined);
+    if (geometryColumns.some((column) => !this.isSourceColumn(column))) {
+      throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Tên cột geometry không hợp lệ.');
+    }
+    if (format === 'geojson' && geometryKind !== 'geojson') {
       throw new AppException(
         422,
-        'IMPORT_PARSER_NOT_READY',
-        'Parser CSV, XLSX và KML chưa khả dụng trong vertical slice này.',
+        'IMPORT_MAPPING_INVALID',
+        'GeoJSON yêu cầu geometry.kind=geojson.',
       );
     }
+    if (format === 'kml' && geometryKind !== 'kml_geometry') {
+      throw new AppException(
+        422,
+        'IMPORT_MAPPING_INVALID',
+        'KML yêu cầu geometry.kind=kml_geometry.',
+      );
+    }
+    if (['csv', 'xlsx'].includes(format) && !['coordinates', 'wkt'].includes(geometryKind)) {
+      throw new AppException(
+        422,
+        'IMPORT_MAPPING_INVALID',
+        'CSV/XLSX yêu cầu geometry.kind=coordinates hoặc wkt.',
+      );
+    }
+    if (
+      geometryKind === 'coordinates' &&
+      (!dto.geometry.longitudeColumn?.trim() || !dto.geometry.latitudeColumn?.trim())
+    ) {
+      throw new AppException(
+        422,
+        'IMPORT_MAPPING_INVALID',
+        'Coordinates mapping cần longitudeColumn và latitudeColumn.',
+      );
+    }
+    if (geometryKind === 'wkt' && !dto.geometry.geometryColumn?.trim()) {
+      throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'WKT mapping cần geometryColumn.');
+    }
+    if (
+      format === 'xlsx' &&
+      (!dto.sheet?.trim() ||
+        dto.sheet.length > 100 ||
+        [...dto.sheet].some((character) => character.charCodeAt(0) < 32))
+    ) {
+      throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'XLSX cần chọn một sheet.');
+    }
+    if (format !== 'xlsx' && dto.sheet !== undefined) {
+      throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Chỉ XLSX được khai báo sheet.');
+    }
+    if (format !== 'csv' && (dto.encoding !== undefined || dto.delimiter !== undefined)) {
+      throw new AppException(
+        422,
+        'IMPORT_MAPPING_INVALID',
+        'Encoding và delimiter chỉ áp dụng cho CSV.',
+      );
+    }
+  }
+
+  private isSourceColumn(value: string): boolean {
+    return (
+      /^[\p{L}\p{N}_. -]{1,200}$/u.test(value) &&
+      !['__proto__', 'prototype', 'constructor'].includes(value.toLowerCase())
+    );
   }
 }

@@ -50,12 +50,33 @@ export class ImportGeometryMappingDto {
 }
 
 export class ImportUpsertMappingDto {
-  @ApiProperty({ enum: ['external_identity'] })
-  @IsIn(['external_identity'])
-  matchBy: 'external_identity';
+  @ApiProperty({ enum: ['feature_id', 'external_identity'] })
+  @IsIn(['feature_id', 'external_identity'])
+  matchBy: 'feature_id' | 'external_identity';
 }
 
 export class UpdateImportMappingDto {
+  @ApiProperty({ required: false, description: 'XLSX worksheet selected for this import job.' })
+  @IsOptional()
+  @IsString()
+  sheet?: string;
+
+  @ApiProperty({
+    required: false,
+    enum: ['utf8', 'utf16le', 'windows1258', 'latin1'],
+  })
+  @IsOptional()
+  @IsIn(['utf8', 'utf16le', 'windows1258', 'latin1'])
+  encoding?: 'utf8' | 'utf16le' | 'windows1258' | 'latin1';
+
+  @ApiProperty({
+    required: false,
+    enum: ['comma', 'semicolon', 'tab', 'pipe'],
+  })
+  @IsOptional()
+  @IsIn(['comma', 'semicolon', 'tab', 'pipe'])
+  delimiter?: 'comma' | 'semicolon' | 'tab' | 'pipe';
+
   @ApiProperty({ required: false, type: String, enum: ['EPSG:4326'], example: 'EPSG:4326' })
   @IsOptional()
   @Matches(/^EPSG:4326$/)

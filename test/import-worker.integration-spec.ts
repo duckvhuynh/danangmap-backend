@@ -1,13 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { Queue } from 'bullmq';
+import ExcelJS from 'exceljs';
 import { Client } from 'minio';
+import { IdempotencyService } from '../src/common/idempotency/idempotency.service';
 import AppDataSource from '../src/database/data-source';
+import type { ImportFileInspector } from '../src/imports/import-file.inspector';
+import { ImportJobEntity } from '../src/imports/import.entity';
+import { ImportsService } from '../src/imports/imports.service';
 import { IMPORT_INSPECT_JOB, IMPORT_QUEUE } from '../src/jobs/jobs.constants';
+import { LayerFieldEntity, LayerRevisionEntity } from '../src/layers/layer.entities';
+import type { StorageService } from '../src/storage/storage.service';
 
 describe('Import worker integration', () => {
   const importId = randomUUID();
+  const xlsxImportId = randomUUID();
   const oversizedXlsxImportId = randomUUID();
   const objectKey = `quarantine/imports/test/${importId}/sample.geojson`;
+  const xlsxObjectKey = `quarantine/imports/test/${xlsxImportId}/selected-sheet.xlsx`;
   const oversizedXlsxObjectKey = `quarantine/imports/test/${oversizedXlsxImportId}/sample.xlsx`;
   const payload = Buffer.from(
     JSON.stringify({
@@ -39,11 +48,33 @@ describe('Import worker integration', () => {
     },
     prefix: 'danangmap:q',
   });
+  let xlsxPayload: Buffer;
+  let imports: ImportsService;
 
   beforeAll(async () => {
     if (!AppDataSource.isInitialized) await AppDataSource.initialize();
+    const workbook = new ExcelJS.Workbook();
+    workbook.addWorksheet('Ignored').addRow(['name']);
+    workbook.addWorksheet('DanhSach').addRows([
+      ['name', 'longitude', 'latitude'],
+      ['Đà Nẵng', 108.2022, 16.0544],
+    ]);
+    xlsxPayload = Buffer.from(await workbook.xlsx.writeBuffer());
+    imports = new ImportsService(
+      AppDataSource.getRepository(ImportJobEntity),
+      AppDataSource.getRepository(LayerRevisionEntity),
+      AppDataSource.getRepository(LayerFieldEntity),
+      queue,
+      AppDataSource,
+      {} as StorageService,
+      {} as ImportFileInspector,
+      new IdempotencyService(),
+    );
     await minio.putObject('danangmap', objectKey, payload, payload.byteLength, {
       'Content-Type': 'application/geo+json',
+    });
+    await minio.putObject('danangmap', xlsxObjectKey, xlsxPayload, xlsxPayload.byteLength, {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
     await minio.putObject(
       'danangmap',
@@ -51,6 +82,13 @@ describe('Import worker integration', () => {
       oversizedXlsxPayload,
       oversizedXlsxPayload.byteLength,
       { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+    );
+    await AppDataSource.query(
+      `INSERT INTO import_jobs(
+        id,revision_id,actor_id,object_key,file_name,size_bytes,format,mode,status,progress,mapping,counts,idempotency_key
+       ) VALUES($1,'30000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002',$2,
+         'selected-sheet.xlsx',$3,'xlsx','append','uploaded',0,'{}','{}',$4)`,
+      [xlsxImportId, xlsxObjectKey, xlsxPayload.byteLength, randomUUID()],
     );
     await AppDataSource.query(
       `INSERT INTO import_jobs(
@@ -76,13 +114,49 @@ describe('Import worker integration', () => {
   afterAll(async () => {
     await queue.close();
     await minio.removeObject('danangmap', objectKey).catch(() => undefined);
+    await minio.removeObject('danangmap', xlsxObjectKey).catch(() => undefined);
     await minio.removeObject('danangmap', oversizedXlsxObjectKey).catch(() => undefined);
     if (AppDataSource.isInitialized) {
       await AppDataSource.query('DELETE FROM import_jobs WHERE id = ANY($1::uuid[])', [
-        [importId, oversizedXlsxImportId],
+        [importId, xlsxImportId, oversizedXlsxImportId],
       ]);
       await AppDataSource.destroy();
     }
+  });
+
+  it('exposes inspected XLSX sheet names and effective parser limits through GET', async () => {
+    await queue.add(
+      IMPORT_INSPECT_JOB,
+      { importId: xlsxImportId },
+      { jobId: `integration-${xlsxImportId}` },
+    );
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const [result] = (await AppDataSource.query('SELECT status FROM import_jobs WHERE id=$1', [
+        xlsxImportId,
+      ])) as Array<{ status: string }>;
+      if (result?.status === 'mapping_required') break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const response = await imports.get(xlsxImportId, {
+      id: '00000000-0000-4000-8000-000000000002',
+      role: 'editor',
+      sessionId: randomUUID(),
+      displayName: 'Editor',
+    });
+    expect(response).toMatchObject({
+      status: 'mapping_required',
+      inspection: {
+        parserStatus: 'inspected',
+        sheets: ['Ignored', 'DanhSach'],
+        limits: {
+          maxRecords: 100_000,
+          maxVerticesPerFeature: 100_000,
+          maxVerticesPerJob: 2_000_000,
+          maxExpandedBytes: 250 * 1024 * 1024,
+          maxIssues: 20_000,
+        },
+      },
+    });
   });
 
   it('moves an uploaded object through worker inspection', async () => {

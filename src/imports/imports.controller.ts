@@ -90,7 +90,7 @@ export class ImportsController {
   }
 
   @Get('imports/:importId')
-  @Roles('editor', 'system_admin')
+  @Roles('editor')
   @ApiOperation({ operationId: 'getSpatialImport' })
   @apiJsonResponse(200, importJobSchema)
   get(
@@ -129,7 +129,7 @@ export class ImportsController {
   }
 
   @Get('imports/:importId/issues')
-  @Roles('editor', 'system_admin')
+  @Roles('editor')
   @ApiQuery({ name: 'cursor', required: false, type: Number, minimum: 0 })
   @ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 200 })
   @ApiOperation({ operationId: 'listSpatialImportIssues' })

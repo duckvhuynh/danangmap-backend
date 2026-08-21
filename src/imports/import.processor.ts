@@ -5,7 +5,7 @@ import type { Job } from 'bullmq';
 import { UnrecoverableError } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { AppException } from '../common/http/app.exception';
-import type { GeometryKind } from '../domain/enums';
+import type { GeometryKind, ImportFormat } from '../domain/enums';
 import {
   IMPORT_APPLY_JOB,
   IMPORT_INSPECT_JOB,
@@ -18,6 +18,13 @@ import { LayerSchemaService } from '../layers/layer-schema.service';
 import { StorageService } from '../storage/storage.service';
 import { MAX_IMPORT_BYTES } from './import-file.inspector';
 import { ImportJobEntity } from './import.entity';
+import {
+  ImportParserError,
+  inspectXlsxSheets,
+  parseImportRecords,
+  parseWktGeometry,
+  type ImportParserFailureCode,
+} from './import-record.parser';
 
 const MAX_EXPANDED_BYTES = 250 * 1024 * 1024;
 const MAX_RECORDS = 100_000;
@@ -43,7 +50,8 @@ type InspectionFailureCode =
   | 'GEOJSON_INVALID'
   | 'IMPORT_RECORD_LIMIT'
   | 'IMPORT_FEATURE_VERTEX_LIMIT'
-  | 'IMPORT_VERTEX_LIMIT';
+  | 'IMPORT_VERTEX_LIMIT'
+  | ImportParserFailureCode;
 
 class ImportInspectionError extends Error {
   constructor(readonly code: InspectionFailureCode) {
@@ -53,9 +61,17 @@ class ImportInspectionError extends Error {
 
 interface ImportMappingPlan {
   sourceCrs: 'EPSG:4326';
-  geometry: { kind: string };
+  sheet?: string;
+  encoding?: 'utf8' | 'utf16le' | 'windows1258' | 'latin1';
+  delimiter?: 'comma' | 'semicolon' | 'tab' | 'pipe';
+  geometry: {
+    kind: 'coordinates' | 'wkt' | 'geojson' | 'kml_geometry';
+    longitudeColumn?: string;
+    latitudeColumn?: string;
+    geometryColumn?: string;
+  };
   fields: Record<string, string>;
-  upsert?: { matchBy: 'external_identity' };
+  upsert?: { matchBy: 'feature_id' | 'external_identity' };
 }
 
 interface StagedFeature {
@@ -68,6 +84,7 @@ interface StagedFeature {
   properties: Record<string, unknown>;
   externalSource: string | null;
   externalId: string | null;
+  sourceFeatureId?: string | null;
 }
 
 const GEOJSON_KIND: Record<string, Exclude<GeometryKind, 'circle'>> = {
@@ -110,7 +127,11 @@ export class ImportProcessor extends WorkerHost {
       if (stat.size > MAX_IMPORT_BYTES) throw new ImportInspectionError('IMPORT_OBJECT_TOO_LARGE');
       const content = await this.readBounded(record.objectKey);
       const counts = record.format === 'geojson' ? this.inspectGeoJson(content) : {};
-      if (record.format === 'xlsx') this.enforceZipExpansion(content);
+      let sheets: string[] | undefined;
+      if (record.format === 'xlsx') {
+        this.enforceZipExpansion(content);
+        sheets = await inspectXlsxSheets(content);
+      }
       await this.imports.update(record.id, {
         status: 'mapping_required',
         progress: 100,
@@ -118,7 +139,8 @@ export class ImportProcessor extends WorkerHost {
         mapping: {
           ...record.mapping,
           inspection: {
-            parserStatus: ['csv', 'kml'].includes(record.format) ? 'mapping_skeleton' : 'inspected',
+            parserStatus: 'inspected',
+            sheets,
             maxRecords: MAX_RECORDS,
             maxVerticesPerFeature: MAX_VERTICES_PER_FEATURE,
             maxVerticesPerJob: MAX_VERTICES_PER_JOB,
@@ -129,9 +151,13 @@ export class ImportProcessor extends WorkerHost {
       });
     } catch (error) {
       const failureCode =
-        error instanceof ImportInspectionError ? error.code : 'IMPORT_INSPECT_FAILED';
+        error instanceof ImportInspectionError || error instanceof ImportParserError
+          ? error.code
+          : 'IMPORT_INSPECT_FAILED';
       await this.imports.update(record.id, { status: 'failed', failureCode });
-      if (error instanceof ImportInspectionError) throw new UnrecoverableError(error.code);
+      if (error instanceof ImportInspectionError || error instanceof ImportParserError) {
+        throw new UnrecoverableError(error.code);
+      }
       throw error;
     }
   }
@@ -139,15 +165,8 @@ export class ImportProcessor extends WorkerHost {
   private async validate(importId: string): Promise<void> {
     const record = await this.imports.findOneBy({ id: importId });
     if (!record || record.status !== 'validating') return;
-    if (record.format !== 'geojson') {
-      await this.imports.update(record.id, {
-        status: 'failed',
-        failureCode: 'IMPORT_PARSER_NOT_READY',
-      });
-      throw new UnrecoverableError('IMPORT_PARSER_NOT_READY');
-    }
     const plan = record.mapping.plan as ImportMappingPlan | undefined;
-    if (!plan || plan.geometry.kind !== 'geojson' || plan.sourceCrs !== 'EPSG:4326') {
+    if (!plan || plan.sourceCrs !== 'EPSG:4326') {
       await this.imports.update(record.id, {
         status: 'failed',
         failureCode: 'IMPORT_MAPPING_INVALID',
@@ -156,7 +175,8 @@ export class ImportProcessor extends WorkerHost {
     }
     try {
       const content = await this.readBounded(record.objectKey);
-      const sourceFeatures = this.importFeatures(content);
+      if (record.format === 'xlsx') this.enforceZipExpansion(content);
+      const sourceFeatures = await parseImportRecords(content, record.format, plan, MAX_RECORDS);
       const revisionRows = (await this.dataSource.query(
         `SELECT r.layer_id AS "layerId",r.allowed_geometry_kinds AS "allowedKinds"
          FROM layer_revisions r WHERE r.id=$1 AND r.status='draft'`,
@@ -170,14 +190,13 @@ export class ImportProcessor extends WorkerHost {
       )) as LayerFieldDto[];
       const existingRows = (await this.dataSource.query(
         `SELECT id,external_source AS "externalSource",external_id AS "externalId"
-         FROM features WHERE layer_id=$1 AND external_source IS NOT NULL AND deleted_at IS NULL`,
+         FROM features WHERE layer_id=$1 AND deleted_at IS NULL`,
         [revision.layerId],
-      )) as Array<{ id: string; externalSource: string; externalId: string }>;
+      )) as Array<{ id: string; externalSource: string | null; externalId: string | null }>;
       const existingByIdentity = new Map(
-        existingRows.map((feature) => [
-          `${feature.externalSource}\u0000${feature.externalId}`,
-          feature.id,
-        ]),
+        existingRows
+          .filter((feature) => feature.externalSource && feature.externalId)
+          .map((feature) => [`${feature.externalSource}\u0000${feature.externalId}`, feature.id]),
       );
       const staged: StagedFeature[] = [];
       const issues: Array<{
@@ -186,12 +205,54 @@ export class ImportProcessor extends WorkerHost {
         code: string;
         field: string | null;
       }> = [];
-      const seenIdentities = new Set<string>();
-      let matched = 0;
+      const mappedCandidates: StagedFeature[] = [];
       for (let index = 0; index < sourceFeatures.length; index += 1) {
-        const rowNumber = index + 1;
         try {
-          const candidate = this.mapFeature(sourceFeatures[index], rowNumber, plan);
+          mappedCandidates.push(
+            this.mapFeature(sourceFeatures[index], index + 1, plan, record.format),
+          );
+        } catch (error) {
+          issues.push({
+            rowNumber: index + 1,
+            severity: 'error',
+            code:
+              error instanceof AppException || error instanceof ImportParserError
+                ? error.code
+                : 'IMPORT_ROW_INVALID',
+            field: null,
+          });
+        }
+      }
+      const sourceFeatureIds = [
+        ...new Set(
+          mappedCandidates
+            .map((candidate) => candidate.sourceFeatureId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      const featureOwnerRows = sourceFeatureIds.length
+        ? ((await this.dataSource.query(
+            `SELECT id,layer_id AS "layerId",deleted_at AS "deletedAt"
+             FROM features WHERE id=ANY($1::uuid[])`,
+            [sourceFeatureIds],
+          )) as Array<{ id: string; layerId: string; deletedAt: Date | null }>)
+        : [];
+      const featureOwners = new Map(featureOwnerRows.map((feature) => [feature.id, feature]));
+      const seenIdentities = new Set<string>();
+      const seenFeatureIds = new Set<string>();
+      let matched = 0;
+      let totalVertices = 0;
+      for (const candidate of mappedCandidates) {
+        const rowNumber = candidate.rowNumber;
+        try {
+          const featureVertices = this.countGeometryVertices(candidate.geometry);
+          if (featureVertices > MAX_VERTICES_PER_FEATURE) {
+            throw new ImportInspectionError('IMPORT_FEATURE_VERTEX_LIMIT');
+          }
+          totalVertices += featureVertices;
+          if (totalVertices > MAX_VERTICES_PER_JOB) {
+            throw new ImportInspectionError('IMPORT_VERTEX_LIMIT');
+          }
           if (!revision.allowedKinds.includes(candidate.geometryKind)) {
             throw new AppException(
               422,
@@ -206,6 +267,35 @@ export class ImportProcessor extends WorkerHost {
           );
           this.schemaService.validateProperties(fields, candidate.properties);
           let targetFeatureId: string | null = null;
+          if (plan.upsert?.matchBy === 'feature_id') {
+            if (!candidate.sourceFeatureId) {
+              throw new AppException(
+                422,
+                'IMPORT_FEATURE_ID_REQUIRED',
+                'Dòng upsert thiếu feature_id.',
+              );
+            }
+            if (seenFeatureIds.has(candidate.sourceFeatureId)) {
+              throw new AppException(
+                422,
+                'IMPORT_DUPLICATE_FEATURE_ID',
+                'feature_id bị trùng trong file.',
+              );
+            }
+            seenFeatureIds.add(candidate.sourceFeatureId);
+            const owner = featureOwners.get(candidate.sourceFeatureId);
+            if (owner && owner.layerId !== revision.layerId) {
+              throw new AppException(
+                422,
+                'IMPORT_FEATURE_ID_WRONG_LAYER',
+                'feature_id thuộc layer khác.',
+              );
+            }
+            if (owner?.deletedAt) {
+              throw new AppException(422, 'IMPORT_FEATURE_ID_DELETED', 'feature_id đã bị xóa.');
+            }
+            if (owner) targetFeatureId = owner.id;
+          }
           if (candidate.externalSource && candidate.externalId) {
             const identity = `${candidate.externalSource}\u0000${candidate.externalId}`;
             if (seenIdentities.has(identity)) {
@@ -225,12 +315,26 @@ export class ImportProcessor extends WorkerHost {
                   'External identity đã tồn tại.',
                 );
               }
+              if (plan.upsert?.matchBy === 'feature_id' && targetFeatureId !== existing) {
+                throw new AppException(
+                  422,
+                  'IMPORT_EXTERNAL_IDENTITY_EXISTS',
+                  'External identity thuộc feature khác.',
+                );
+              }
               targetFeatureId = existing;
-              matched += 1;
             }
+          } else if (plan.upsert?.matchBy === 'external_identity') {
+            throw new AppException(
+              422,
+              'IMPORT_EXTERNAL_IDENTITY_REQUIRED',
+              'Dòng upsert thiếu external identity.',
+            );
           }
+          if (targetFeatureId) matched += 1;
           staged.push({ ...candidate, targetFeatureId });
         } catch (error) {
+          if (error instanceof ImportInspectionError) throw error;
           issues.push({
             rowNumber,
             severity: 'error',
@@ -300,7 +404,9 @@ export class ImportProcessor extends WorkerHost {
       });
     } catch (error) {
       const failureCode =
-        error instanceof ImportInspectionError ? error.code : 'IMPORT_VALIDATE_FAILED';
+        error instanceof ImportInspectionError || error instanceof ImportParserError
+          ? error.code
+          : 'IMPORT_VALIDATE_FAILED';
       await this.imports.update(record.id, { status: 'failed', failureCode });
       throw new UnrecoverableError(failureCode);
     }
@@ -382,6 +488,12 @@ export class ImportProcessor extends WorkerHost {
               `INSERT INTO features(id,layer_id,external_source,external_id)
                VALUES($1,$2,$3,$4)`,
               [featureId, revision.layerId, feature.externalSource, feature.externalId],
+            );
+          } else if (feature.externalSource && feature.externalId) {
+            await manager.query(
+              `UPDATE features SET external_source=$2,external_id=$3
+               WHERE id=$1 AND layer_id=$4`,
+              [featureId, feature.externalSource, feature.externalId, revision.layerId],
             );
           }
           const checksum = createHash('sha256')
@@ -469,64 +581,94 @@ export class ImportProcessor extends WorkerHost {
     }
   }
 
-  private importFeatures(content: Buffer): unknown[] {
-    let payload: unknown;
-    try {
-      payload = JSON.parse(content.toString('utf8'));
-    } catch {
-      throw new ImportInspectionError('GEOJSON_INVALID');
-    }
-    if (!payload || typeof payload !== 'object') throw new ImportInspectionError('GEOJSON_INVALID');
-    const object = payload as { type?: unknown; features?: unknown };
-    if (object.type === 'FeatureCollection' && Array.isArray(object.features))
-      return object.features;
-    if (object.type === 'Feature') return [object];
-    throw new ImportInspectionError('GEOJSON_INVALID');
-  }
-
-  private mapFeature(value: unknown, rowNumber: number, plan: ImportMappingPlan): StagedFeature {
+  private mapFeature(
+    value: unknown,
+    rowNumber: number,
+    plan: ImportMappingPlan,
+    format: ImportFormat,
+  ): StagedFeature {
     if (!value || typeof value !== 'object') {
-      throw new AppException(422, 'GEOJSON_FEATURE_INVALID', 'GeoJSON feature không hợp lệ.');
+      throw new AppException(422, 'IMPORT_ROW_INVALID', 'Dòng import không hợp lệ.');
     }
-    const feature = value as {
-      type?: unknown;
-      geometry?: unknown;
-      properties?: unknown;
-      geometryKind?: unknown;
-      radiusM?: unknown;
-    };
-    if (
-      feature.type !== 'Feature' ||
-      !feature.geometry ||
-      typeof feature.geometry !== 'object' ||
-      (feature.properties !== null &&
-        (typeof feature.properties !== 'object' || Array.isArray(feature.properties)))
-    ) {
-      throw new AppException(422, 'GEOJSON_FEATURE_INVALID', 'GeoJSON feature không hợp lệ.');
+    let geometry: Record<string, unknown>;
+    let sourceProperties: Record<string, unknown>;
+    let declaredGeometryKind: unknown;
+    let declaredRadiusM: unknown;
+    if (format === 'csv' || format === 'xlsx') {
+      if (Array.isArray(value)) {
+        throw new AppException(422, 'IMPORT_ROW_INVALID', 'Dòng import không hợp lệ.');
+      }
+      sourceProperties = value as Record<string, unknown>;
+      if (plan.geometry.kind === 'coordinates') {
+        const longitude = Number(sourceProperties[plan.geometry.longitudeColumn ?? '']);
+        const latitude = Number(sourceProperties[plan.geometry.latitudeColumn ?? '']);
+        if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+          throw new AppException(
+            422,
+            'IMPORT_COORDINATES_INVALID',
+            'Tọa độ longitude/latitude không hợp lệ.',
+          );
+        }
+        geometry = { type: 'Point', coordinates: [longitude, latitude] };
+      } else if (plan.geometry.kind === 'wkt') {
+        geometry = parseWktGeometry(sourceProperties[plan.geometry.geometryColumn ?? '']);
+      } else {
+        throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Geometry mapping không hợp lệ.');
+      }
+    } else {
+      const feature = value as {
+        id?: unknown;
+        type?: unknown;
+        geometry?: unknown;
+        properties?: unknown;
+        geometryKind?: unknown;
+        radiusM?: unknown;
+      };
+      if (
+        feature.type !== 'Feature' ||
+        !feature.geometry ||
+        typeof feature.geometry !== 'object' ||
+        (feature.properties !== null &&
+          (typeof feature.properties !== 'object' || Array.isArray(feature.properties)))
+      ) {
+        throw new AppException(422, 'GEOJSON_FEATURE_INVALID', 'Feature không hợp lệ.');
+      }
+      geometry = feature.geometry as Record<string, unknown>;
+      sourceProperties = { ...((feature.properties ?? {}) as Record<string, unknown>) };
+      if (feature.id !== undefined && sourceProperties.feature_id === undefined) {
+        sourceProperties.feature_id = feature.id;
+      }
+      declaredGeometryKind = feature.geometryKind;
+      declaredRadiusM = feature.radiusM;
     }
-    const geometry = feature.geometry as Record<string, unknown>;
     const inferredKind = GEOJSON_KIND[String(geometry.type)];
     const geometryKind =
-      feature.geometryKind === 'circle'
+      declaredGeometryKind === 'circle'
         ? 'circle'
-        : feature.geometryKind === undefined
+        : declaredGeometryKind === undefined
           ? inferredKind
-          : (feature.geometryKind as GeometryKind);
+          : (declaredGeometryKind as GeometryKind);
     if (!geometryKind || (!GEOJSON_KIND[String(geometry.type)] && geometryKind !== 'circle')) {
       throw new AppException(422, 'GEOMETRY_TYPE_NOT_ALLOWED', 'Geometry type không được hỗ trợ.');
     }
     const radiusM =
-      feature.radiusM === undefined || feature.radiusM === null ? null : Number(feature.radiusM);
-    const sourceProperties = (feature.properties ?? {}) as Record<string, unknown>;
+      declaredRadiusM === undefined || declaredRadiusM === null ? null : Number(declaredRadiusM);
     const properties: Record<string, unknown> = {};
     let externalSource: string | null = null;
     let externalId: string | null = null;
+    let sourceFeatureId: string | null = null;
     for (const [source, target] of Object.entries(plan.fields)) {
       const mapped = sourceProperties[source];
       if (target === 'external_source') {
-        externalSource = typeof mapped === 'string' && mapped.trim() ? mapped.trim() : null;
+        externalSource = this.importIdentifier(mapped);
       } else if (target === 'external_id') {
-        externalId = typeof mapped === 'string' && mapped.trim() ? mapped.trim() : null;
+        externalId = this.importIdentifier(mapped);
+      } else if (target === 'feature_id') {
+        const identifier = this.importIdentifier(mapped);
+        if (identifier && !this.isUuid(identifier)) {
+          throw new AppException(422, 'IMPORT_FEATURE_ID_INVALID', 'feature_id không phải UUID.');
+        }
+        sourceFeatureId = identifier;
       } else if (mapped !== undefined) {
         properties[target] = mapped;
       }
@@ -538,6 +680,9 @@ export class ImportProcessor extends WorkerHost {
         'External identity cần đủ source và id.',
       );
     }
+    if (Buffer.byteLength(JSON.stringify(properties), 'utf8') > 64 * 1024) {
+      throw new AppException(422, 'IMPORT_PROPERTIES_TOO_LARGE', 'Properties vượt quá 64 KiB.');
+    }
     return {
       rowNumber,
       proposedFeatureId: randomUUID(),
@@ -548,7 +693,18 @@ export class ImportProcessor extends WorkerHost {
       properties,
       externalSource,
       externalId,
+      sourceFeatureId,
     };
+  }
+
+  private importIdentifier(value: unknown): string | null {
+    if (!['string', 'number'].includes(typeof value)) return null;
+    const normalized = String(value).trim();
+    return normalized ? normalized : null;
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
 
   private async readBounded(key: string): Promise<Buffer> {

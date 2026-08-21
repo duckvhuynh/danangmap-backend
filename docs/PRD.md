@@ -5,7 +5,7 @@
 | Thuộc tính | Giá trị |
 | --- | --- |
 | Sản phẩm | DanangMap v2 |
-| Trạng thái | Baseline MVP; UI gate `AWAITING_SELECTION` |
+| Trạng thái | Baseline MVP; UI gate `SELECTED_READY_TO_SCAFFOLD` |
 | Chủ sở hữu sản phẩm | `duckvhuynh` |
 | Repository | `duckvhuynh/danangmap-frontend` và `duckvhuynh/danangmap-backend` (private) |
 | Cập nhật | 2026-08-21 |
@@ -334,22 +334,22 @@ Các endpoint geocode/reverse geocode, nearby, find place và directions đượ
 
 ## 12. Design gate bắt buộc
 
-**Trạng thái: `AWAITING_SELECTION`. UI scaffold và implementation màn hình đang bị khóa.**
+**Trạng thái: `SELECTED_READY_TO_SCAFFOLD`. Product owner đã phê duyệt Direction 1 — Civic Focus (refined) ngày 2026-08-21; UI scaffold được mở sau commit frontend `2d35ec5`.**
 
-Đã tạo đúng ba public desktop visual assets trong frontend repository:
+Ba public desktop visual directions gốc vẫn được giữ trong frontend repository:
 
 1. `docs/visual-directions/direction-1.png`
 2. `docs/visual-directions/direction-2.png`
 3. `docs/visual-directions/direction-3.png`
 
-Trình tự gate:
+Artifact được chọn và các màn hình derive, đều xuất phát từ Direction 1:
 
-1. Product owner chọn đúng một trong ba public desktop assets hoặc yêu cầu tạo lại cả vòng; không trộn các hướng khi chưa review.
-2. Sau khi có lựa chọn, Product Design phải derive từ hướng đã chọn ra public mobile, admin editor desktop và admin review mobile; không tạo thêm visual direction thứ tư.
-3. `DESIGN.md` ghi selected direction, artifact nguồn, ngày quyết định và các màn hình derive.
-4. Chỉ khi ba bước trên hoàn tất mới được scaffold UI, sinh theme/component shadcn hoặc implement production screen.
+1. Source đã duyệt: `docs/visual-directions/direction-1-refined.png`.
+2. Public mobile: `docs/visual-directions/direction-1-public-mobile.png`.
+3. Admin editor desktop: `docs/visual-directions/direction-1-admin-editor-desktop.png`.
+4. Admin review mobile: `docs/visual-directions/direction-1-admin-review-mobile.png`.
 
-Có thể chuẩn bị backend, Docker, contract và tooling frontend không hiển thị trong khi chờ; không được tạo UI giả định rồi coi là phương án đã chọn.
+`danangmap-frontend/docs/DESIGN.md` ghi decision/date, Tabler Icons, semantic blue, radius/elevation của floating controls và trạng thái `SELECTED_READY_TO_SCAFFOLD`. Refined asset là bản hoàn thiện của Direction 1 đã chọn, không phải visual direction thứ tư. Implementation UI từ sau commit `2d35ec5` phải bám source/derived artifacts này; thay đổi hướng cần một vòng product/design review mới.
 
 ## 13. Chỉ số thành công MVP
 

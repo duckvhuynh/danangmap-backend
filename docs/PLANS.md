@@ -23,14 +23,14 @@ Nguyên tắc:
 
 ## 2. Gate thiết kế bắt buộc
 
-**GATE-DESIGN status: `AWAITING_SELECTION`; khóa toàn bộ UI scaffold và implementation màn hình.**
+**GATE-DESIGN status: `SELECTED_READY_TO_SCAFFOLD`; selection, derived artifacts và source-of-truth update được ghi tại frontend commit `2d35ec5` ngày 2026-08-21.**
 
-- Đã sinh **chính xác 3 public desktop visual assets**: `docs/visual-directions/direction-1.png`, `direction-2.png`, `direction-3.png` trong `danangmap-frontend`.
-- Product owner phải chọn đúng một asset hoặc yêu cầu tạo lại vòng; không trộn nhiều hướng khi chưa review.
-- Sau selection, Product Design derive public mobile, admin editor desktop và admin review mobile từ đúng hướng đã chọn, tuân thủ trắng/xanh, không gradient, map-first và workflow tham khảo geojson.io.
-- Selection, derived artifacts và decision/date được ghi vào `DESIGN.md`.
-- Chỉ sau khi issue `C-016` hoàn tất mới được scaffold UI, tạo theme/component shadcn hoặc implement production screen.
-- Trước gate, frontend chỉ được thiết lập tooling không hiển thị: package manager, TypeScript, lint/test/build và CI. Backend, contract, Docker và data discovery có thể chạy song song.
+- Ba public desktop visual directions gốc vẫn được giữ tại `docs/visual-directions/direction-1.png`, `direction-2.png`, `direction-3.png` trong `danangmap-frontend`.
+- Product owner đã phê duyệt **Direction 1 — Civic Focus (refined)** tại `docs/visual-directions/direction-1-refined.png`; đây là refinement của Direction 1, không phải hướng thứ tư.
+- Product Design đã derive đúng hướng được chọn thành `direction-1-public-mobile.png`, `direction-1-admin-editor-desktop.png` và `direction-1-admin-review-mobile.png`.
+- `DESIGN.md` đã ghi decision/date, Tabler Icons, semantic blue, Google Maps web-like control radius/elevation và trạng thái `SELECTED_READY_TO_SCAFFOLD`.
+- UI scaffold, shadcn theme/component và production screen được phép bắt đầu từ sau commit `2d35ec5`, phải bám source/derived artifacts và không trộn Direction 2/3 nếu chưa có vòng review mới.
+- Artifact QA follow-up còn mở trước khi đóng frontend `C-016` issue: bỏ badge `v2` trên public mobile và loại visible gradient khỏi primary buttons ở public mobile/admin review mobile. Việc này không mở lại quyết định selection nhưng là acceptance bắt buộc của no-gradient rule.
 
 ## 3. Dependency map
 
@@ -60,7 +60,7 @@ flowchart TD
   P --> Q[Production cutover]
 ```
 
-Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Backend nên hoàn tất contract và spatial/auth core trong khi chờ design selection.
+Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Các bước selection/derive đã hoàn tất tại `2d35ec5`; vị trí hiện tại trên đường găng là UI/backend foundation và vertical slice theo `docs/EXECUTION-CHECKLIST.md`.
 
 ## 4. Milestone và exit criteria
 

@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiHeader, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
@@ -9,12 +9,15 @@ import {
   csrfResultSchema,
   loginResultSchema,
   logoutResultSchema,
+  mfaEnrollmentConfirmationSchema,
+  mfaEnrollmentSchema,
 } from '../common/openapi/response-schemas';
 import { Principal } from './auth.decorators';
-import { LoginDto, VerifyMfaDto } from './auth.dto';
+import { ConfirmMfaEnrollmentDto, LoginDto, VerifyMfaDto } from './auth.dto';
 import {
   CSRF_COOKIE,
   CsrfGuard,
+  OptionalAuthGuard,
   PREAUTH_COOKIE,
   PreAuthGuard,
   SESSION_COOKIE,
@@ -36,6 +39,9 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  @ApiSecurity('csrf')
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'login' })
   @apiJsonResponse(200, loginResultSchema)
   async login(
@@ -45,12 +51,15 @@ export class AuthController {
   ) {
     const result = await this.auth.login(dto, this.metadata(request));
     response.cookie(PREAUTH_COOKIE, result.token, this.cookieOptions(5 * 60_000));
+    this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
     return result.data;
   }
 
   @Post('mfa/verify')
   @HttpCode(200)
-  @UseGuards(PreAuthGuard)
+  @UseGuards(PreAuthGuard, CsrfGuard)
+  @ApiSecurity({ preauthSession: [], csrf: [] })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'verifyMfa' })
   @apiJsonResponse(200, authPrincipalSchema)
   async verifyMfa(
@@ -62,38 +71,71 @@ export class AuthController {
     const result = await this.auth.verifyMfa(
       principal.id,
       principal.sessionId,
+      dto.method,
       dto.code,
       this.metadata(request),
     );
     response.clearCookie(PREAUTH_COOKIE, this.cookieOptions(0));
     response.cookie(SESSION_COOKIE, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
-    response.cookie(CSRF_COOKIE, result.csrfToken, {
-      secure: this.secure,
-      sameSite: 'lax',
-      path: '/',
-      httpOnly: false,
-      maxAge: 8 * 60 * 60_000,
-    });
+    this.setCsrfCookie(response, result.csrfToken, 8 * 60 * 60_000);
     return result.principal;
   }
 
+  @Post('mfa/enroll')
+  @HttpCode(200)
+  @UseGuards(PreAuthGuard, CsrfGuard)
+  @ApiSecurity({ preauthSession: [], csrf: [] })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'startMfaEnrollment' })
+  @apiJsonResponse(200, mfaEnrollmentSchema)
+  enrollMfa(
+    @Req() request: RequestWithContext,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    return this.auth.startMfaEnrollment(principal.id, principal.sessionId, this.metadata(request));
+  }
+
+  @Post('mfa/enroll/confirm')
+  @HttpCode(200)
+  @UseGuards(PreAuthGuard, CsrfGuard)
+  @ApiSecurity({ preauthSession: [], csrf: [] })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'confirmMfaEnrollment' })
+  @apiJsonResponse(200, mfaEnrollmentConfirmationSchema)
+  async confirmMfaEnrollment(
+    @Body() dto: ConfirmMfaEnrollmentDto,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    const result = await this.auth.confirmMfaEnrollment(
+      principal.id,
+      principal.sessionId,
+      dto.code,
+      this.metadata(request),
+    );
+    response.clearCookie(PREAUTH_COOKIE, this.cookieOptions(0));
+    response.cookie(SESSION_COOKIE, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
+    this.setCsrfCookie(response, result.csrfToken, 8 * 60 * 60_000);
+    return { principal: result.principal, recoveryCodes: result.recoveryCodes };
+  }
+
   @Get('csrf')
-  @UseGuards(SessionGuard)
-  @ApiCookieAuth('adminSession')
+  @UseGuards(OptionalAuthGuard)
   @ApiOperation({ operationId: 'rotateCsrf' })
   @apiJsonResponse(200, csrfResultSchema)
   async csrf(
-    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+    @Principal() principal: RequestWithContext['principal'],
     @Res({ passthrough: true }) response: Response,
   ) {
-    const token = await this.auth.rotateCsrf(principal.sessionId);
-    response.cookie(CSRF_COOKIE, token, {
-      secure: this.secure,
-      sameSite: 'lax',
-      path: '/',
-      httpOnly: false,
-      maxAge: 8 * 60 * 60_000,
-    });
+    const token = principal
+      ? await this.auth.rotateCsrf(principal.sessionId)
+      : this.auth.issueCsrfToken();
+    this.setCsrfCookie(
+      response,
+      token,
+      principal && principal.role !== 'preauth' ? 8 * 60 * 60_000 : 5 * 60_000,
+    );
     return { csrfToken: token };
   }
 
@@ -131,6 +173,16 @@ export class AuthController {
       path: '/',
       maxAge,
     };
+  }
+
+  private setCsrfCookie(response: Response, token: string, maxAge: number): void {
+    response.cookie(CSRF_COOKIE, token, {
+      secure: this.secure,
+      sameSite: 'lax',
+      path: '/',
+      httpOnly: false,
+      maxAge,
+    });
   }
 
   private metadata(request: RequestWithContext) {

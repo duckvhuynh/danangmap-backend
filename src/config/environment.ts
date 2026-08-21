@@ -24,6 +24,7 @@ const environmentSchema = z.object({
   FIELD_ENCRYPTION_KEY: z.string().min(32),
   FRONTEND_ORIGINS: z.string().min(1),
   COOKIE_SECURE: booleanString,
+  MFA_TOTP_ISSUER: z.string().trim().min(1).max(100).default('DanangMap'),
   GEO_SERVICE_BASE_URL: z.union([z.literal(''), z.string().url()]).default(''),
   GEO_SERVICE_AUTH_HEADER: z.string().optional(),
   GEO_SERVICE_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(250).max(5_000).default(2_000),

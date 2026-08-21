@@ -104,6 +104,31 @@ export const csrfResultSchema: SchemaObject = {
   properties: { csrfToken: { type: 'string' } },
 };
 
+export const mfaEnrollmentSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'enrollmentUri'],
+  properties: {
+    status: { type: 'string', enum: ['pending'] },
+    enrollmentUri: { type: 'string', pattern: '^otpauth://totp/' },
+  },
+};
+
+export const mfaEnrollmentConfirmationSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['principal', 'recoveryCodes'],
+  properties: {
+    principal: authPrincipalSchema,
+    recoveryCodes: {
+      type: 'array',
+      minItems: 10,
+      maxItems: 10,
+      items: { type: 'string', pattern: '^[A-F0-9]{4}(?:-[A-F0-9]{4}){4}$' },
+    },
+  },
+};
+
 export const logoutResultSchema: SchemaObject = {
   type: 'object',
   required: ['status', 'recoveryAction'],

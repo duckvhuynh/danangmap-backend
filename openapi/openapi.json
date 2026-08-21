@@ -4,7 +4,16 @@
     "/api/v1/auth/login": {
       "post": {
         "operationId": "login",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -67,6 +76,11 @@
             }
           }
         },
+        "security": [
+          {
+            "csrf": []
+          }
+        ],
         "summary": "",
         "tags": [
           "authentication"
@@ -76,7 +90,16 @@
     "/api/v1/auth/mfa/verify": {
       "post": {
         "operationId": "verifyMfa",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -169,6 +192,222 @@
             }
           }
         },
+        "security": [
+          {
+            "preauthSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/enroll": {
+      "post": {
+        "operationId": "startMfaEnrollment",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "status",
+                        "enrollmentUri"
+                      ],
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending"
+                          ]
+                        },
+                        "enrollmentUri": {
+                          "type": "string",
+                          "pattern": "^otpauth://totp/"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "preauthSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/enroll/confirm": {
+      "post": {
+        "operationId": "confirmMfaEnrollment",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmMfaEnrollmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "principal",
+                        "recoveryCodes"
+                      ],
+                      "properties": {
+                        "principal": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "email",
+                            "username",
+                            "displayName",
+                            "role",
+                            "status",
+                            "mfaEnabled",
+                            "mustChangePassword"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "email": {
+                              "type": "string",
+                              "format": "email"
+                            },
+                            "username": {
+                              "type": "string"
+                            },
+                            "displayName": {
+                              "type": "string"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "editor",
+                                "reviewer",
+                                "publisher",
+                                "system_admin"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "inactive",
+                                "disabled",
+                                "invited"
+                              ]
+                            },
+                            "mfaEnabled": {
+                              "type": "boolean"
+                            },
+                            "mustChangePassword": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        "recoveryCodes": {
+                          "type": "array",
+                          "minItems": 10,
+                          "maxItems": 10,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[A-F0-9]{4}(?:-[A-F0-9]{4}){4}$"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "preauthSession": [],
+            "csrf": []
+          }
+        ],
         "summary": "",
         "tags": [
           "authentication"
@@ -219,11 +458,6 @@
             }
           }
         },
-        "security": [
-          {
-            "adminSession": []
-          }
-        ],
         "summary": "",
         "tags": [
           "authentication"
@@ -5868,6 +6102,11 @@
         "in": "cookie",
         "name": "__Host-danangmap_session"
       },
+      "preauthSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-danangmap_preauth"
+      },
       "csrf": {
         "type": "apiKey",
         "in": "header",
@@ -5910,6 +6149,20 @@
         },
         "required": [
           "method",
+          "code"
+        ]
+      },
+      "ConfirmMfaEnrollmentDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 6,
+            "maxLength": 6
+          }
+        },
+        "required": [
           "code"
         ]
       },

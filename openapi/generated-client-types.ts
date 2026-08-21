@@ -36,6 +36,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/mfa/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startMfaEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/enroll/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmMfaEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf": {
         parameters: {
             query?: never;
@@ -549,6 +581,9 @@ export interface components {
             method: "totp" | "recovery_code";
             code: string;
         };
+        ConfirmMfaEnrollmentDto: {
+            code: string;
+        };
         CreateUserDto: {
             /** @example editor@example.gov.vn */
             email: string;
@@ -751,7 +786,9 @@ export interface operations {
     login: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -785,7 +822,9 @@ export interface operations {
     verifyMfa: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -814,6 +853,82 @@ export interface operations {
                             status: "active" | "inactive" | "disabled" | "invited";
                             mfaEnabled: boolean;
                             mustChangePassword: boolean;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    startMfaEnrollment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "pending";
+                            enrollmentUri: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    confirmMfaEnrollment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmMfaEnrollmentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            principal: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: email */
+                                email: string;
+                                username: string;
+                                displayName: string;
+                                /** @enum {string} */
+                                role: "editor" | "reviewer" | "publisher" | "system_admin";
+                                /** @enum {string} */
+                                status: "active" | "inactive" | "disabled" | "invited";
+                                mfaEnabled: boolean;
+                                mustChangePassword: boolean;
+                            };
+                            recoveryCodes: string[];
                         };
                         meta: {
                             requestId: string;

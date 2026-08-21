@@ -24,6 +24,7 @@ import {
   adminLayerGroupSchema,
   adminLayerListItemSchema,
   apiJsonResponse,
+  apiVersionedJsonResponse,
   catalogReorderResultSchema,
   createLayerResultSchema,
   featureDeleteResultSchema,
@@ -67,7 +68,7 @@ export class LayersController {
   @Get('layer-groups')
   @ApiQuery({ name: 'includeArchived', required: false, type: Boolean })
   @ApiOperation({ operationId: 'listLayerGroups' })
-  @apiJsonResponse(200, { type: 'array', items: adminLayerGroupSchema })
+  @apiVersionedJsonResponse(200, { type: 'array', items: adminLayerGroupSchema })
   async listGroups(
     @Query() query: ListCatalogQueryDto,
     @Res({ passthrough: true }) response: Response,
@@ -87,7 +88,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayerGroup' })
-  @apiJsonResponse(201, adminLayerGroupSchema)
+  @apiVersionedJsonResponse(201, adminLayerGroupSchema)
   async createGroup(
     @Body() dto: CreateLayerGroupDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
@@ -103,7 +104,7 @@ export class LayersController {
 
   @Get('layer-groups/:groupId')
   @ApiOperation({ operationId: 'getLayerGroup' })
-  @apiJsonResponse(200, adminLayerGroupSchema)
+  @apiVersionedJsonResponse(200, adminLayerGroupSchema)
   async getGroup(
     @Param('groupId', ParseUUIDPipe) groupId: string,
     @Res({ passthrough: true }) response: Response,
@@ -124,7 +125,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'updateLayerGroup' })
-  @apiJsonResponse(200, adminLayerGroupSchema)
+  @apiVersionedJsonResponse(200, adminLayerGroupSchema)
   async updateGroup(
     @Param('groupId', ParseUUIDPipe) groupId: string,
     @Body() dto: UpdateLayerGroupDto,
@@ -159,7 +160,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'reorderLayerGroups' })
-  @apiJsonResponse(200, catalogReorderResultSchema)
+  @apiVersionedJsonResponse(200, catalogReorderResultSchema)
   async reorderGroups(
     @Body() dto: ReorderCatalogDto,
     @Headers('if-match') ifMatch: string | undefined,
@@ -192,7 +193,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'archiveLayerGroup' })
-  @apiJsonResponse(200, adminLayerGroupSchema)
+  @apiVersionedJsonResponse(200, adminLayerGroupSchema)
   async archiveGroup(
     @Param('groupId', ParseUUIDPipe) groupId: string,
     @Body() dto: ArchiveLayerGroupDto,
@@ -218,7 +219,7 @@ export class LayersController {
   @Get('layers')
   @ApiQuery({ name: 'includeArchived', required: false, type: Boolean })
   @ApiOperation({ operationId: 'listAdminLayers' })
-  @apiJsonResponse(200, { type: 'array', items: adminLayerListItemSchema })
+  @apiVersionedJsonResponse(200, { type: 'array', items: adminLayerListItemSchema })
   async listLayers(
     @Query() query: ListCatalogQueryDto,
     @Res({ passthrough: true }) response: Response,
@@ -238,7 +239,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayer' })
-  @apiJsonResponse(201, createLayerResultSchema)
+  @apiVersionedJsonResponse(201, createLayerResultSchema)
   async createLayer(
     @Body() dto: CreateLayerDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
@@ -259,7 +260,7 @@ export class LayersController {
 
   @Get('layers/:layerId')
   @ApiOperation({ operationId: 'getAdminLayer' })
-  @apiJsonResponse(200, adminLayerDetailSchema)
+  @apiVersionedJsonResponse(200, adminLayerDetailSchema)
   async getLayer(
     @Param('layerId', ParseUUIDPipe) layerId: string,
     @Res({ passthrough: true }) response: Response,
@@ -280,7 +281,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'updateLayerCatalogConfig' })
-  @apiJsonResponse(200, adminLayerDetailSchema)
+  @apiVersionedJsonResponse(200, adminLayerDetailSchema)
   async updateLayer(
     @Param('layerId', ParseUUIDPipe) layerId: string,
     @Body() dto: UpdateLayerDto,
@@ -315,7 +316,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'reorderLayers' })
-  @apiJsonResponse(200, catalogReorderResultSchema)
+  @apiVersionedJsonResponse(200, catalogReorderResultSchema)
   async reorderLayers(
     @Body() dto: ReorderCatalogDto,
     @Headers('if-match') ifMatch: string | undefined,
@@ -348,7 +349,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'archiveLayer' })
-  @apiJsonResponse(200, adminLayerDetailSchema)
+  @apiVersionedJsonResponse(200, adminLayerDetailSchema)
   async archiveLayer(
     @Param('layerId', ParseUUIDPipe) layerId: string,
     @Headers('if-match') ifMatch: string | undefined,
@@ -382,7 +383,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'unarchiveLayer' })
-  @apiJsonResponse(200, adminLayerDetailSchema)
+  @apiVersionedJsonResponse(200, adminLayerDetailSchema)
   async unarchiveLayer(
     @Param('layerId', ParseUUIDPipe) layerId: string,
     @Headers('if-match') ifMatch: string | undefined,
@@ -415,7 +416,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createSuccessorDraft' })
-  @apiJsonResponse(201, successorDraftResultSchema)
+  @apiVersionedJsonResponse(201, successorDraftResultSchema)
   async createSuccessorDraft(
     @Param('layerId', ParseUUIDPipe) layerId: string,
     @Headers('if-match') ifMatch: string | undefined,
@@ -438,7 +439,7 @@ export class LayersController {
 
   @Get('revisions/:revisionId')
   @ApiOperation({ operationId: 'getRevision' })
-  @apiJsonResponse(200, revisionResultSchema)
+  @apiVersionedJsonResponse(200, revisionResultSchema)
   async getRevision(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Res({ passthrough: true }) response: Response,
@@ -455,7 +456,7 @@ export class LayersController {
   @ApiHeader({ name: 'If-Match', required: true })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'previewRevisionConfigurationImpact' })
-  @apiJsonResponse(200, revisionConfigurationImpactSchema)
+  @apiVersionedJsonResponse(200, revisionConfigurationImpactSchema)
   async previewRevisionConfigImpact(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: RevisionConfigurationDto,
@@ -478,7 +479,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'replaceDraftRevisionConfiguration' })
-  @apiJsonResponse(200, revisionConfigurationResultSchema)
+  @apiVersionedJsonResponse(200, revisionConfigurationResultSchema)
   async replaceRevisionConfig(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: RevisionConfigurationDto,
@@ -503,7 +504,7 @@ export class LayersController {
 
   @Get('revisions/:revisionId/workspace')
   @ApiOperation({ operationId: 'getRevisionWorkspace' })
-  @apiJsonResponse(200, revisionWorkspaceSchema)
+  @apiVersionedJsonResponse(200, revisionWorkspaceSchema)
   async workspace(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Res({ passthrough: true }) response: Response,
@@ -535,7 +536,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createFeature' })
-  @apiJsonResponse(201, featureMutationResultSchema)
+  @apiVersionedJsonResponse(201, featureMutationResultSchema)
   async createFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: FeatureMutationDto,
@@ -564,7 +565,7 @@ export class LayersController {
   @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'updateFeature' })
-  @apiJsonResponse(200, featureMutationResultSchema)
+  @apiVersionedJsonResponse(200, featureMutationResultSchema)
   async updateFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,
@@ -593,7 +594,7 @@ export class LayersController {
   @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'deleteFeature' })
-  @apiJsonResponse(200, featureDeleteResultSchema)
+  @apiVersionedJsonResponse(200, featureDeleteResultSchema)
   async deleteFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,

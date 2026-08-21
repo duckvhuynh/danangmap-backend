@@ -1732,6 +1732,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -1856,6 +1864,14 @@
         },
         "responses": {
           "201": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -1960,6 +1976,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -2097,6 +2121,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -2229,6 +2261,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -2356,6 +2396,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -2465,6 +2513,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -2518,6 +2574,11 @@
                           "revisionId": {
                             "type": "string",
                             "format": "uuid",
+                            "nullable": true
+                          },
+                          "revisionLockVersion": {
+                            "type": "integer",
+                            "minimum": 1,
                             "nullable": true
                           },
                           "title": {
@@ -2600,6 +2661,14 @@
         },
         "responses": {
           "201": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -2945,6 +3014,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -3782,6 +3859,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -4614,6 +4699,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -4731,6 +4824,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -5560,6 +5661,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -6390,6 +6499,14 @@
         ],
         "responses": {
           "201": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -6693,6 +6810,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -7115,6 +7240,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -7259,6 +7392,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -7712,6 +7853,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -7997,6 +8146,14 @@
         },
         "responses": {
           "201": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -8182,6 +8339,14 @@
         },
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {
@@ -8355,6 +8520,14 @@
         ],
         "responses": {
           "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "description": "",
             "content": {
               "application/json": {

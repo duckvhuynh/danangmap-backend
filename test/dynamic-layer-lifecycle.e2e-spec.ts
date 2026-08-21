@@ -190,6 +190,16 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       mutate(
         editor,
         `/api/v1/admin/layer-groups/${firstGroup.data.id}`,
+        { title: 'Payload khác cho cùng key' },
+        { method: 'PATCH', ifMatch: firstGroup.etag, idempotencyKey: updateKey },
+      ),
+      409,
+      'IDEMPOTENCY_KEY_REUSED',
+    );
+    await expectProblem(
+      mutate(
+        editor,
+        `/api/v1/admin/layer-groups/${firstGroup.data.id}`,
         { title: 'Stale' },
         {
           method: 'PATCH',
@@ -233,6 +243,16 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       mutate(
         editor,
         '/api/v1/admin/layer-groups:reorder',
+        { items: [{ id: firstGroup.data.id, displayOrder: 81 }] },
+        { ifMatch: groupsListEtag, idempotencyKey: reorderGroupKey },
+      ),
+      409,
+      'IDEMPOTENCY_KEY_REUSED',
+    );
+    await expectProblem(
+      mutate(
+        editor,
+        '/api/v1/admin/layer-groups:reorder',
         { items: [{ id: firstGroup.data.id, displayOrder: 1 }] },
         { ifMatch: groupsListEtag, idempotencyKey: randomUUID() },
       ),
@@ -241,6 +261,7 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
     );
 
     const secondLayerDetail = await adminGet(`/api/v1/admin/layers/${secondLayer.layer.id}`);
+    const moveLayerKey = randomUUID();
     const movedLayer = await mutate(
       editor,
       `/api/v1/admin/layers/${secondLayer.layer.id}`,
@@ -248,7 +269,7 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       {
         method: 'PATCH',
         ifMatch: requiredHeader(secondLayerDetail, 'etag'),
-        idempotencyKey: randomUUID(),
+        idempotencyKey: moveLayerKey,
       },
     );
     expect(movedLayer.status).toBe(200);
@@ -259,6 +280,20 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       displayOrder: 85,
       defaultVisible: false,
     });
+    await expectProblem(
+      mutate(
+        editor,
+        `/api/v1/admin/layers/${secondLayer.layer.id}`,
+        { displayOrder: 86 },
+        {
+          method: 'PATCH',
+          ifMatch: requiredHeader(secondLayerDetail, 'etag'),
+          idempotencyKey: moveLayerKey,
+        },
+      ),
+      409,
+      'IDEMPOTENCY_KEY_REUSED',
+    );
 
     const currentFirstGroup = await adminGet(`/api/v1/admin/layer-groups/${firstGroup.data.id}`);
     const archiveGroupKey = randomUUID();
@@ -285,6 +320,16 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       },
     );
     expect(requiredHeader(archivedGroupReplay, 'etag')).toBe(requiredHeader(archivedGroup, 'etag'));
+    await expectProblem(
+      mutate(
+        editor,
+        `/api/v1/admin/layer-groups/${firstGroup.data.id}:archive`,
+        { orphanLayerPolicy: 'ungroup' },
+        { ifMatch: requiredHeader(archivedGroup, 'etag'), idempotencyKey: archiveGroupKey },
+      ),
+      409,
+      'IDEMPOTENCY_KEY_REUSED',
+    );
     const [ungroupedFirstLayer, ungroupedSecondLayer] = await Promise.all([
       adminGet(`/api/v1/admin/layers/${firstLayer.layer.id}`),
       adminGet(`/api/v1/admin/layers/${secondLayer.layer.id}`),
@@ -300,6 +345,7 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
 
     const layersList = await adminGet('/api/v1/admin/layers');
     const layersListEtag = requiredHeader(layersList, 'etag');
+    const reorderLayerKey = randomUUID();
     const reorderedLayers = await mutate(
       editor,
       '/api/v1/admin/layers:reorder',
@@ -309,9 +355,19 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
           { id: secondLayer.layer.id, displayOrder: 91 },
         ],
       },
-      { ifMatch: layersListEtag, idempotencyKey: randomUUID() },
+      { ifMatch: layersListEtag, idempotencyKey: reorderLayerKey },
     );
     expect(reorderedLayers.status).toBe(200);
+    await expectProblem(
+      mutate(
+        editor,
+        '/api/v1/admin/layers:reorder',
+        { items: [{ id: firstLayer.layer.id, displayOrder: 93 }] },
+        { ifMatch: layersListEtag, idempotencyKey: reorderLayerKey },
+      ),
+      409,
+      'IDEMPOTENCY_KEY_REUSED',
+    );
     await expectProblem(
       mutate(
         editor,
@@ -336,6 +392,283 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       },
     );
     expect(unarchivedSecondLayer.status).toBe(200);
+
+    const catalogAudits = (await AppDataSource.query(
+      `SELECT action,resource_id,before_digest,after_digest,metadata
+       FROM audit_logs
+       WHERE actor_id=$1 AND occurred_at >= $2
+         AND action=ANY($3::text[])`,
+      [
+        editor.id,
+        startedAt,
+        [
+          'layer_group.updated',
+          'layer_group.reordered',
+          'layer_group.archived',
+          'layer.reordered',
+          'layer.archived',
+          'layer.unarchived',
+        ],
+      ],
+    )) as Array<{
+      action: string;
+      resource_id: string | null;
+      before_digest: string | null;
+      after_digest: string | null;
+      metadata: Record<string, unknown>;
+    }>;
+    for (const action of [
+      'layer_group.updated',
+      'layer_group.reordered',
+      'layer_group.archived',
+      'layer.reordered',
+      'layer.archived',
+      'layer.unarchived',
+    ]) {
+      const matching = catalogAudits.filter((row) => row.action === action);
+      expect(matching.length).toBeGreaterThan(0);
+      expect(matching.every((row) => row.before_digest && row.after_digest)).toBe(true);
+    }
+    const groupArchiveAudit = catalogAudits.find(
+      (row) => row.action === 'layer_group.archived' && row.resource_id === firstGroup.data.id,
+    );
+    expect(groupArchiveAudit?.metadata).toMatchObject({
+      orphanLayerPolicy: 'ungroup',
+      ungroupedLayerCount: 2,
+    });
+    expect(typeof groupArchiveAudit?.metadata.ungroupedLayerIdsDigest).toBe('string');
+    expect(groupArchiveAudit?.metadata).not.toHaveProperty('ungroupedLayerIds');
+  });
+
+  it('serializes group archive against layer create, move and unarchive', async () => {
+    const suffix = randomUUID().slice(0, 8);
+
+    const createRaceGroup = await createGroup(`race-create-${suffix}`, 'Nhóm race create', 201);
+    const [archivedCreateGroup, competingCreate] = await Promise.all([
+      mutate(
+        editor,
+        `/api/v1/admin/layer-groups/${createRaceGroup.data.id}:archive`,
+        { orphanLayerPolicy: 'ungroup' },
+        { ifMatch: createRaceGroup.etag, idempotencyKey: randomUUID() },
+      ),
+      mutate(
+        editor,
+        '/api/v1/admin/layers',
+        layerPayload(`race-create-${suffix}`, createRaceGroup.data.id, 'Layer race create', 202),
+        { idempotencyKey: randomUUID() },
+      ),
+    ]);
+    expect(archivedCreateGroup.status).toBe(200);
+    expect([201, 404]).toContain(competingCreate.status);
+    if (competingCreate.status === 201) {
+      const created = await createdLayerData(competingCreate);
+      const detail = await adminGet(`/api/v1/admin/layers/${created.layer.id}`);
+      expect(await layerGroupId(detail)).toBeNull();
+    } else {
+      await expectProblem(Promise.resolve(competingCreate), 404, 'NOT_FOUND');
+    }
+
+    const sourceGroup = await createGroup(`race-source-${suffix}`, 'Nhóm nguồn', 203);
+    const moveTarget = await createGroup(`race-move-${suffix}`, 'Nhóm race move', 204);
+    const movingLayer = await createLayer(
+      `race-move-${suffix}`,
+      sourceGroup.data.id,
+      'Layer race move',
+      205,
+    );
+    const movingLayerDetail = await adminGet(`/api/v1/admin/layers/${movingLayer.layer.id}`);
+    const [archivedMoveTarget, competingMove] = await Promise.all([
+      mutate(
+        editor,
+        `/api/v1/admin/layer-groups/${moveTarget.data.id}:archive`,
+        { orphanLayerPolicy: 'ungroup' },
+        { ifMatch: moveTarget.etag, idempotencyKey: randomUUID() },
+      ),
+      mutate(
+        editor,
+        `/api/v1/admin/layers/${movingLayer.layer.id}`,
+        { groupId: moveTarget.data.id },
+        {
+          method: 'PATCH',
+          ifMatch: requiredHeader(movingLayerDetail, 'etag'),
+          idempotencyKey: randomUUID(),
+        },
+      ),
+    ]);
+    expect(archivedMoveTarget.status).toBe(200);
+    expect([200, 404]).toContain(competingMove.status);
+    if (competingMove.status === 404) {
+      await expectProblem(Promise.resolve(competingMove), 404, 'NOT_FOUND');
+    }
+    const finalMovingLayer = await adminGet(`/api/v1/admin/layers/${movingLayer.layer.id}`);
+    expect([null, sourceGroup.data.id]).toContain(await layerGroupId(finalMovingLayer));
+
+    const unarchiveGroup = await createGroup(
+      `race-unarchive-${suffix}`,
+      'Nhóm race unarchive',
+      206,
+    );
+    const archivedLayer = await createLayer(
+      `race-unarchive-${suffix}`,
+      unarchiveGroup.data.id,
+      'Layer race unarchive',
+      207,
+    );
+    const activeLayerDetail = await adminGet(`/api/v1/admin/layers/${archivedLayer.layer.id}`);
+    const archivedLayerResponse = await mutate(
+      editor,
+      `/api/v1/admin/layers/${archivedLayer.layer.id}:archive`,
+      {},
+      {
+        ifMatch: requiredHeader(activeLayerDetail, 'etag'),
+        idempotencyKey: randomUUID(),
+      },
+    );
+    expect(archivedLayerResponse.status).toBe(200);
+    const [archivedUnarchiveGroup, competingUnarchive] = await Promise.all([
+      mutate(
+        editor,
+        `/api/v1/admin/layer-groups/${unarchiveGroup.data.id}:archive`,
+        { orphanLayerPolicy: 'ungroup' },
+        { ifMatch: unarchiveGroup.etag, idempotencyKey: randomUUID() },
+      ),
+      mutate(
+        editor,
+        `/api/v1/admin/layers/${archivedLayer.layer.id}:unarchive`,
+        {},
+        {
+          ifMatch: requiredHeader(archivedLayerResponse, 'etag'),
+          idempotencyKey: randomUUID(),
+        },
+      ),
+    ]);
+    expect(archivedUnarchiveGroup.status).toBe(200);
+    expect([200, 404]).toContain(competingUnarchive.status);
+    if (competingUnarchive.status === 404) {
+      await expectProblem(Promise.resolve(competingUnarchive), 404, 'NOT_FOUND');
+    }
+    const finalUnarchivedLayer = await adminGet(`/api/v1/admin/layers/${archivedLayer.layer.id}`);
+    expect(await layerGroupId(finalUnarchivedLayer)).toBeNull();
+
+    const invalidReferences = (await AppDataSource.query(
+      `SELECT count(*)::integer AS count
+       FROM layers layer JOIN layer_groups layer_group ON layer_group.id=layer.group_id
+       WHERE layer_group.archived_at IS NOT NULL`,
+    )) as Array<{ count: number }>;
+    expect(invalidReferences[0]!.count).toBe(0);
+  });
+
+  it('enforces roles, CSRF and If-Match across lifecycle configuration mutations', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const group = await createGroup(`guards-${suffix}`, 'Nhóm guards', 208);
+    const layer = await createLayer(`guards-${suffix}`, group.data.id, 'Layer guards', 209);
+    const groupListEtag = requiredHeader(await adminGet('/api/v1/admin/layer-groups'), 'etag');
+    const layerListEtag = requiredHeader(await adminGet('/api/v1/admin/layers'), 'etag');
+    const layerDetailEtag = requiredHeader(
+      await adminGet(`/api/v1/admin/layers/${layer.layer.id}`),
+      'etag',
+    );
+    const cases: Array<{
+      name: string;
+      path: string;
+      body: Record<string, unknown> | undefined;
+      options: { method?: 'POST' | 'PATCH' | 'PUT'; ifMatch: string; idempotent?: boolean };
+    }> = [
+      {
+        name: 'update group',
+        path: `/api/v1/admin/layer-groups/${group.data.id}`,
+        body: { title: 'Guarded group' },
+        options: { method: 'PATCH', ifMatch: group.etag, idempotent: true },
+      },
+      {
+        name: 'reorder groups',
+        path: '/api/v1/admin/layer-groups:reorder',
+        body: { items: [{ id: group.data.id, displayOrder: 210 }] },
+        options: { ifMatch: groupListEtag, idempotent: true },
+      },
+      {
+        name: 'archive group',
+        path: `/api/v1/admin/layer-groups/${group.data.id}:archive`,
+        body: { orphanLayerPolicy: 'ungroup' },
+        options: { ifMatch: group.etag, idempotent: true },
+      },
+      {
+        name: 'update layer',
+        path: `/api/v1/admin/layers/${layer.layer.id}`,
+        body: { defaultVisible: false },
+        options: { method: 'PATCH', ifMatch: layerDetailEtag, idempotent: true },
+      },
+      {
+        name: 'reorder layers',
+        path: '/api/v1/admin/layers:reorder',
+        body: { items: [{ id: layer.layer.id, displayOrder: 211 }] },
+        options: { ifMatch: layerListEtag, idempotent: true },
+      },
+      {
+        name: 'archive layer',
+        path: `/api/v1/admin/layers/${layer.layer.id}:archive`,
+        body: {},
+        options: { ifMatch: layerDetailEtag, idempotent: true },
+      },
+      {
+        name: 'unarchive layer',
+        path: `/api/v1/admin/layers/${layer.layer.id}:unarchive`,
+        body: {},
+        options: { ifMatch: layerDetailEtag, idempotent: true },
+      },
+      {
+        name: 'create successor',
+        path: `/api/v1/admin/layers/${layer.layer.id}/drafts`,
+        body: undefined,
+        options: { ifMatch: layer.revisionEtag, idempotent: true },
+      },
+      {
+        name: 'preview config impact',
+        path: `/api/v1/admin/revisions/${layer.draftRevision.id}/config:impact`,
+        body: configurationPayload('Guarded impact'),
+        options: { ifMatch: layer.revisionEtag },
+      },
+      {
+        name: 'replace config',
+        path: `/api/v1/admin/revisions/${layer.draftRevision.id}/config`,
+        body: configurationPayload('Guarded replacement'),
+        options: { method: 'PUT', ifMatch: layer.revisionEtag, idempotent: true },
+      },
+    ];
+
+    for (const actor of [reviewer, publisher, systemAdmin]) {
+      for (const testCase of cases) {
+        await expectProblem(
+          mutate(actor, testCase.path, testCase.body, {
+            method: testCase.options.method,
+            ifMatch: testCase.options.ifMatch,
+            ...(testCase.options.idempotent ? { idempotencyKey: randomUUID() } : {}),
+          }),
+          403,
+          'ROLE_FORBIDDEN',
+        );
+      }
+    }
+
+    for (const testCase of cases) {
+      await expectProblem(
+        mutateWithoutCsrf(editor, testCase.path, testCase.body, {
+          method: testCase.options.method,
+          ifMatch: testCase.options.ifMatch,
+          ...(testCase.options.idempotent ? { idempotencyKey: randomUUID() } : {}),
+        }),
+        403,
+        'CSRF_INVALID',
+      );
+      await expectProblem(
+        mutate(editor, testCase.path, testCase.body, {
+          method: testCase.options.method,
+          ...(testCase.options.idempotent ? { idempotencyKey: randomUUID() } : {}),
+        }),
+        428,
+        'ETAG_REQUIRED',
+      );
+    }
   });
 
   it('previews/replaces draft config, protects data, publishes, and creates one successor', async () => {
@@ -371,6 +704,11 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       reasons: [],
     });
 
+    const layerListBeforeRevisionMutation = requiredHeader(
+      await adminGet('/api/v1/admin/layers'),
+      'etag',
+    );
+
     const replaceKey = randomUUID();
     const replaced = await mutate(
       editor,
@@ -388,6 +726,9 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       >(replaced)
     ).data;
     const replacedEtag = requiredHeader(replaced, 'etag');
+    expect(requiredHeader(await adminGet('/api/v1/admin/layers'), 'etag')).not.toBe(
+      layerListBeforeRevisionMutation,
+    );
     expect(replacedData.revision).toMatchObject({
       id: revisionId,
       title: 'Đối tượng cấu hình đã cập nhật',
@@ -407,6 +748,16 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       { method: 'PUT', ifMatch: created.revisionEtag, idempotencyKey: replaceKey },
     );
     expect(requiredHeader(replaceReplay, 'etag')).toBe(replacedEtag);
+    await expectProblem(
+      mutate(
+        editor,
+        `/api/v1/admin/revisions/${revisionId}/config`,
+        configurationPayload('Payload config khác cho cùng key'),
+        { method: 'PUT', ifMatch: created.revisionEtag, idempotencyKey: replaceKey },
+      ),
+      409,
+      'IDEMPOTENCY_KEY_REUSED',
+    );
     await expectProblem(
       mutate(editor, `/api/v1/admin/revisions/${revisionId}/config`, safeConfig, {
         method: 'PUT',
@@ -429,6 +780,74 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
     );
     expect(createFeature.status).toBe(201);
     const featureEtag = requiredHeader(createFeature, 'etag');
+    await AppDataSource.query(
+      `WITH new_features AS (
+         INSERT INTO features(layer_id)
+         SELECT $1 FROM generate_series(1,250)
+         RETURNING id
+       ), new_versions AS (
+         INSERT INTO feature_versions(
+           feature_id,revision_id,geometry,geometry_kind,properties,checksum,created_by
+         )
+         SELECT id,$2,ST_SetSRID(ST_MakePoint(108.2208,16.0678),4326),'point',
+           jsonb_build_object(
+             'name','Trung tâm hành chính ' || id::text,
+             'category','public-service'
+           ),md5(id::text),$3
+         FROM new_features
+         RETURNING id,feature_id
+       )
+       INSERT INTO revision_features(revision_id,feature_id,feature_version_id,ordinal)
+       SELECT $2,feature_id,id,row_number() OVER (ORDER BY feature_id)::integer
+       FROM new_versions`,
+      [created.layer.id, revisionId, editor.id],
+    );
+
+    const harmlessConstraintChange = configurationPayload('Ràng buộc nới lỏng');
+    const harmlessFields = harmlessConstraintChange.fields as Array<Record<string, unknown>>;
+    harmlessFields[0]!.validation = { minLength: 1, maxLength: 240 };
+    harmlessFields[1]!.options = ['community', 'public-service', 'health'];
+    const harmlessImpact = await mutate(
+      editor,
+      `/api/v1/admin/revisions/${revisionId}/config:impact`,
+      harmlessConstraintChange,
+      { ifMatch: featureEtag },
+    );
+    expect(harmlessImpact.status).toBe(200);
+    expect((await json<Envelope<Record<string, unknown>>>(harmlessImpact)).data).toMatchObject({
+      featureCount: 251,
+      blocking: false,
+      reasons: [],
+    });
+
+    const tighteningConstraintChange = configurationPayload('Ràng buộc siết chặt');
+    const tighteningFields = tighteningConstraintChange.fields as Array<Record<string, unknown>>;
+    tighteningFields[0]!.validation = { minLength: 2, maxLength: 5 };
+    tighteningFields[1]!.options = ['community'];
+    const tighteningImpact = await mutate(
+      editor,
+      `/api/v1/admin/revisions/${revisionId}/config:impact`,
+      tighteningConstraintChange,
+      { ifMatch: featureEtag },
+    );
+    expect(tighteningImpact.status).toBe(200);
+    expect(
+      (await json<Envelope<{ reasons: Array<Record<string, unknown>> }>>(tighteningImpact)).data
+        .reasons,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'FIELD_CONSTRAINT_CHANGE_WITH_DATA',
+          fieldKey: 'name',
+          affectedFeatures: 251,
+        }),
+        expect.objectContaining({
+          code: 'FIELD_CONSTRAINT_CHANGE_WITH_DATA',
+          fieldKey: 'category',
+          affectedFeatures: 251,
+        }),
+      ]),
+    );
 
     const incompatible = incompatibleConfigurationPayload();
     const blockedImpact = await mutate(
@@ -475,15 +894,15 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       ),
       201,
     );
-    await expectStatus(
-      mutate(
-        publisher,
-        `/api/v1/admin/revisions/${revisionId}:publish`,
-        { releaseNote: 'Công bố lifecycle' },
-        { idempotencyKey: randomUUID() },
-      ),
-      202,
+    const initialPublish = await mutate(
+      publisher,
+      `/api/v1/admin/revisions/${revisionId}:publish`,
+      { releaseNote: 'Công bố lifecycle' },
+      { idempotencyKey: randomUUID() },
     );
+    expect(initialPublish.status).toBe(202);
+    const initialSnapshotId = (await json<Envelope<{ snapshotId: string }>>(initialPublish)).data
+      .snapshotId;
 
     const publishedRevision = await adminGet(`/api/v1/admin/revisions/${revisionId}`);
     const publishedEtag = requiredHeader(publishedRevision, 'etag');
@@ -562,7 +981,7 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
     revisionIds.push(successorData.draftRevision.id);
     expect(successorData).toMatchObject({
       sourceRevisionId: revisionId,
-      featureCount: 1,
+      featureCount: 251,
       draftRevision: {
         status: 'draft',
         supersedesRevisionId: revisionId,
@@ -579,6 +998,14 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       (await json<Envelope<{ draftRevision: { id: string } }>>(successorReplay)).data.draftRevision
         .id,
     ).toBe(successorData.draftRevision.id);
+    await expectProblem(
+      mutate(editor, `/api/v1/admin/layers/${created.layer.id}/drafts`, undefined, {
+        ifMatch: successorData.draftEtag,
+        idempotencyKey: winningSuccessorKey,
+      }),
+      409,
+      'IDEMPOTENCY_KEY_REUSED',
+    );
     await expectProblem(
       mutate(editor, `/api/v1/admin/layers/${created.layer.id}/drafts`, undefined, {
         ifMatch: publishedEtag,
@@ -602,7 +1029,182 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
     );
     expect(
       (await json<Envelope<{ featureCount: number }>>(successorWorkspace)).data.featureCount,
-    ).toBe(1);
+    ).toBe(251);
+
+    await expectStatus(
+      mutate(
+        editor,
+        `/api/v1/admin/revisions/${successorData.draftRevision.id}:submit`,
+        { summary: 'Gửi successor duyệt' },
+        { idempotencyKey: randomUUID() },
+      ),
+      202,
+    );
+    await expectProblem(
+      mutate(editor, `/api/v1/admin/layers/${created.layer.id}/drafts`, undefined, {
+        ifMatch: publishedEtag,
+        idempotencyKey: randomUUID(),
+      }),
+      409,
+      'DRAFT_ALREADY_EXISTS',
+    );
+
+    const requestChangesKey = randomUUID();
+    const crossPathCreateKey = randomUUID();
+    const [requestedChanges, rejectedCrossPathCreate] = await Promise.all([
+      mutate(
+        reviewer,
+        `/api/v1/admin/revisions/${successorData.draftRevision.id}:request-changes`,
+        { comment: 'Cần bổ sung metadata' },
+        { idempotencyKey: requestChangesKey },
+      ),
+      mutate(editor, `/api/v1/admin/layers/${created.layer.id}/drafts`, undefined, {
+        ifMatch: publishedEtag,
+        idempotencyKey: crossPathCreateKey,
+      }),
+    ]);
+    expect(requestedChanges.status).toBe(201);
+    await expectProblem(Promise.resolve(rejectedCrossPathCreate), 409, 'DRAFT_ALREADY_EXISTS');
+    const requestedChangesData = (
+      await json<Envelope<{ draftRevisionId: string; draftEtag: string }>>(requestedChanges)
+    ).data;
+    revisionIds.push(requestedChangesData.draftRevisionId);
+    const activeDraftRows = (await AppDataSource.query(
+      `SELECT id FROM layer_revisions WHERE layer_id=$1 AND status='draft'`,
+      [created.layer.id],
+    )) as Array<{ id: string }>;
+    expect(activeDraftRows).toEqual([{ id: requestedChangesData.draftRevisionId }]);
+    const requestedDraft = await adminGet(
+      `/api/v1/admin/revisions/${requestedChangesData.draftRevisionId}`,
+    );
+    expect(
+      (
+        await json<Envelope<{ revision: { supersedesRevisionId: string }; fields: unknown[] }>>(
+          requestedDraft,
+        )
+      ).data,
+    ).toMatchObject({
+      revision: { supersedesRevisionId: successorData.draftRevision.id },
+    });
+    expect(
+      (
+        await json<Envelope<{ fields: unknown[] }>>(
+          await adminGet(`/api/v1/admin/revisions/${requestedChangesData.draftRevisionId}`),
+        )
+      ).data.fields,
+    ).toHaveLength(2);
+    expect(
+      (
+        await json<Envelope<{ featureCount: number }>>(
+          await adminGet(
+            `/api/v1/admin/revisions/${requestedChangesData.draftRevisionId}/workspace`,
+          ),
+        )
+      ).data.featureCount,
+    ).toBe(251);
+
+    await expectStatus(
+      mutate(
+        editor,
+        `/api/v1/admin/revisions/${requestedChangesData.draftRevisionId}:submit`,
+        { summary: 'Gửi successor sau request changes' },
+        { idempotencyKey: randomUUID() },
+      ),
+      202,
+    );
+    await expectStatus(
+      mutate(
+        reviewer,
+        `/api/v1/admin/revisions/${requestedChangesData.draftRevisionId}:approve`,
+        { comment: 'Đồng ý successor' },
+        { idempotencyKey: randomUUID() },
+      ),
+      201,
+    );
+    await expectProblem(
+      mutate(editor, `/api/v1/admin/layers/${created.layer.id}/drafts`, undefined, {
+        ifMatch: publishedEtag,
+        idempotencyKey: randomUUID(),
+      }),
+      409,
+      'DRAFT_ALREADY_EXISTS',
+    );
+    await expectStatus(
+      mutate(
+        publisher,
+        `/api/v1/admin/revisions/${requestedChangesData.draftRevisionId}:publish`,
+        { releaseNote: 'Công bố successor đã duyệt' },
+        { idempotencyKey: randomUUID() },
+      ),
+      202,
+    );
+
+    const currentPublishedRevision = await adminGet(
+      `/api/v1/admin/revisions/${requestedChangesData.draftRevisionId}`,
+    );
+    const staleCandidateResponse = await mutate(
+      editor,
+      `/api/v1/admin/layers/${created.layer.id}/drafts`,
+      undefined,
+      {
+        ifMatch: requiredHeader(currentPublishedRevision, 'etag'),
+        idempotencyKey: randomUUID(),
+      },
+    );
+    expect(staleCandidateResponse.status).toBe(201);
+    const staleCandidate = (
+      await json<Envelope<{ draftRevision: { id: string } }>>(staleCandidateResponse)
+    ).data.draftRevision;
+    revisionIds.push(staleCandidate.id);
+    await expectStatus(
+      mutate(
+        editor,
+        `/api/v1/admin/revisions/${staleCandidate.id}:submit`,
+        { summary: 'Ứng viên stale base' },
+        { idempotencyKey: randomUUID() },
+      ),
+      202,
+    );
+    await expectStatus(
+      mutate(
+        reviewer,
+        `/api/v1/admin/revisions/${staleCandidate.id}:approve`,
+        { comment: 'Duyệt trước rollback' },
+        { idempotencyKey: randomUUID() },
+      ),
+      201,
+    );
+    const rollback = await mutate(
+      publisher,
+      `/api/v1/admin/layers/${created.layer.id}:rollback`,
+      { targetSnapshotId: initialSnapshotId, reason: 'Kiểm tra stale publication base' },
+      { idempotencyKey: randomUUID() },
+    );
+    expect(rollback.status).toBe(201);
+    const rollbackSnapshotId = (await json<Envelope<{ snapshotId: string }>>(rollback)).data
+      .snapshotId;
+    await expectProblem(
+      mutate(
+        publisher,
+        `/api/v1/admin/revisions/${staleCandidate.id}:publish`,
+        { releaseNote: 'Không được công bố stale base' },
+        { idempotencyKey: randomUUID() },
+      ),
+      409,
+      'PUBLICATION_BASE_STALE',
+    );
+    expect(
+      (
+        await json<Envelope<{ revision: { status: string } }>>(
+          await adminGet(`/api/v1/admin/revisions/${staleCandidate.id}`),
+        )
+      ).data.revision.status,
+    ).toBe('approved');
+    const activePublication = (await AppDataSource.query(
+      `SELECT active_snapshot_id FROM layer_publications WHERE layer_id=$1`,
+      [created.layer.id],
+    )) as Array<{ active_snapshot_id: string }>;
+    expect(activePublication[0]!.active_snapshot_id).toBe(rollbackSnapshotId);
 
     const layerDetail = await adminGet(`/api/v1/admin/layers/${created.layer.id}`);
     const archived = await mutate(
@@ -634,26 +1236,65 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
     const auditCounts = (await AppDataSource.query(
       `SELECT action,count(*)::integer AS count
        FROM audit_logs WHERE actor_id=$1 AND occurred_at >= $2
-         AND action=ANY($3::text[]) GROUP BY action`,
-      [
-        editor.id,
-        startedAt,
-        [
-          'layer_group.updated',
-          'layer_group.reordered',
-          'layer_group.archived',
-          'revision.config_updated',
-          'revision.successor_created',
-        ],
-      ],
+         AND action='revision.config_updated' AND resource_id=$3
+       GROUP BY action`,
+      [editor.id, startedAt, revisionId],
     )) as Array<{ action: string; count: number }>;
     expect(Object.fromEntries(auditCounts.map((row) => [row.action, row.count]))).toMatchObject({
-      'layer_group.updated': 1,
-      'layer_group.reordered': 1,
-      'layer_group.archived': 1,
       'revision.config_updated': 1,
-      'revision.successor_created': 1,
     });
+    const initialSuccessorAudit = (await AppDataSource.query(
+      `SELECT count(*)::integer AS count FROM audit_logs
+       WHERE action='revision.successor_created' AND resource_id=$1`,
+      [successorData.draftRevision.id],
+    )) as Array<{ count: number }>;
+    expect(initialSuccessorAudit[0]!.count).toBe(1);
+  });
+
+  it('declares ETag response headers for every versioned layer lifecycle operation', async () => {
+    const response = await fetch(`${apiBaseUrl}/api/openapi.json`);
+    expect(response.status).toBe(200);
+    const document = (await response.json()) as {
+      paths: Record<
+        string,
+        Record<
+          string,
+          {
+            operationId?: string;
+            responses?: Record<string, { headers?: Record<string, unknown> }>;
+          }
+        >
+      >;
+    };
+    const expected = new Map<string, string>([
+      ['listLayerGroups', '200'],
+      ['createLayerGroup', '201'],
+      ['getLayerGroup', '200'],
+      ['updateLayerGroup', '200'],
+      ['reorderLayerGroups', '200'],
+      ['archiveLayerGroup', '200'],
+      ['listAdminLayers', '200'],
+      ['createLayer', '201'],
+      ['getAdminLayer', '200'],
+      ['updateLayerCatalogConfig', '200'],
+      ['reorderLayers', '200'],
+      ['archiveLayer', '200'],
+      ['unarchiveLayer', '200'],
+      ['createSuccessorDraft', '201'],
+      ['getRevision', '200'],
+      ['previewRevisionConfigurationImpact', '200'],
+      ['replaceDraftRevisionConfiguration', '200'],
+      ['getRevisionWorkspace', '200'],
+      ['createFeature', '201'],
+      ['updateFeature', '200'],
+      ['deleteFeature', '200'],
+    ]);
+    const operations = Object.values(document.paths).flatMap((path) => Object.values(path));
+    for (const [operationId, status] of expected) {
+      const operation = operations.find((candidate) => candidate.operationId === operationId);
+      expect(operation).toBeDefined();
+      expect(operation?.responses?.[status]?.headers).toHaveProperty('ETag');
+    }
   });
 
   async function createGroup(slug: string, title: string, displayOrder: number) {
@@ -673,43 +1314,15 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
     const response = await mutate(
       editor,
       '/api/v1/admin/layers',
-      {
-        slug,
-        groupId,
-        displayOrder,
-        defaultVisible: true,
-        title,
-        geometryMode: 'mixed',
-        allowedGeometryKinds: ['point', 'polygon'],
-        fields: [
-          {
-            key: 'name',
-            label: 'Tên',
-            type: 'text',
-            required: true,
-            public: true,
-            searchable: true,
-            validation: { minLength: 2, maxLength: 120 },
-          },
-          {
-            key: 'category',
-            label: 'Phân loại',
-            type: 'enum',
-            public: true,
-            filterable: true,
-            options: ['public-service', 'community'],
-          },
-        ],
-        style: {
-          point: { color: '#1A73E8', radius: 8 },
-          polygon: { fillColor: '#EAF3FF', strokeColor: '#1A73E8' },
-        },
-        renderConfig: { minZoom: 7, maxZoom: 19, sourcePolicy: 'geojson' },
-        popupConfig: { titleField: 'name', fieldKeys: ['name', 'category'] },
-      },
+      layerPayload(slug, groupId, title, displayOrder),
       { idempotencyKey: randomUUID() },
     );
     expect(response.status).toBe(201);
+    const data = await createdLayerData(response);
+    return { ...data, revisionEtag: requiredHeader(response, 'etag') };
+  }
+
+  async function createdLayerData(response: Response) {
     const data = (
       await json<
         Envelope<{
@@ -720,7 +1333,13 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
     ).data;
     layerIds.push(data.layer.id);
     revisionIds.push(data.draftRevision.id);
-    return { ...data, revisionEtag: requiredHeader(response, 'etag') };
+    return data;
+  }
+
+  async function layerGroupId(response: Response): Promise<string | null> {
+    expect(response.status).toBe(200);
+    return (await json<Envelope<{ layer: { groupId: string | null } }>>(response)).data.layer
+      .groupId;
   }
 
   async function archiveLayer(layerId: string): Promise<void> {
@@ -741,6 +1360,48 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
     return fetch(`${apiBaseUrl}${path}`, { headers: { Cookie: editor.cookie } });
   }
 });
+
+function layerPayload(
+  slug: string,
+  groupId: string,
+  title: string,
+  displayOrder: number,
+): Record<string, unknown> {
+  return {
+    slug,
+    groupId,
+    displayOrder,
+    defaultVisible: true,
+    title,
+    geometryMode: 'mixed',
+    allowedGeometryKinds: ['point', 'polygon'],
+    fields: [
+      {
+        key: 'name',
+        label: 'Tên',
+        type: 'text',
+        required: true,
+        public: true,
+        searchable: true,
+        validation: { minLength: 2, maxLength: 120 },
+      },
+      {
+        key: 'category',
+        label: 'Phân loại',
+        type: 'enum',
+        public: true,
+        filterable: true,
+        options: ['public-service', 'community'],
+      },
+    ],
+    style: {
+      point: { color: '#1A73E8', radius: 8 },
+      polygon: { fillColor: '#EAF3FF', strokeColor: '#1A73E8' },
+    },
+    renderConfig: { minZoom: 7, maxZoom: 19, sourcePolicy: 'geojson' },
+    popupConfig: { titleField: 'name', fieldKeys: ['name', 'category'] },
+  };
+}
 
 function configurationPayload(title: string): Record<string, unknown> {
   return {
@@ -867,6 +1528,29 @@ async function mutate(
       Cookie: actor.cookie,
       Origin: frontendOrigin,
       'X-CSRF-Token': actor.csrf,
+      ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
+      ...(options.ifMatch ? { 'If-Match': options.ifMatch } : {}),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+async function mutateWithoutCsrf(
+  actor: AuthenticatedActor,
+  path: string,
+  body: Record<string, unknown> | undefined,
+  options: {
+    method?: 'POST' | 'PATCH' | 'PUT';
+    idempotencyKey?: string;
+    ifMatch?: string;
+  } = {},
+): Promise<Response> {
+  return fetch(`${apiBaseUrl}${path}`, {
+    method: options.method ?? 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: actor.cookie,
+      Origin: frontendOrigin,
       ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
       ...(options.ifMatch ? { 'If-Match': options.ifMatch } : {}),
     },

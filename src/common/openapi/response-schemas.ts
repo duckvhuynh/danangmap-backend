@@ -101,6 +101,18 @@ export const envelopeSchema = (
 export const apiJsonResponse = (status: number, data: SchemaObject, meta?: SchemaObject) =>
   ApiResponse({ status, schema: envelopeSchema(data, meta) });
 
+export const apiVersionedJsonResponse = (status: number, data: SchemaObject, meta?: SchemaObject) =>
+  ApiResponse({
+    status,
+    headers: {
+      ETag: {
+        description: 'Opaque version token for the returned representation.',
+        schema: { type: 'string' },
+      },
+    },
+    schema: envelopeSchema(data, meta),
+  });
+
 export const apiRawJsonResponse = (status: number, schema: SchemaObject) =>
   ApiResponse({ status, content: { 'application/json': { schema } } });
 
@@ -580,6 +592,7 @@ export const adminLayerListItemSchema: SchemaObject = {
     lockVersion: { type: 'integer', minimum: 1 },
     archivedAt: { ...dateTime, nullable: true },
     revisionId: { ...uuid, nullable: true },
+    revisionLockVersion: { type: 'integer', minimum: 1, nullable: true },
     title: { ...nullableString },
     status: { ...nullableString },
     geometryMode: { ...nullableString },

@@ -1934,6 +1934,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1980,6 +1982,8 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2021,6 +2025,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2070,6 +2076,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2118,6 +2126,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2160,6 +2170,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2201,6 +2213,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2218,6 +2232,7 @@ export interface operations {
                             archivedAt?: string | null;
                             /** Format: uuid */
                             revisionId?: string | null;
+                            revisionLockVersion?: number | null;
                             title?: string | null;
                             status?: string | null;
                             geometryMode?: string | null;
@@ -2250,6 +2265,8 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2358,6 +2375,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2600,6 +2619,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2841,6 +2862,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2879,6 +2902,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3117,6 +3142,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3356,6 +3383,8 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3450,6 +3479,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3574,6 +3605,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3619,6 +3652,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3748,6 +3783,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3849,6 +3886,8 @@ export interface operations {
         responses: {
             201: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3909,6 +3948,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3948,6 +3989,8 @@ export interface operations {
         responses: {
             200: {
                 headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {

@@ -42,6 +42,10 @@ export class LayerEntity {
 
 @Entity({ name: 'layer_revisions' })
 @Index('uq_layer_revision_number', ['layerId', 'revisionNo'], { unique: true })
+@Index('uq_layer_open_editorial_chain', ['layerId'], {
+  unique: true,
+  where: "status IN ('draft','in_review','approved','publishing')",
+})
 export class LayerRevisionEntity {
   @PrimaryGeneratedColumn('uuid') id: string;
   @Column({ name: 'layer_id', type: 'uuid' }) layerId: string;

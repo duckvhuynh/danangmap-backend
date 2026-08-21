@@ -65,6 +65,14 @@ export class RevisionConfigurationService {
         }>(manager, actor.id, 'revision.successor.create', idempotencyKey, requestDigest);
         if (!receipt.owner) return this.replayed(receipt.response);
 
+        const lockedLayer = (await manager.query(
+          `SELECT id FROM layers WHERE id=$1 AND archived_at IS NULL FOR UPDATE`,
+          [layerId],
+        )) as Array<{ id: string }>;
+        if (!lockedLayer.length) {
+          throw new AppException(404, 'NOT_FOUND', 'Không tìm thấy layer đang hoạt động.');
+        }
+
         const sourceRows = (await manager.query(
           `SELECT revision.*
            FROM layers layer
@@ -73,7 +81,7 @@ export class RevisionConfigurationService {
              AND snapshot.status='published'
            JOIN layer_revisions revision ON revision.id=snapshot.revision_id
            WHERE layer.id=$1 AND layer.archived_at IS NULL
-           FOR SHARE OF layer,publication,snapshot,revision`,
+           FOR SHARE OF publication,snapshot,revision`,
           [layerId],
         )) as Array<Record<string, unknown>>;
         const source = sourceRows[0];
@@ -91,12 +99,17 @@ export class RevisionConfigurationService {
             currentEtag: revisionEtag(sourceRevisionId, Number(source.lock_version)),
           });
         }
-        const activeDraft = (await manager.query(
-          `SELECT id FROM layer_revisions WHERE layer_id=$1 AND status='draft' LIMIT 1 FOR UPDATE`,
-          [layerId],
-        )) as Array<{ id: string }>;
-        if (activeDraft.length) {
-          throw new AppException(409, 'DRAFT_ALREADY_EXISTS', 'Layer đã có draft đang hoạt động.');
+        const activeEditorialRevision = (await manager.query(
+          `SELECT id,status FROM layer_revisions
+           WHERE layer_id=$1 AND status=ANY($2::text[]) LIMIT 1 FOR UPDATE`,
+          [layerId, ['draft', 'in_review', 'approved', 'publishing']],
+        )) as Array<{ id: string; status: string }>;
+        if (activeEditorialRevision.length) {
+          throw new AppException(
+            409,
+            'DRAFT_ALREADY_EXISTS',
+            'Layer đã có chuỗi biên tập đang hoạt động.',
+          );
         }
 
         const createdRows = (await manager.query(
@@ -169,9 +182,11 @@ export class RevisionConfigurationService {
       if (
         error instanceof QueryFailedError &&
         (error.driverError as { code?: string; constraint?: string }).code === '23505' &&
-        ['uq_layer_active_draft', 'uq_layer_revision_number'].includes(
-          (error.driverError as { constraint?: string }).constraint ?? '',
-        )
+        [
+          'uq_layer_active_draft',
+          'uq_layer_open_editorial_chain',
+          'uq_layer_revision_number',
+        ].includes((error.driverError as { constraint?: string }).constraint ?? '')
       ) {
         throw new AppException(409, 'DRAFT_ALREADY_EXISTS', 'Layer đã có draft đang hoạt động.');
       }
@@ -348,7 +363,11 @@ export class RevisionConfigurationService {
         continue;
       }
       if (this.dataConstraintSignature(field) !== this.dataConstraintSignature(replacement)) {
-        const affectedFeatures = await this.countPropertyPresent(manager, revision.id, field.key);
+        const affectedFeatures = await this.countConstraintViolations(
+          manager,
+          revision.id,
+          replacement,
+        );
         if (affectedFeatures > 0) {
           reasons.push({
             code: 'FIELD_CONSTRAINT_CHANGE_WITH_DATA',
@@ -409,6 +428,64 @@ export class RevisionConfigurationService {
        JOIN feature_versions fv ON fv.id=rf.feature_version_id
        WHERE rf.revision_id=$1 AND fv.properties ? $2`,
       [revisionId, key],
+    )) as Array<{ count: number }>;
+    return Number(rows[0]?.count ?? 0);
+  }
+
+  private async countConstraintViolations(
+    manager: EntityManager,
+    revisionId: string,
+    field: LayerFieldDto,
+  ): Promise<number> {
+    const rows = (await manager.query(
+      `WITH candidate_values AS (
+         SELECT fv.properties->$2 AS value
+         FROM revision_features rf
+         JOIN feature_versions fv ON fv.id=rf.feature_version_id
+         WHERE rf.revision_id=$1 AND fv.properties ? $2
+       )
+       SELECT count(*) FILTER (
+         WHERE value <> 'null'::jsonb AND NOT CASE
+           WHEN $3::text=ANY($9::text[]) THEN
+             CASE WHEN jsonb_typeof(value)='string' THEN
+               ($4::integer IS NULL OR char_length(value #>> '{}') >= $4)
+               AND ($5::integer IS NULL OR char_length(value #>> '{}') <= $5)
+             ELSE false END
+           WHEN $3='number' THEN
+             CASE WHEN jsonb_typeof(value)='number' THEN
+               ($6::numeric IS NULL OR (value #>> '{}')::numeric >= $6)
+               AND ($7::numeric IS NULL OR (value #>> '{}')::numeric <= $7)
+             ELSE false END
+           WHEN $3='integer' THEN
+             CASE WHEN jsonb_typeof(value)='number' THEN
+               (value #>> '{}')::numeric = trunc((value #>> '{}')::numeric)
+               AND ($6::numeric IS NULL OR (value #>> '{}')::numeric >= $6)
+               AND ($7::numeric IS NULL OR (value #>> '{}')::numeric <= $7)
+             ELSE false END
+           WHEN $3='boolean' THEN jsonb_typeof(value)='boolean'
+           WHEN $3='enum' THEN
+             jsonb_typeof(value)='string' AND (value #>> '{}')=ANY($8::text[])
+           WHEN $3='multi_enum' THEN
+             CASE WHEN jsonb_typeof(value)='array' THEN NOT EXISTS (
+               SELECT 1 FROM jsonb_array_elements(value) item
+               WHERE jsonb_typeof(item)<>'string' OR NOT ((item #>> '{}')=ANY($8::text[]))
+             ) ELSE false END
+           WHEN $3=ANY(ARRAY['image','attachment']::text[]) THEN jsonb_typeof(value)='array'
+           ELSE false
+         END
+       )::integer AS count
+       FROM candidate_values`,
+      [
+        revisionId,
+        field.key,
+        field.type,
+        field.validation.minLength ?? null,
+        field.validation.maxLength ?? null,
+        field.validation.minimum ?? null,
+        field.validation.maximum ?? null,
+        field.options,
+        ['text', 'long_text', 'date', 'datetime', 'url', 'email', 'phone', 'address'],
+      ],
     )) as Array<{ count: number }>;
     return Number(rows[0]?.count ?? 0);
   }

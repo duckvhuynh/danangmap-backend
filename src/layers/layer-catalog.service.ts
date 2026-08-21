@@ -21,7 +21,11 @@ interface Actor {
 export interface VersionedItem {
   id: string;
   lockVersion: number;
+  displayOrder?: number;
   archivedAt?: Date | string | null;
+  revisionId?: string | null;
+  revisionLockVersion?: number | null;
+  status?: string | null;
 }
 
 @Injectable()
@@ -141,7 +145,8 @@ export class LayerCatalogService {
       const etag = this.collectionEtag('layer-groups', refreshed);
       const data = { updatedCount: rows.length, items: rows };
       await this.audit(manager, actor, requestId, 'layer_group.reordered', 'layer_group', null, {
-        items: dto.items,
+        before: this.catalogOrderAuditShape(groups),
+        after: this.catalogOrderAuditShape(refreshed),
       });
       const response = { data, etag };
       await this.idempotency.complete(
@@ -182,11 +187,20 @@ export class LayerCatalogService {
         throw new AppException(409, 'GROUP_ALREADY_ARCHIVED', 'Nhóm layer đã được lưu trữ.');
       }
       const before = this.groupAuditShape(group!);
-      const ungroupedLayers = (await manager.query(
-        `UPDATE layers SET group_id=NULL,lock_version=lock_version+1,updated_at=now()
-         WHERE group_id=$1 RETURNING id`,
+      const ungroupedRows = (await manager.query(
+        `WITH ungrouped AS (
+           UPDATE layers SET group_id=NULL,lock_version=lock_version+1,updated_at=now()
+           WHERE group_id=$1 RETURNING id
+         )
+         SELECT count(*)::integer AS count,
+           encode(digest(COALESCE(string_agg(id::text,'' ORDER BY id),''),'sha256'),'hex') AS digest
+         FROM ungrouped`,
         [groupId],
-      )) as Array<{ id: string }>;
+      )) as Array<{ count: number; digest: string }>;
+      const ungrouped = ungroupedRows[0] ?? {
+        count: 0,
+        digest: this.crypto.checksum(''),
+      };
       group!.archivedAt = new Date();
       group!.lockVersion += 1;
       const saved = await manager.save(group!);
@@ -195,8 +209,8 @@ export class LayerCatalogService {
         before,
         after: this.groupAuditShape(saved),
         orphanLayerPolicy: dto.orphanLayerPolicy,
-        ungroupedLayerCount: ungroupedLayers.length,
-        ungroupedLayerIds: ungroupedLayers.map((layer) => layer.id),
+        ungroupedLayerCount: Number(ungrouped.count),
+        ungroupedLayerIdsDigest: ungrouped.digest,
       });
       const response = { group: saved, etag };
       await this.idempotency.complete(
@@ -213,20 +227,7 @@ export class LayerCatalogService {
   }
 
   async listLayers(includeArchived: boolean) {
-    const data = (await this.dataSource.query(
-      `SELECT l.id,l.slug,l.group_id AS "groupId",l.display_order AS "displayOrder",
-              l.default_visible AS "defaultVisible",l.lock_version AS "lockVersion",
-              l.archived_at AS "archivedAt",r.id AS "revisionId",r.title,
-              r.status,r.geometry_mode AS "geometryMode",r.updated_at AS "updatedAt"
-       FROM layers l
-       LEFT JOIN LATERAL (
-         SELECT * FROM layer_revisions lr
-         WHERE lr.layer_id=l.id ORDER BY lr.revision_no DESC LIMIT 1
-       ) r ON true
-       WHERE ($1::boolean OR l.archived_at IS NULL)
-       ORDER BY l.display_order,l.slug,l.id`,
-      [includeArchived],
-    )) as Array<Record<string, unknown> & VersionedItem>;
+    const data = await this.layerList(this.dataSource.manager, includeArchived);
     return { data, etag: this.collectionEtag('layers', data) };
   }
 
@@ -252,6 +253,7 @@ export class LayerCatalogService {
         etag: string;
       }>(manager, actor.id, 'layer.update', idempotencyKey, requestDigest);
       if (!receipt.owner) return this.replayed(receipt.response);
+      if (dto.groupId) await this.lockActiveGroup(manager, dto.groupId);
       const layer = await manager.findOne(LayerEntity, {
         where: { id: layerId },
         lock: { mode: 'pessimistic_write' },
@@ -260,7 +262,6 @@ export class LayerCatalogService {
       if (layer!.archivedAt) {
         throw new AppException(409, 'LAYER_ARCHIVED', 'Layer đã được lưu trữ.');
       }
-      if (dto.groupId) await this.assertActiveGroup(manager, dto.groupId);
       const before = this.layerAuditShape(layer!);
       if (dto.groupId !== undefined) layer!.groupId = dto.groupId;
       if (dto.displayOrder !== undefined) layer!.displayOrder = dto.displayOrder;
@@ -307,7 +308,7 @@ export class LayerCatalogService {
         order: { id: 'ASC' },
         lock: { mode: 'pessimistic_write' },
       });
-      const currentEtag = this.collectionEtag('layers', layers);
+      const currentEtag = this.collectionEtag('layers', await this.layerList(manager, false));
       this.assertCollectionVersion(ifMatch, currentEtag);
       this.assertKnownIds(
         dto.items.map((item) => item.id),
@@ -322,14 +323,12 @@ export class LayerCatalogService {
          RETURNING target.id,target.display_order AS "displayOrder",target.lock_version AS "lockVersion"`,
         [dto.items.map((item) => item.id), dto.items.map((item) => item.displayOrder)],
       )) as Array<{ id: string; displayOrder: number; lockVersion: number }>;
-      const refreshed = await manager.find(LayerEntity, {
-        where: { archivedAt: IsNull() },
-        order: { displayOrder: 'ASC', slug: 'ASC', id: 'ASC' },
-      });
+      const refreshed = await this.layerList(manager, false);
       const etag = this.collectionEtag('layers', refreshed);
       const data = { updatedCount: rows.length, items: rows };
       await this.audit(manager, actor, requestId, 'layer.reordered', 'layer', null, {
-        items: dto.items,
+        before: this.catalogOrderAuditShape(layers),
+        after: this.catalogOrderAuditShape(refreshed),
       });
       const response = { data, etag };
       await this.idempotency.complete(
@@ -363,10 +362,20 @@ export class LayerCatalogService {
           etag: string;
         }>(manager, actor.id, operation, idempotencyKey, requestDigest);
         if (!receipt.owner) return this.replayed(receipt.response);
+        const candidate = await manager.findOneBy(LayerEntity, { id: layerId });
+        if (!candidate) throw new AppException(404, 'NOT_FOUND', 'Không tìm thấy layer.');
+        if (!archived && candidate.groupId) {
+          await this.lockActiveGroup(manager, candidate.groupId);
+        }
         const layer = await manager.findOne(LayerEntity, {
           where: { id: layerId },
           lock: { mode: 'pessimistic_write' },
         });
+        if (!archived && layer && layer.groupId !== candidate.groupId) {
+          throw new AppException(412, 'ETAG_MISMATCH', 'Nhóm của layer đã thay đổi.', {
+            currentEtag: resourceEtag('layer', layer.id, layer.lockVersion),
+          });
+        }
         this.assertLayerVersion(layer, expectedVersion);
         if (Boolean(layer!.archivedAt) === archived) {
           throw new AppException(
@@ -375,7 +384,6 @@ export class LayerCatalogService {
             archived ? 'Layer đã được lưu trữ.' : 'Layer đang hoạt động.',
           );
         }
-        if (!archived && layer!.groupId) await this.assertActiveGroup(manager, layer!.groupId);
         const before = this.layerAuditShape(layer!);
         layer!.archivedAt = archived ? new Date() : null;
         layer!.lockVersion += 1;
@@ -456,8 +464,11 @@ export class LayerCatalogService {
     };
   }
 
-  private async assertActiveGroup(manager: DataSource['manager'], groupId: string): Promise<void> {
-    const group = await manager.findOneBy(LayerGroupEntity, { id: groupId, archivedAt: IsNull() });
+  private async lockActiveGroup(manager: DataSource['manager'], groupId: string): Promise<void> {
+    const group = await manager.findOne(LayerGroupEntity, {
+      where: { id: groupId, archivedAt: IsNull() },
+      lock: { mode: 'pessimistic_read' },
+    });
     if (!group)
       throw new AppException(404, 'NOT_FOUND', 'Không tìm thấy nhóm layer đang hoạt động.');
   }
@@ -508,9 +519,36 @@ export class LayerCatalogService {
         id: item.id,
         lockVersion: Number(item.lockVersion),
         archived: Boolean(item.archivedAt),
+        revisionId: item.revisionId ?? null,
+        revisionLockVersion:
+          item.revisionLockVersion === undefined || item.revisionLockVersion === null
+            ? null
+            : Number(item.revisionLockVersion),
+        revisionStatus: item.status ?? null,
       }))
       .sort((left, right) => left.id.localeCompare(right.id));
     return `"${resource}-${this.crypto.checksum(JSON.stringify(state))}"`;
+  }
+
+  private async layerList(
+    manager: DataSource['manager'],
+    includeArchived: boolean,
+  ): Promise<Array<Record<string, unknown> & VersionedItem>> {
+    return (await manager.query(
+      `SELECT l.id,l.slug,l.group_id AS "groupId",l.display_order AS "displayOrder",
+              l.default_visible AS "defaultVisible",l.lock_version AS "lockVersion",
+              l.archived_at AS "archivedAt",r.id AS "revisionId",r.title,
+              r.status,r.geometry_mode AS "geometryMode",
+              r.lock_version AS "revisionLockVersion",r.updated_at AS "updatedAt"
+       FROM layers l
+       LEFT JOIN LATERAL (
+         SELECT * FROM layer_revisions lr
+         WHERE lr.layer_id=l.id ORDER BY lr.revision_no DESC LIMIT 1
+       ) r ON true
+       WHERE ($1::boolean OR l.archived_at IS NULL)
+       ORDER BY l.display_order,l.slug,l.id`,
+      [includeArchived],
+    )) as Array<Record<string, unknown> & VersionedItem>;
   }
 
   private groupAuditShape(group: LayerGroupEntity) {
@@ -529,6 +567,20 @@ export class LayerCatalogService {
       displayOrder: layer.displayOrder,
       defaultVisible: layer.defaultVisible,
       archivedAt: layer.archivedAt,
+    };
+  }
+
+  private catalogOrderAuditShape(items: VersionedItem[]) {
+    const canonical = items
+      .map((item) => ({
+        id: item.id,
+        displayOrder: Number(item.displayOrder ?? 0),
+        lockVersion: Number(item.lockVersion),
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id));
+    return {
+      count: canonical.length,
+      orderDigest: this.crypto.checksum(JSON.stringify(canonical)),
     };
   }
 

@@ -156,9 +156,9 @@ export class LayersService {
           throw new AppException(409, 'IDEMPOTENCY_IN_PROGRESS', 'Lệnh đang được xử lý.');
         }
         if (dto.groupId) {
-          const group = await manager.findOneBy(LayerGroupEntity, {
-            id: dto.groupId,
-            archivedAt: IsNull(),
+          const group = await manager.findOne(LayerGroupEntity, {
+            where: { id: dto.groupId, archivedAt: IsNull() },
+            lock: { mode: 'pessimistic_read' },
           });
           if (!group) throw new AppException(404, 'NOT_FOUND', 'Không tìm thấy nhóm layer.');
         }

@@ -646,6 +646,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/user-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUserImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}:validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["validateUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}:apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["applyUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listUserImportIssues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUserImportReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -909,6 +1005,17 @@ export interface components {
             skipInvalid: boolean;
             /** @default [] */
             acknowledgedWarningCodes: string[];
+        };
+        ValidateUserImportDto: {
+            /** @description Required when an XLSX workbook contains more than one worksheet. */
+            sheet?: string;
+        };
+        ApplyUserImportDto: {
+            /**
+             * @default invite
+             * @enum {string}
+             */
+            validRowPolicy: "invite";
         };
     };
     responses: never;
@@ -3225,6 +3332,426 @@ export interface operations {
                         };
                         meta: {
                             requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    createUserImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                            /** @enum {string} */
+                            format: "csv" | "xlsx";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                total: number;
+                                valid: number;
+                                invalid: number;
+                                applied: number;
+                                skipped: number;
+                            };
+                            inspection: {
+                                sheets: string[];
+                                selectedSheet: string | null;
+                                limits: {
+                                    /** @enum {integer} */
+                                    maxBytes: 5242880;
+                                    /** @enum {integer} */
+                                    maxRows: 5000;
+                                    /** @enum {integer} */
+                                    maxSheets: 10;
+                                    /** @enum {integer} */
+                                    maxColumns: 4;
+                                    /** @enum {integer} */
+                                    maxExpandedBytes: 52428800;
+                                };
+                            };
+                            /** @enum {string} */
+                            validRowPolicy: "invite";
+                            failureCode: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getUserImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                            /** @enum {string} */
+                            format: "csv" | "xlsx";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                total: number;
+                                valid: number;
+                                invalid: number;
+                                applied: number;
+                                skipped: number;
+                            };
+                            inspection: {
+                                sheets: string[];
+                                selectedSheet: string | null;
+                                limits: {
+                                    /** @enum {integer} */
+                                    maxBytes: 5242880;
+                                    /** @enum {integer} */
+                                    maxRows: 5000;
+                                    /** @enum {integer} */
+                                    maxSheets: 10;
+                                    /** @enum {integer} */
+                                    maxColumns: 4;
+                                    /** @enum {integer} */
+                                    maxExpandedBytes: 52428800;
+                                };
+                            };
+                            /** @enum {string} */
+                            validRowPolicy: "invite";
+                            failureCode: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    validateUserImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateUserImportDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                            /** @enum {string} */
+                            format: "csv" | "xlsx";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                total: number;
+                                valid: number;
+                                invalid: number;
+                                applied: number;
+                                skipped: number;
+                            };
+                            inspection: {
+                                sheets: string[];
+                                selectedSheet: string | null;
+                                limits: {
+                                    /** @enum {integer} */
+                                    maxBytes: 5242880;
+                                    /** @enum {integer} */
+                                    maxRows: 5000;
+                                    /** @enum {integer} */
+                                    maxSheets: 10;
+                                    /** @enum {integer} */
+                                    maxColumns: 4;
+                                    /** @enum {integer} */
+                                    maxExpandedBytes: 52428800;
+                                };
+                            };
+                            /** @enum {string} */
+                            validRowPolicy: "invite";
+                            failureCode: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    applyUserImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyUserImportDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                            /** @enum {string} */
+                            format: "csv" | "xlsx";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                total: number;
+                                valid: number;
+                                invalid: number;
+                                applied: number;
+                                skipped: number;
+                            };
+                            inspection: {
+                                sheets: string[];
+                                selectedSheet: string | null;
+                                limits: {
+                                    /** @enum {integer} */
+                                    maxBytes: 5242880;
+                                    /** @enum {integer} */
+                                    maxRows: 5000;
+                                    /** @enum {integer} */
+                                    maxSheets: 10;
+                                    /** @enum {integer} */
+                                    maxColumns: 4;
+                                    /** @enum {integer} */
+                                    maxExpandedBytes: 52428800;
+                                };
+                            };
+                            /** @enum {string} */
+                            validRowPolicy: "invite";
+                            failureCode: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    listUserImportIssues: {
+        parameters: {
+            query?: {
+                code?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            rowNumber: number;
+                            /** @enum {string} */
+                            severity: "error";
+                            code: string;
+                            /** @enum {string|null} */
+                            field: "email" | "username" | "displayName" | "role" | null;
+                        }[];
+                        meta: {
+                            requestId: string;
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getUserImportReport: {
+        parameters: {
+            query?: {
+                code?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            job: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                                /** @enum {string} */
+                                format: "csv" | "xlsx";
+                                file: {
+                                    name: string;
+                                    sizeBytes: number;
+                                };
+                                progress: number;
+                                counts: {
+                                    total: number;
+                                    valid: number;
+                                    invalid: number;
+                                    applied: number;
+                                    skipped: number;
+                                };
+                                inspection: {
+                                    sheets: string[];
+                                    selectedSheet: string | null;
+                                    limits: {
+                                        /** @enum {integer} */
+                                        maxBytes: 5242880;
+                                        /** @enum {integer} */
+                                        maxRows: 5000;
+                                        /** @enum {integer} */
+                                        maxSheets: 10;
+                                        /** @enum {integer} */
+                                        maxColumns: 4;
+                                        /** @enum {integer} */
+                                        maxExpandedBytes: 52428800;
+                                    };
+                                };
+                                /** @enum {string} */
+                                validRowPolicy: "invite";
+                                failureCode: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                            };
+                            issues: {
+                                id: string;
+                                rowNumber: number;
+                                /** @enum {string} */
+                                severity: "error";
+                                code: string;
+                                /** @enum {string|null} */
+                                field: "email" | "username" | "displayName" | "role" | null;
+                            }[];
+                        };
+                        meta: {
+                            requestId: string;
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
                         };
                     };
                 };

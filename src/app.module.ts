@@ -12,6 +12,7 @@ import { LayersModule } from './layers/layers.module';
 import { PublicApiModule } from './public-api/public-api.module';
 import { ImportsModule } from './imports/imports.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
+import { UserImportsModule } from './user-imports/user-imports.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
     LayersModule,
     PublicApiModule,
     ImportsModule,
+    UserImportsModule,
     HealthModule,
   ],
 })

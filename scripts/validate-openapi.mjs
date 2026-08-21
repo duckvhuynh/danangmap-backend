@@ -59,6 +59,12 @@ const strictlyTypedResponseOperations = new Set([
   'validateSpatialImport',
   'listSpatialImportIssues',
   'applySpatialImport',
+  'createUserImport',
+  'getUserImport',
+  'validateUserImport',
+  'applyUserImport',
+  'listUserImportIssues',
+  'getUserImportReport',
   'submitRevision',
   'approveRevision',
   'requestRevisionChanges',
@@ -116,6 +122,15 @@ const parameterContracts = {
   validateSpatialImport: [['header', 'X-CSRF-Token', true]],
   applySpatialImport: [
     ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  createUserImport: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  validateUserImport: [['header', 'X-CSRF-Token', true]],
+  applyUserImport: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
@@ -231,7 +246,9 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
         if (file?.type !== 'string' || file?.format !== 'binary') {
           throw new Error(`Multipart request lacks binary file schema: ${operationId}`);
         }
-        for (const field of ['file', 'mode', 'clientRequestId']) {
+        const requiredMultipartFields =
+          operationId === 'createUserImport' ? ['file'] : ['file', 'mode', 'clientRequestId'];
+        for (const field of requiredMultipartFields) {
           if (!requestSchema.required?.includes(field)) {
             throw new Error(`Multipart request lacks required field ${field}: ${operationId}`);
           }
@@ -375,5 +392,38 @@ if (
   !generatedTypes.includes('parserStatus: "pending" | "inspected";')
 ) {
   throw new Error('Generated import polling unions are missing');
+}
+const userImportApply = document.components?.schemas?.ApplyUserImportDto;
+if (
+  JSON.stringify(userImportApply?.properties?.validRowPolicy?.enum) !== JSON.stringify(['invite'])
+) {
+  throw new Error('User import apply policy drifted from invite-only contract');
+}
+const createUserImport = operationsById.get('createUserImport');
+const createUserImportResponse =
+  createUserImport?.responses?.['202']?.content?.['application/json']?.schema;
+const userImportJob = resolveSchema(createUserImportResponse?.properties?.data);
+const expectedUserImportStatuses = [
+  'uploaded',
+  'inspecting',
+  'inspected',
+  'validating',
+  'ready',
+  'applying',
+  'completed',
+  'failed',
+];
+if (
+  JSON.stringify(userImportJob?.properties?.status?.enum) !==
+  JSON.stringify(expectedUserImportStatuses)
+) {
+  throw new Error('User import status enum drifted from runtime contract');
+}
+if (
+  userImportJob?.properties?.inspection?.properties?.limits?.properties?.maxBytes?.enum?.[0] !==
+    5 * 1024 * 1024 ||
+  userImportJob?.properties?.inspection?.properties?.limits?.properties?.maxRows?.enum?.[0] !== 5000
+) {
+  throw new Error('User import security limits are absent from the typed contract');
 }
 console.log(`Validated ${seen.size} unique operation IDs and typed success responses.`);

@@ -5,15 +5,19 @@ import { JobsModule } from './jobs/jobs.module';
 import { StorageModule } from './storage/storage.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { ImportsWorkerModule } from './imports/imports-worker.module';
+import { IdempotencyModule } from './common/idempotency/idempotency.module';
+import { UserImportsWorkerModule } from './user-imports/user-imports-worker.module';
 
 @Module({
   imports: [
     AppConfigModule,
     DatabaseModule,
     CryptoModule,
+    IdempotencyModule,
     StorageModule,
     JobsModule,
     ImportsWorkerModule,
+    UserImportsWorkerModule,
   ],
 })
 export class WorkerModule {}

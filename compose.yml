@@ -18,6 +18,7 @@ x-backend-environment: &backend-environment
   FIELD_ENCRYPTION_KEY: local-only-field-encryption-key-change-in-production
   FRONTEND_ORIGINS: http://localhost:3000
   COOKIE_SECURE: 'false'
+  MFA_TOTP_ISSUER: DanangMap
   GEO_SERVICE_BASE_URL: ''
   GEO_SERVICE_CONNECT_TIMEOUT_MS: 2000
   GEO_SERVICE_TOTAL_TIMEOUT_MS: 5000
@@ -25,7 +26,7 @@ x-backend-environment: &backend-environment
   SEED_EDITOR_PASSWORD: ChangeMe-Editor-2026!
   SEED_REVIEWER_PASSWORD: ChangeMe-Reviewer-2026!
   SEED_PUBLISHER_PASSWORD: ChangeMe-Publisher-2026!
-  SEED_MFA_SECRET: JBSWY3DPEHPK3PXP
+  SEED_MFA_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
 
 services:
   postgres:

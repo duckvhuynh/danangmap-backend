@@ -36,6 +36,14 @@ export class VerifyMfaDto {
   code: string;
 }
 
+export class ConfirmMfaEnrollmentDto {
+  @ApiProperty({ writeOnly: true, minLength: 6, maxLength: 6 })
+  @IsString()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/)
+  code: string;
+}
+
 export class CreateUserDto {
   @ApiProperty({ example: 'editor@example.gov.vn' })
   @IsEmail()

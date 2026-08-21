@@ -5,6 +5,7 @@ export const configuration = () => ({
     version: process.env.APP_VERSION ?? '0.1.0',
     frontendOrigins: process.env.FRONTEND_ORIGINS ?? 'http://localhost:3000',
     cookieSecure: process.env.COOKIE_SECURE === 'true',
+    mfaTotpIssuer: process.env.MFA_TOTP_ISSUER ?? 'DanangMap',
   },
   redis: {
     host: process.env.REDIS_HOST ?? 'localhost',

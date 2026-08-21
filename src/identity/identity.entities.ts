@@ -46,6 +46,38 @@ export class AdminSessionEntity {
   @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true }) revokedAt: Date | null;
   @Column({ name: 'ip_hash', type: 'text', nullable: true }) ipHash: string | null;
   @Column({ name: 'user_agent', type: 'text', nullable: true }) userAgent: string | null;
+  @Column({ name: 'mfa_failed_attempts', type: 'integer', default: 0 })
+  mfaFailedAttempts: number;
+  @Column({ name: 'mfa_locked_until', type: 'timestamptz', nullable: true })
+  mfaLockedUntil: Date | null;
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
+}
+
+@Entity({ name: 'user_mfa_methods' })
+@Index('uq_user_mfa_methods_user_totp', ['userId'], { unique: true })
+@Index('idx_user_mfa_methods_enrollment_session', ['enrollmentSessionId'])
+export class UserMfaMethodEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'user_id', type: 'uuid' }) userId: string;
+  @Column({ type: 'text', default: 'pending' }) status: 'pending' | 'verified';
+  @Column({ name: 'secret_encrypted', type: 'text' }) secretEncrypted: string;
+  @Column({ name: 'last_used_time_step', type: 'bigint', nullable: true })
+  lastUsedTimeStep: string | null;
+  @Column({ name: 'enrollment_session_id', type: 'uuid', nullable: true })
+  enrollmentSessionId: string | null;
+  @Column({ name: 'verified_at', type: 'timestamptz', nullable: true }) verifiedAt: Date | null;
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;
+}
+
+@Entity({ name: 'user_mfa_recovery_codes' })
+@Index('uq_user_mfa_recovery_code_digest', ['codeDigest'], { unique: true })
+@Index('idx_user_mfa_recovery_codes_active', ['userId', 'consumedAt'])
+export class UserMfaRecoveryCodeEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'user_id', type: 'uuid' }) userId: string;
+  @Column({ name: 'code_digest', type: 'text' }) codeDigest: string;
+  @Column({ name: 'consumed_at', type: 'timestamptz', nullable: true }) consumedAt: Date | null;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }
 

@@ -24,6 +24,8 @@ services:
       FIELD_ENCRYPTION_KEY: local-only-field-encryption-key-change-in-production
       FRONTEND_ORIGINS: http://localhost:3000
       COOKIE_SECURE: 'false'
+      MFA_TOTP_ISSUER: DanangMap
+      SEED_MFA_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
       GEO_SERVICE_BASE_URL: ''
       API_BASE_URL: http://api:4000
     command: ['npm', 'run', 'test:integration']

@@ -58,7 +58,7 @@ function checksum(value: unknown): string {
 }
 
 async function seedUsers(): Promise<void> {
-  const secret = process.env.SEED_MFA_SECRET ?? 'JBSWY3DPEHPK3PXP';
+  const secret = process.env.SEED_MFA_SECRET ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
   const users = [
     [
       ids.admin,
@@ -96,6 +96,7 @@ async function seedUsers(): Promise<void> {
   for (const [id, username, email, displayName, role, passwordVariable] of users) {
     const password = process.env[passwordVariable] ?? `ChangeMe-${username}-2026!`;
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+    const encryptedSecret = encrypted(secret);
     await AppDataSource.query(
       `
         INSERT INTO users(
@@ -109,7 +110,16 @@ async function seedUsers(): Promise<void> {
           password_hash=EXCLUDED.password_hash,mfa_enabled=true,mfa_secret_encrypted=EXCLUDED.mfa_secret_encrypted,
           updated_at=now()
       `,
-      [id, email, username, displayName, role, passwordHash, encrypted(secret)],
+      [id, email, username, displayName, role, passwordHash, encryptedSecret],
+    );
+    await AppDataSource.query(
+      `INSERT INTO user_mfa_methods(user_id,status,secret_encrypted,verified_at)
+       VALUES($1,'verified',$2,now())
+       ON CONFLICT(user_id) DO UPDATE SET
+         status='verified',secret_encrypted=EXCLUDED.secret_encrypted,
+         enrollment_session_id=NULL,
+         verified_at=COALESCE(user_mfa_methods.verified_at,now()),updated_at=now()`,
+      [id, encryptedSecret],
     );
   }
 }

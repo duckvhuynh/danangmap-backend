@@ -13,6 +13,12 @@ const rawOperations = new Set([
   'getPublicTile',
 ]);
 const strictlyTypedResponseOperations = new Set([
+  'login',
+  'verifyMfa',
+  'startMfaEnrollment',
+  'confirmMfaEnrollment',
+  'rotateCsrf',
+  'getCurrentUser',
   'listUsers',
   'createUser',
   'createInvite',
@@ -39,6 +45,10 @@ const strictlyTypedResponseOperations = new Set([
   'rollbackLayer',
 ]);
 const parameterContracts = {
+  login: [['header', 'X-CSRF-Token', true]],
+  verifyMfa: [['header', 'X-CSRF-Token', true]],
+  startMfaEnrollment: [['header', 'X-CSRF-Token', true]],
+  confirmMfaEnrollment: [['header', 'X-CSRF-Token', true]],
   createUser: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
@@ -111,6 +121,8 @@ const parameterContracts = {
     ['header', 'X-CSRF-Token', true],
   ],
 };
+const preauthCsrfOperations = new Set(['verifyMfa', 'startMfaEnrollment', 'confirmMfaEnrollment']);
+const publicCsrfOperations = new Set(['login']);
 const resolveSchema = (schema) => {
   if (!schema?.$ref) return schema;
   const prefix = '#/components/schemas/';
@@ -141,6 +153,23 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
           `Parameter contract mismatch: ${operationId} ${location} ${name} required=${required}`,
         );
       }
+    }
+    if (preauthCsrfOperations.has(operationId)) {
+      const security = operation.security ?? [];
+      if (
+        !security.some(
+          (requirement) =>
+            Object.hasOwn(requirement, 'preauthSession') && Object.hasOwn(requirement, 'csrf'),
+        )
+      ) {
+        throw new Error(`Pre-auth CSRF security contract missing: ${operationId}`);
+      }
+    }
+    if (
+      publicCsrfOperations.has(operationId) &&
+      !(operation.security ?? []).some((requirement) => Object.hasOwn(requirement, 'csrf'))
+    ) {
+      throw new Error(`Public CSRF security contract missing: ${operationId}`);
     }
     for (const [mediaType, media] of Object.entries(operation.requestBody?.content ?? {})) {
       const requestSchema = resolveSchema(media?.schema);

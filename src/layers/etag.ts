@@ -4,10 +4,30 @@ export function revisionEtag(revisionId: string, lockVersion: number): string {
   return `"rev-${revisionId}-v${lockVersion}"`;
 }
 
+export function resourceEtag(
+  resource: 'layer-group' | 'layer',
+  resourceId: string,
+  lockVersion: number,
+): string {
+  return `"${resource}-${resourceId}-v${lockVersion}"`;
+}
+
 export function requireRevisionVersion(ifMatch: string | undefined, revisionId: string): number {
   if (!ifMatch) throw new AppException(428, 'ETAG_REQUIRED', 'Thiếu If-Match.');
   const escaped = revisionId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = new RegExp(`^"rev-${escaped}-v(\\d+)"$`).exec(ifMatch);
+  if (!match?.[1]) throw new AppException(412, 'ETAG_MISMATCH', 'ETag không hợp lệ.');
+  return Number(match[1]);
+}
+
+export function requireResourceVersion(
+  ifMatch: string | undefined,
+  resource: 'layer-group' | 'layer',
+  resourceId: string,
+): number {
+  if (!ifMatch) throw new AppException(428, 'ETAG_REQUIRED', 'Thiếu If-Match.');
+  const escaped = resourceId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`^"${resource}-${escaped}-v(\\d+)"$`).exec(ifMatch);
   if (!match?.[1]) throw new AppException(412, 'ETAG_MISMATCH', 'ETag không hợp lệ.');
   return Number(match[1]);
 }

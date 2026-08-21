@@ -552,7 +552,7 @@ export const externalPlaceSchema: SchemaObject = {
 export const adminLayerGroupSchema: SchemaObject = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'slug', 'title', 'displayOrder', 'defaultVisible'],
+  required: ['id', 'slug', 'title', 'displayOrder', 'defaultVisible', 'lockVersion'],
   properties: {
     id: uuid,
     slug: { type: 'string' },
@@ -560,6 +560,7 @@ export const adminLayerGroupSchema: SchemaObject = {
     description: nullableString,
     displayOrder: { type: 'integer' },
     defaultVisible: { type: 'boolean' },
+    lockVersion: { type: 'integer', minimum: 1 },
     archivedAt: { ...dateTime, nullable: true },
     createdAt: dateTime,
     updatedAt: dateTime,
@@ -569,13 +570,14 @@ export const adminLayerGroupSchema: SchemaObject = {
 export const adminLayerListItemSchema: SchemaObject = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'slug', 'displayOrder', 'defaultVisible'],
+  required: ['id', 'slug', 'displayOrder', 'defaultVisible', 'lockVersion'],
   properties: {
     id: uuid,
     slug: { type: 'string' },
     groupId: { ...uuid, nullable: true },
     displayOrder: { type: 'integer' },
     defaultVisible: { type: 'boolean' },
+    lockVersion: { type: 'integer', minimum: 1 },
     archivedAt: { ...dateTime, nullable: true },
     revisionId: { ...uuid, nullable: true },
     title: { ...nullableString },
@@ -588,13 +590,23 @@ export const adminLayerListItemSchema: SchemaObject = {
 export const adminLayerEntitySchema: SchemaObject = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'slug', 'groupId', 'displayOrder', 'defaultVisible', 'createdBy', 'archivedAt'],
+  required: [
+    'id',
+    'slug',
+    'groupId',
+    'displayOrder',
+    'defaultVisible',
+    'lockVersion',
+    'createdBy',
+    'archivedAt',
+  ],
   properties: {
     id: uuid,
     slug: { type: 'string' },
     groupId: { ...uuid, nullable: true },
     displayOrder: { type: 'integer' },
     defaultVisible: { type: 'boolean' },
+    lockVersion: { type: 'integer', minimum: 1 },
     createdBy: uuid,
     archivedAt: { ...dateTime, nullable: true },
     createdAt: dateTime,
@@ -702,6 +714,96 @@ export const revisionResultSchema: SchemaObject = {
   properties: {
     revision: adminRevisionSchema,
     fields: { type: 'array', items: adminLayerFieldSchema },
+  },
+};
+
+export const adminLayerDetailSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['layer', 'latestRevision', 'draftRevision', 'publishedRevision'],
+  properties: {
+    layer: adminLayerEntitySchema,
+    latestRevision: { ...adminRevisionSchema, nullable: true },
+    draftRevision: { ...adminRevisionSchema, nullable: true },
+    publishedRevision: { ...adminRevisionSchema, nullable: true },
+  },
+};
+
+export const catalogReorderResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['updatedCount', 'items'],
+  properties: {
+    updatedCount: { type: 'integer', minimum: 1 },
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'displayOrder', 'lockVersion'],
+        properties: {
+          id: uuid,
+          displayOrder: { type: 'integer' },
+          lockVersion: { type: 'integer', minimum: 1 },
+        },
+      },
+    },
+  },
+};
+
+export const revisionConfigurationImpactSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['featureCount', 'blocking', 'schemaVersionWillIncrement', 'reasons'],
+  properties: {
+    featureCount: { type: 'integer', minimum: 0 },
+    blocking: { type: 'boolean' },
+    schemaVersionWillIncrement: { type: 'boolean' },
+    reasons: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['code', 'affectedFeatures'],
+        properties: {
+          code: {
+            type: 'string',
+            enum: [
+              'GEOMETRY_KIND_IN_USE',
+              'FIELD_REMOVAL_WITH_DATA',
+              'FIELD_CONSTRAINT_CHANGE_WITH_DATA',
+              'REQUIRED_FIELD_MISSING',
+            ],
+          },
+          fieldKey: nullableString,
+          geometryKind: nullableString,
+          affectedFeatures: { type: 'integer', minimum: 1 },
+        },
+      },
+    },
+  },
+};
+
+export const revisionConfigurationResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['revision', 'fields', 'impact'],
+  properties: {
+    revision: adminRevisionSchema,
+    fields: { type: 'array', items: adminLayerFieldSchema },
+    impact: revisionConfigurationImpactSchema,
+  },
+};
+
+export const successorDraftResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['sourceRevisionId', 'draftRevision', 'draftEtag', 'featureCount'],
+  properties: {
+    sourceRevisionId: uuid,
+    draftRevision: adminRevisionSchema,
+    draftEtag: { type: 'string' },
+    featureCount: { type: 'integer', minimum: 0 },
   },
 };
 

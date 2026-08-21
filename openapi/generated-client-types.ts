@@ -278,6 +278,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/layer-groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getLayerGroup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateLayerGroup"];
+        trace?: never;
+    };
+    "/api/v1/admin/layer-groups:reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reorderLayerGroups"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layer-groups/{groupId}:archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveLayerGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/layers": {
         parameters: {
             query?: never;
@@ -294,6 +342,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/layers/{layerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminLayer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateLayerCatalogConfig"];
+        trace?: never;
+    };
+    "/api/v1/admin/layers:reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reorderLayers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layers/{layerId}:archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveLayer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layers/{layerId}:unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unarchiveLayer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/layers/{layerId}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createSuccessorDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/revisions/{revisionId}": {
         parameters: {
             query?: never;
@@ -303,6 +431,38 @@ export interface paths {
         };
         get: operations["getRevision"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/revisions/{revisionId}/config:impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewRevisionConfigurationImpact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/revisions/{revisionId}/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["replaceDraftRevisionConfiguration"];
         post?: never;
         delete?: never;
         options?: never;
@@ -852,6 +1012,27 @@ export interface components {
             /** @default true */
             defaultVisible: boolean;
         };
+        UpdateLayerGroupDto: {
+            title?: string;
+            description?: string | null;
+            displayOrder?: number;
+            defaultVisible?: boolean;
+        };
+        CatalogOrderItemDto: {
+            /** Format: uuid */
+            id: string;
+            displayOrder: number;
+        };
+        ReorderCatalogDto: {
+            items: components["schemas"]["CatalogOrderItemDto"][];
+        };
+        ArchiveLayerGroupDto: {
+            /**
+             * @example ungroup
+             * @enum {string}
+             */
+            orphanLayerPolicy: "ungroup";
+        };
         LayerFieldValidationDto: {
             minLength?: number;
             maxLength?: number;
@@ -961,6 +1142,23 @@ export interface components {
             /** @default {} */
             renderConfig: components["schemas"]["LayerRenderConfigDto"];
             /** @default {} */
+            popupConfig: components["schemas"]["LayerPopupConfigDto"];
+        };
+        UpdateLayerDto: {
+            /** Format: uuid */
+            groupId?: string | null;
+            displayOrder?: number;
+            defaultVisible?: boolean;
+        };
+        RevisionConfigurationDto: {
+            title: string;
+            description?: string | null;
+            /** @enum {string} */
+            geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+            allowedGeometryKinds: ("point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle")[];
+            fields: components["schemas"]["LayerFieldDto"][];
+            style: components["schemas"]["LayerStyleDto"];
+            renderConfig: components["schemas"]["LayerRenderConfigDto"];
             popupConfig: components["schemas"]["LayerPopupConfigDto"];
         };
         FeatureMutationDto: {
@@ -1725,7 +1923,9 @@ export interface operations {
     };
     listLayerGroups: {
         parameters: {
-            query?: never;
+            query?: {
+                includeArchived?: "true" | "false";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1746,6 +1946,7 @@ export interface operations {
                             description?: string | null;
                             displayOrder: number;
                             defaultVisible: boolean;
+                            lockVersion: number;
                             /** Format: date-time */
                             archivedAt?: string | null;
                             /** Format: date-time */
@@ -1791,6 +1992,187 @@ export interface operations {
                             description?: string | null;
                             displayOrder: number;
                             defaultVisible: boolean;
+                            lockVersion: number;
+                            /** Format: date-time */
+                            archivedAt?: string | null;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getLayerGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            title: string;
+                            description?: string | null;
+                            displayOrder: number;
+                            defaultVisible: boolean;
+                            lockVersion: number;
+                            /** Format: date-time */
+                            archivedAt?: string | null;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    updateLayerGroup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLayerGroupDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            title: string;
+                            description?: string | null;
+                            displayOrder: number;
+                            defaultVisible: boolean;
+                            lockVersion: number;
+                            /** Format: date-time */
+                            archivedAt?: string | null;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    reorderLayerGroups: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                /** @description ETag from listLayerGroups. */
+                "If-Match": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderCatalogDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            updatedCount: number;
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                displayOrder: number;
+                                lockVersion: number;
+                            }[];
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    archiveLayerGroup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveLayerGroupDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            title: string;
+                            description?: string | null;
+                            displayOrder: number;
+                            defaultVisible: boolean;
+                            lockVersion: number;
                             /** Format: date-time */
                             archivedAt?: string | null;
                             /** Format: date-time */
@@ -1808,7 +2190,9 @@ export interface operations {
     };
     listAdminLayers: {
         parameters: {
-            query?: never;
+            query?: {
+                includeArchived?: "true" | "false";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1829,6 +2213,7 @@ export interface operations {
                             groupId?: string | null;
                             displayOrder: number;
                             defaultVisible: boolean;
+                            lockVersion: number;
                             /** Format: date-time */
                             archivedAt?: string | null;
                             /** Format: uuid */
@@ -1878,6 +2263,7 @@ export interface operations {
                                 groupId: string | null;
                                 displayOrder: number;
                                 defaultVisible: boolean;
+                                lockVersion: number;
                                 /** Format: uuid */
                                 createdBy: string;
                                 /** Format: date-time */
@@ -1950,6 +2336,1098 @@ export interface operations {
                                 /** Format: date-time */
                                 updatedAt?: string;
                             };
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminLayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            layer: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                /** Format: uuid */
+                                groupId: string | null;
+                                displayOrder: number;
+                                defaultVisible: boolean;
+                                lockVersion: number;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: date-time */
+                                archivedAt: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                            latestRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                            draftRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                            publishedRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    updateLayerCatalogConfig: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLayerDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            layer: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                /** Format: uuid */
+                                groupId: string | null;
+                                displayOrder: number;
+                                defaultVisible: boolean;
+                                lockVersion: number;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: date-time */
+                                archivedAt: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                            latestRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                            draftRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                            publishedRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    reorderLayers: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                /** @description ETag from listAdminLayers. */
+                "If-Match": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderCatalogDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            updatedCount: number;
+                            items: {
+                                /** Format: uuid */
+                                id: string;
+                                displayOrder: number;
+                                lockVersion: number;
+                            }[];
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    archiveLayer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            layer: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                /** Format: uuid */
+                                groupId: string | null;
+                                displayOrder: number;
+                                defaultVisible: boolean;
+                                lockVersion: number;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: date-time */
+                                archivedAt: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                            latestRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                            draftRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                            publishedRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    unarchiveLayer: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            layer: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                /** Format: uuid */
+                                groupId: string | null;
+                                displayOrder: number;
+                                defaultVisible: boolean;
+                                lockVersion: number;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: date-time */
+                                archivedAt: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                            latestRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                            draftRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                            publishedRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            } | null;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    createSuccessorDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                /** @description ETag of the published revision. */
+                "If-Match": string;
+            };
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            sourceRevisionId: string;
+                            draftRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                            draftEtag: string;
+                            featureCount: number;
                         };
                         meta: {
                             requestId: string;
@@ -2067,6 +3545,187 @@ export interface operations {
                                 options: string[];
                                 displayOrder: number;
                             }[];
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    previewRevisionConfigurationImpact: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionConfigurationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            featureCount: number;
+                            blocking: boolean;
+                            schemaVersionWillIncrement: boolean;
+                            reasons: {
+                                /** @enum {string} */
+                                code: "GEOMETRY_KIND_IN_USE" | "FIELD_REMOVAL_WITH_DATA" | "FIELD_CONSTRAINT_CHANGE_WITH_DATA" | "REQUIRED_FIELD_MISSING";
+                                fieldKey?: string | null;
+                                geometryKind?: string | null;
+                                affectedFeatures: number;
+                            }[];
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    replaceDraftRevisionConfiguration: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionConfigurationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            revision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    point?: {
+                                        color?: string;
+                                        radius?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                        cluster?: boolean;
+                                    };
+                                    line?: {
+                                        color?: string;
+                                        width?: number;
+                                        opacity?: number;
+                                    };
+                                    polygon?: {
+                                        fillColor?: string;
+                                        fillOpacity?: number;
+                                        strokeColor?: string;
+                                        strokeWidth?: number;
+                                    };
+                                };
+                                renderConfig: {
+                                    minZoom?: number;
+                                    maxZoom?: number;
+                                    cluster?: boolean;
+                                    /** @enum {string} */
+                                    sourcePolicy?: "auto" | "geojson" | "mvt" | "hybrid";
+                                };
+                                popupConfig: {
+                                    titleField?: string;
+                                    subtitleField?: string;
+                                    fieldKeys?: string[];
+                                    showCoordinates?: boolean;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                            fields: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                revisionId: string;
+                                key: string;
+                                label: string;
+                                description?: string | null;
+                                type: string;
+                                icon?: string | null;
+                                required: boolean;
+                                public: boolean;
+                                searchable: boolean;
+                                filterable: boolean;
+                                sortable: boolean;
+                                sensitive: boolean;
+                                offlineCache: boolean;
+                                defaultValue?: unknown;
+                                validation: {
+                                    minLength?: number;
+                                    maxLength?: number;
+                                    minimum?: number;
+                                    maximum?: number;
+                                };
+                                options: string[];
+                                displayOrder: number;
+                            }[];
+                            impact: {
+                                featureCount: number;
+                                blocking: boolean;
+                                schemaVersionWillIncrement: boolean;
+                                reasons: {
+                                    /** @enum {string} */
+                                    code: "GEOMETRY_KIND_IN_USE" | "FIELD_REMOVAL_WITH_DATA" | "FIELD_CONSTRAINT_CHANGE_WITH_DATA" | "REQUIRED_FIELD_MISSING";
+                                    fieldKey?: string | null;
+                                    geometryKind?: string | null;
+                                    affectedFeatures: number;
+                                }[];
+                            };
                         };
                         meta: {
                             requestId: string;

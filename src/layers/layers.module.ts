@@ -22,8 +22,10 @@ import {
   RevisionFeatureEntity,
 } from './layer.entities';
 import { LayerSchemaService } from './layer-schema.service';
+import { LayerCatalogService } from './layer-catalog.service';
 import { LayersController } from './layers.controller';
 import { LayersService } from './layers.service';
+import { RevisionConfigurationService } from './revision-configuration.service';
 
 @Module({
   imports: [
@@ -45,7 +47,14 @@ import { LayersService } from './layers.service';
     ]),
   ],
   controllers: [LayersController, WorkflowController],
-  providers: [LayersService, GeometryService, LayerSchemaService, WorkflowService],
+  providers: [
+    LayersService,
+    LayerCatalogService,
+    RevisionConfigurationService,
+    GeometryService,
+    LayerSchemaService,
+    WorkflowService,
+  ],
   exports: [LayersService, GeometryService, LayerSchemaService],
 })
 export class LayersModule {}

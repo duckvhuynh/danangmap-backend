@@ -93,20 +93,20 @@ for (let run = 1; run <= runCount; run += 1) {
       env: environment,
       stdio: 'inherit',
     });
-    const result = spawnSync(
+    const startResult = spawnSync(
       'docker',
-      [
-        ...composeArgs,
-        'up',
-        '--build',
-        '--abort-on-container-exit',
-        '--exit-code-from',
-        'fullstack-browser',
-        'fullstack-browser',
-      ],
+      [...composeArgs, 'up', '--build', '--detach', 'fullstack-browser'],
       { cwd: process.cwd(), env: environment, encoding: 'utf8', stdio: 'inherit' },
     );
-    exitCode = result.status ?? 1;
+    if (startResult.status === 0) {
+      const waitResult = spawnSync('docker', [...composeArgs, 'wait', 'fullstack-browser'], {
+        cwd: process.cwd(),
+        env: environment,
+        encoding: 'utf8',
+        stdio: 'inherit',
+      });
+      exitCode = waitResult.status ?? 1;
+    }
   } finally {
     const logs = spawnSync('docker', [...composeArgs, 'logs', '--no-color'], {
       cwd: process.cwd(),

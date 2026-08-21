@@ -33,6 +33,10 @@ const strictlyTypedResponseOperations = new Set([
   'confirmMfaEnrollment',
   'inspectInvite',
   'acceptInvite',
+  'changePassword',
+  'requestPasswordReset',
+  'confirmPasswordReset',
+  'revokeAllSessions',
   'rotateCsrf',
   'getCurrentUser',
   'listUsers',
@@ -76,6 +80,16 @@ const parameterContracts = {
     ['header', 'X-CSRF-Token', true],
   ],
   revokeInvite: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  changePassword: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  requestPasswordReset: [['header', 'Idempotency-Key', true]],
+  confirmPasswordReset: [['header', 'X-CSRF-Token', true]],
+  revokeAllSessions: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
@@ -144,7 +158,8 @@ const parameterContracts = {
   ],
 };
 const preauthCsrfOperations = new Set(['verifyMfa', 'startMfaEnrollment', 'confirmMfaEnrollment']);
-const publicCsrfOperations = new Set(['login', 'acceptInvite']);
+const publicCsrfOperations = new Set(['login', 'acceptInvite', 'confirmPasswordReset']);
+const authenticatedCsrfOperations = new Set(['changePassword', 'revokeAllSessions', 'logout']);
 const resolveSchema = (schema) => {
   if (!schema?.$ref) return schema;
   const prefix = '#/components/schemas/';
@@ -192,6 +207,15 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
       !(operation.security ?? []).some((requirement) => Object.hasOwn(requirement, 'csrf'))
     ) {
       throw new Error(`Public CSRF security contract missing: ${operationId}`);
+    }
+    if (
+      authenticatedCsrfOperations.has(operationId) &&
+      !(operation.security ?? []).some(
+        (requirement) =>
+          Object.hasOwn(requirement, 'adminSession') && Object.hasOwn(requirement, 'csrf'),
+      )
+    ) {
+      throw new Error(`Authenticated CSRF security contract missing: ${operationId}`);
     }
     for (const [mediaType, media] of Object.entries(operation.requestBody?.content ?? {})) {
       const requestSchema = resolveSchema(media?.schema);
@@ -261,6 +285,12 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
 if (seen.size === 0) throw new Error('OpenAPI document has no operations');
 requireWriteOnlyFields('InspectInviteDto', ['token']);
 requireWriteOnlyFields('AcceptInviteDto', ['token', 'password', 'passwordConfirmation']);
+requireWriteOnlyFields('ChangePasswordDto', [
+  'currentPassword',
+  'newPassword',
+  'passwordConfirmation',
+]);
+requireWriteOnlyFields('PasswordResetConfirmDto', ['token', 'password', 'passwordConfirmation']);
 const tile = document.paths?.['/api/v1/public/tiles/{slug}/{generation}/{z}/{x}/{y}.pbf']?.get;
 if (!tile?.responses?.['200']?.content?.['application/vnd.mapbox-vector-tile']?.schema) {
   throw new Error('MVT success response must declare application/vnd.mapbox-vector-tile');

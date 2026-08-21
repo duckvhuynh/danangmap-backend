@@ -11,10 +11,12 @@ import {
 import { AuthService } from './auth.service';
 import { UsersController } from './users.controller';
 import { IdentityRateLimitService } from './identity-rate-limit.service';
+import { PasswordSecurityService } from './password-security.service';
 import {
   AdminSessionEntity,
   InviteEntity,
   MailOutboxEntity,
+  PasswordResetTokenEntity,
   UserMfaMethodEntity,
   UserMfaRecoveryCodeEntity,
   UserEntity,
@@ -29,12 +31,14 @@ import {
       UserMfaRecoveryCodeEntity,
       InviteEntity,
       MailOutboxEntity,
+      PasswordResetTokenEntity,
     ]),
   ],
   controllers: [AuthController, UsersController],
   providers: [
     AuthService,
     IdentityRateLimitService,
+    PasswordSecurityService,
     SessionGuard,
     PreAuthGuard,
     OptionalAuthGuard,

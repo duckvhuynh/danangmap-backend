@@ -46,6 +46,7 @@ export class SessionGuard implements CanActivate {
       role: user.role,
       sessionId: session.id,
       displayName: user.displayName,
+      mustChangePassword: user.mustChangePassword,
     };
     return true;
   }
@@ -75,6 +76,7 @@ export class PreAuthGuard implements CanActivate {
       role: 'preauth',
       sessionId: session.id,
       displayName: '',
+      mustChangePassword: false,
     };
     return true;
   }
@@ -113,6 +115,7 @@ export class OptionalAuthGuard implements CanActivate {
           role: 'preauth',
           sessionId: session.id,
           displayName: '',
+          mustChangePassword: false,
         };
         return true;
       }
@@ -124,6 +127,7 @@ export class OptionalAuthGuard implements CanActivate {
         role: user.role,
         sessionId: session.id,
         displayName: user.displayName,
+        mustChangePassword: user.mustChangePassword,
       };
       return true;
     }
@@ -136,12 +140,19 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    const principal = context.switchToHttp().getRequest<RequestWithContext>().principal;
+    if (principal?.mustChangePassword) {
+      throw new AppException(
+        403,
+        'PASSWORD_CHANGE_REQUIRED',
+        'Bạn phải đổi mật khẩu tạm trước khi tiếp tục.',
+      );
+    }
     const roles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
     if (!roles?.length) return true;
-    const principal = context.switchToHttp().getRequest<RequestWithContext>().principal;
     if (!principal || !roles.includes(principal.role as UserRole)) {
       throw new AppException(403, 'ROLE_FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này.');
     }

@@ -25,10 +25,14 @@ services:
     labels:
       danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
 
+  seed:
+    environment:
+      SEED_ROLLBACK_PUBLISHER_PASSWORD: ${SEED_ROLLBACK_PUBLISHER_PASSWORD:-ChangeMe-rollback-publisher-2026!}
+
   frontend:
     ports: !reset []
     labels:
-      danangmap.frontend.revision: 2981c8737c31756b1180d2fb14e2d64548155bd7
+      danangmap.frontend.revision: c1217cd831114351158b819d121c908460dc5e9d
     build:
       args:
         NEXT_PUBLIC_API_BASE_URL: https://gateway
@@ -71,11 +75,12 @@ services:
       context: ${DANANGMAP_FRONTEND_CONTEXT:-../danangmap-frontend}
       dockerfile: Dockerfile.e2e
       labels:
-        danangmap.frontend.revision: 2981c8737c31756b1180d2fb14e2d64548155bd7
+        danangmap.frontend.revision: c1217cd831114351158b819d121c908460dc5e9d
     environment:
       CI: 'true'
       DANANGMAP_REAL_STACK: 'true'
       DANANGMAP_CMS1_ENABLED: 'true'
+      DANANGMAP_HISTORY_ENABLED: 'true'
       PLAYWRIGHT_BASE_URL: https://gateway
       MAILPIT_BASE_URL: http://mailpit:8025
       DANANGMAP_ADMIN_LOGIN: ${DANANGMAP_ADMIN_LOGIN:-admin}
@@ -89,6 +94,11 @@ services:
       DANANGMAP_GATE_B_PUBLISHER_LOGIN: publisher
       DANANGMAP_GATE_B_PUBLISHER_PASSWORD: ${SEED_PUBLISHER_PASSWORD:-ChangeMe-Publisher-2026!}
       DANANGMAP_GATE_B_TOTP_SECRET: ${SEED_MFA_SECRET:-JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP}
+      DANANGMAP_HISTORY_ROLLBACK_PUBLISHER_LOGIN: rollback-publisher
+      DANANGMAP_HISTORY_ROLLBACK_PUBLISHER_PASSWORD: ${SEED_ROLLBACK_PUBLISHER_PASSWORD:-ChangeMe-rollback-publisher-2026!}
+      DANANGMAP_HISTORY_SYSTEM_ADMIN_LOGIN: admin
+      DANANGMAP_HISTORY_SYSTEM_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe-Admin-2026!}
+      DANANGMAP_HISTORY_TOTP_SECRET: ${SEED_MFA_SECRET:-JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP}
       DANANGMAP_GATE_B_LAYER_SLUG: cross-stack-publication
       DANANGMAP_GATE_B_BASE_GENERATION: '1'
       DANANGMAP_GATE_B_BASE_FEATURE_NAME: Điểm nền Gate B

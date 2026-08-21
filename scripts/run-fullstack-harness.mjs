@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const pinnedFrontendSha = '2981c8737c31756b1180d2fb14e2d64548155bd7';
+const pinnedFrontendSha = 'c1217cd831114351158b819d121c908460dc5e9d';
 const frontendContext = resolve(process.env.DANANGMAP_FRONTEND_CONTEXT ?? '../danangmap-frontend');
 const frontendSha = git(['-C', frontendContext, 'rev-parse', 'HEAD']).trim();
 const expectedSha = process.env.DANANGMAP_FRONTEND_SHA?.trim();
@@ -36,18 +36,18 @@ if (expectedBackendSha && backendSha !== expectedBackendSha) {
   throw new Error(`Backend SHA mismatch: expected ${expectedBackendSha}, found ${backendSha}`);
 }
 const dirty = git(['-C', frontendContext, 'status', '--porcelain']).trim();
-if (dirty && process.env.DANANGMAP_ALLOW_DIRTY_FRONTEND !== 'true') {
-  throw new Error(
-    'Frontend worktree is dirty; commit it or set DANANGMAP_ALLOW_DIRTY_FRONTEND=true for local-only diagnostics.',
-  );
-}
+if (dirty) throw new Error('Frontend worktree must be clean for exact-pin full-stack acceptance');
 const backendDirty = git(['status', '--porcelain']).trim();
-if (backendDirty && process.env.DANANGMAP_ALLOW_DIRTY_BACKEND !== 'true') {
-  throw new Error(
-    'Backend worktree is dirty; commit it or set DANANGMAP_ALLOW_DIRTY_BACKEND=true for local-only diagnostics.',
-  );
-}
-await assertNoRouteMocks(resolve(frontendContext, 'e2e-real'));
+if (backendDirty)
+  throw new Error('Backend worktree must be clean for exact-pin full-stack acceptance');
+const realStackSpecs = [
+  'account-import-invite.spec.ts',
+  'layer-configuration-create.spec.ts',
+  'layer-configuration-lifecycle.spec.ts',
+  'publication-history-rollback.spec.ts',
+  'spatial-publication.spec.ts',
+];
+await assertNoRouteOrServiceMocks(resolve(frontendContext, 'e2e-real'), realStackSpecs);
 const runCount = positiveInteger(process.env.DANANGMAP_FULLSTACK_RUNS ?? '2', 1, 2);
 const artifactRoot = resolve('artifacts/fullstack');
 await mkdir(artifactRoot, { recursive: true });
@@ -88,41 +88,130 @@ for (let run = 1; run <= runCount; run += 1) {
   );
   let exitCode = 1;
   try {
-    spawnSync('docker', [...composeArgs, 'down', '-v', '--remove-orphans'], {
+    const initialDown = spawnSync('docker', [...composeArgs, 'down', '-v', '--remove-orphans'], {
       cwd: process.cwd(),
       env: environment,
       stdio: 'inherit',
     });
+    if (initialDown.status !== 0) {
+      throw new Error(`Full-stack run ${run} could not establish a clean pre-run stack`);
+    }
     const startResult = spawnSync(
       'docker',
-      [...composeArgs, 'up', '--build', '--detach', 'fullstack-browser'],
+      [...composeArgs, 'up', '--build', '--detach', '--wait', 'gateway', 'worker', 'mailpit'],
       { cwd: process.cwd(), env: environment, encoding: 'utf8', stdio: 'inherit' },
     );
     if (startResult.status === 0) {
-      const waitResult = spawnSync('docker', [...composeArgs, 'wait', 'fullstack-browser'], {
+      const testImagesBuild = spawnSync(
+        'docker',
+        [...composeArgs, 'build', 'fullstack-smoke', 'fullstack-browser'],
+        {
+          cwd: process.cwd(),
+          env: environment,
+          encoding: 'utf8',
+          stdio: 'inherit',
+        },
+      );
+      exitCode = testImagesBuild.status ?? 1;
+      if (exitCode === 0) {
+        const smokeResult = spawnSync(
+          'docker',
+          [...composeArgs, 'run', '--rm', '--no-deps', 'fullstack-smoke'],
+          {
+            cwd: process.cwd(),
+            env: environment,
+            encoding: 'utf8',
+            stdio: 'inherit',
+          },
+        );
+        exitCode = smokeResult.status ?? 1;
+      }
+      if (exitCode === 0) {
+        const failedSpecs = [];
+        for (const spec of realStackSpecs) {
+          const specName = spec.replace(/\.spec\.ts$/u, '');
+          const specReportDir = resolve(playwrightReportDir, specName);
+          const specResultsDir = resolve(playwrightResultsDir, specName);
+          await mkdir(specReportDir, { recursive: true });
+          await mkdir(specResultsDir, { recursive: true });
+          const specEnvironment = {
+            ...environment,
+            DANANGMAP_PLAYWRIGHT_REPORT_DIR: specReportDir.replaceAll('\\', '/'),
+            DANANGMAP_PLAYWRIGHT_RESULTS_DIR: specResultsDir.replaceAll('\\', '/'),
+          };
+          const resetResult = spawnSync(
+            'docker',
+            [
+              ...composeArgs,
+              'run',
+              '--rm',
+              '--no-deps',
+              '-e',
+              'NODE_ENV=test',
+              '-e',
+              'DANANGMAP_E2E_AUTH_RESET=true',
+              'seed',
+            ],
+            { cwd: process.cwd(), env: specEnvironment, encoding: 'utf8', stdio: 'inherit' },
+          );
+          if (resetResult.status !== 0) {
+            failedSpecs.push(`${spec} (auth reset failed)`);
+            continue;
+          }
+          const specResult = spawnSync(
+            'docker',
+            [
+              ...composeArgs,
+              'run',
+              '--rm',
+              '--no-deps',
+              'fullstack-browser',
+              'npx',
+              'playwright',
+              'test',
+              '--config=playwright.real.config.ts',
+              '--project=real-stack',
+              `e2e-real/${spec}`,
+            ],
+            { cwd: process.cwd(), env: specEnvironment, encoding: 'utf8', stdio: 'inherit' },
+          );
+          if (specResult.status !== 0) failedSpecs.push(spec);
+        }
+        if (failedSpecs.length > 0) {
+          console.error(`Independent real-stack specs failed: ${failedSpecs.join(', ')}`);
+          exitCode = 1;
+        }
+      }
+    }
+  } finally {
+    let evidenceError;
+    try {
+      const logs = spawnSync('docker', [...composeArgs, 'logs', '--no-color'], {
         cwd: process.cwd(),
         env: environment,
         encoding: 'utf8',
-        stdio: 'inherit',
       });
-      exitCode = waitResult.status ?? 1;
+      if (logs.status !== 0) {
+        throw new Error(`Full-stack run ${run} could not capture compose logs`);
+      }
+      await writeFile(
+        resolve(runArtifactRoot, 'compose.log'),
+        `${logs.stdout ?? ''}${logs.stderr ?? ''}`,
+        'utf8',
+      );
+    } catch (caught) {
+      evidenceError = caught;
     }
-  } finally {
-    const logs = spawnSync('docker', [...composeArgs, 'logs', '--no-color'], {
-      cwd: process.cwd(),
-      env: environment,
-      encoding: 'utf8',
-    });
-    await writeFile(
-      resolve(runArtifactRoot, 'compose.log'),
-      `${logs.stdout ?? ''}${logs.stderr ?? ''}`,
-      'utf8',
-    );
-    spawnSync('docker', [...composeArgs, 'down', '-v', '--remove-orphans'], {
+    const finalDown = spawnSync('docker', [...composeArgs, 'down', '-v', '--remove-orphans'], {
       cwd: process.cwd(),
       env: environment,
       stdio: 'inherit',
     });
+    if (finalDown.status !== 0) {
+      const evidenceSuffix = evidenceError ? ' (compose evidence capture also failed)' : '';
+      throw new Error(`Full-stack run ${run} teardown failed${evidenceSuffix}`);
+    }
+    if (evidenceError) throw evidenceError;
   }
   if (exitCode !== 0) throw new Error(`Full-stack harness run ${run} failed`);
 }
@@ -145,12 +234,20 @@ function positiveInteger(value, minimum, maximum) {
   return parsed;
 }
 
-async function assertNoRouteMocks(directory) {
+async function assertNoRouteOrServiceMocks(directory, requiredSpecs) {
   const files = await sourceFiles(directory);
   if (files.length === 0) throw new Error(`No real-stack browser tests found under ${directory}`);
+  const missingSpecs = requiredSpecs.filter((spec) => !files.includes(resolve(directory, spec)));
+  if (missingSpecs.length > 0) {
+    throw new Error(`Required real-stack tests were not scanned: ${missingSpecs.join(', ')}`);
+  }
   const forbidden = [
     { pattern: /\b[$\p{ID_Start}_][$\p{ID_Continue}_]*\s*\.\s*route\s*\(/u, label: '*.route' },
     { pattern: /\broute\s*\.\s*(?:fulfill|abort|fallback)\s*\(/u, label: 'route response mock' },
+    {
+      pattern: /NEXT_PUBLIC_DANANGMAP_(?:DEMO_MODE|AUTH_E2E_MODE|USER_IMPORT_E2E_MODE)/u,
+      label: 'demo/service mock mode',
+    },
   ];
   const violations = [];
   for (const file of files) {
@@ -160,7 +257,7 @@ async function assertNoRouteMocks(directory) {
     }
   }
   if (violations.length > 0) {
-    throw new Error(`Real-stack route mocks are forbidden:\n${violations.join('\n')}`);
+    throw new Error(`Real-stack route/service mocks are forbidden:\n${violations.join('\n')}`);
   }
 }
 

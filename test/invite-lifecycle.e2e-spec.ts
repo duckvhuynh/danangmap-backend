@@ -1,6 +1,7 @@
-import { createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import AppDataSource from '../src/database/data-source';
 import Redis from 'ioredis';
+import { waitForMailpitMessage } from './mailpit.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 const allowedOrigin = 'http://localhost:3000';
@@ -165,8 +166,8 @@ describe('invite inspect and accept HTTP lifecycle', () => {
       failures.map((response) => readProblem(response, 400, 'INVITE_INVALID_OR_EXPIRED')),
     );
     expect(new Set(problems.map((problem) => problem.message)).size).toBe(1);
-    const scrubbed = await decryptInviteOutbox(revoked.id);
-    expect(scrubbed).toEqual({ inviteId: revoked.id, status: 'revoked' });
+    const scrubbed = await inviteOutboxState(revoked.id);
+    expect(scrubbed).toMatchObject({ status: 'sent', payload_encrypted: null });
     expect(JSON.stringify(scrubbed)).not.toContain(revoked.token);
   });
 
@@ -259,8 +260,8 @@ describe('invite inspect and accept HTTP lifecycle', () => {
     const replay = await acceptInvite(replayJar, invitation.token, password, password);
     await readProblem(replay, 400, 'INVITE_INVALID_OR_EXPIRED');
 
-    const scrubbed = await decryptInviteOutbox(invitation.id);
-    expect(scrubbed).toEqual({ inviteId: invitation.id, status: 'accepted' });
+    const scrubbed = await inviteOutboxState(invitation.id);
+    expect(scrubbed).toMatchObject({ status: 'sent', payload_encrypted: null });
     const persisted = (await AppDataSource.query(
       `SELECT i.token_hash,o.payload_encrypted,a.metadata::text AS audit_metadata
        FROM invites i
@@ -268,7 +269,11 @@ describe('invite inspect and accept HTTP lifecycle', () => {
        LEFT JOIN audit_logs a ON a.resource_id=i.id
        WHERE i.id=$1`,
       [invitation.id],
-    )) as Array<{ token_hash: string; payload_encrypted: string; audit_metadata: string | null }>;
+    )) as Array<{
+      token_hash: string;
+      payload_encrypted: string | null;
+      audit_metadata: string | null;
+    }>;
     const persistedText = JSON.stringify(persisted);
     expect(persistedText).not.toContain(invitation.token);
     expect(persistedText).not.toContain(password);
@@ -371,11 +376,19 @@ describe('invite inspect and accept HTTP lifecycle', () => {
     expect(response.status).toBe(202);
     const body = (await response.json()) as Envelope<{ id: string }>;
     inviteIds.push(body.data.id);
+    const delivered = await waitForMailpitMessage(email);
+    expect(delivered).toMatchObject({ count: 1 });
+    expect(delivered.subject).toContain('Mã mời');
+    expect(delivered.text).toContain('sao chép và dán');
+    expect(delivered.text).not.toMatch(/https?:\/\//i);
+    const state = await waitForInviteOutboxStatus(body.data.id, 'sent');
+    expect(state).toMatchObject({ status: 'sent', payload_encrypted: null });
+    expect(state.payload_scrubbed_at).toBeInstanceOf(Date);
     return {
       id: body.data.id,
       email,
       username,
-      token: await captureInviteToken(body.data.id),
+      token: delivered.code,
     };
   }
 
@@ -438,37 +451,28 @@ async function acceptInvite(
   });
 }
 
-async function captureInviteToken(inviteId: string): Promise<string> {
-  const payload = await decryptInviteOutbox(inviteId);
-  const token = payload.token;
-  if (typeof token !== 'string') throw new Error('Invite mail capture did not contain a token');
-  return token;
-}
-
-async function decryptInviteOutbox(inviteId: string): Promise<Record<string, unknown>> {
+async function inviteOutboxState(inviteId: string): Promise<Record<string, unknown>> {
   const rows = (await AppDataSource.query(
-    `SELECT payload_encrypted FROM mail_outbox WHERE invite_id=$1 ORDER BY created_at DESC LIMIT 1`,
+    `SELECT status,payload_encrypted,payload_scrubbed_at,last_error_code FROM mail_outbox
+     WHERE invite_id=$1 ORDER BY created_at DESC LIMIT 1`,
     [inviteId],
-  )) as Array<{ payload_encrypted: string }>;
-  const encrypted = rows[0]?.payload_encrypted;
-  if (!encrypted) throw new Error('Invite mail capture was not found');
-  return JSON.parse(decryptField(encrypted)) as Record<string, unknown>;
+  )) as Array<Record<string, unknown>>;
+  const row = rows[0];
+  if (!row) throw new Error('Invite mail outbox was not found');
+  return row;
 }
 
-function decryptField(payload: string): string {
-  const [nonce, tag, encrypted] = payload.split('.');
-  if (!nonce || !tag || !encrypted) throw new Error('Encrypted capture is malformed');
-  const key = createHash('sha256')
-    .update(
-      process.env.FIELD_ENCRYPTION_KEY ?? 'local-only-field-encryption-key-change-in-production',
-    )
-    .digest();
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(nonce, 'base64url'));
-  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-  return Buffer.concat([
-    decipher.update(Buffer.from(encrypted, 'base64url')),
-    decipher.final(),
-  ]).toString('utf8');
+async function waitForInviteOutboxStatus(
+  inviteId: string,
+  status: string,
+): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const state = await inviteOutboxState(inviteId);
+    if (state.status === status) return state;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Invite mail outbox did not reach ${status}`);
 }
 
 async function rotateCsrf(jar: CookieJar): Promise<string> {

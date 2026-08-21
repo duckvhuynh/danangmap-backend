@@ -399,13 +399,15 @@ export class UserImportProcessor extends WorkerHost {
     )) as Array<{ id: string }>;
     for (const invite of rows) {
       await manager.query(
-        `UPDATE mail_outbox SET payload_encrypted=$2,
-           status=CASE WHEN status IN ('pending','sending') THEN 'failed' ELSE status END,
-           next_attempt_at=NULL,updated_at=now() WHERE invite_id=$1`,
-        [
-          invite.id,
-          this.crypto.encrypt(JSON.stringify({ inviteId: invite.id, status: 'expired' })),
-        ],
+        `UPDATE mail_outbox SET payload_encrypted=NULL,
+           payload_scrubbed_at=COALESCE(payload_scrubbed_at,now()),
+           status=CASE WHEN status IN ('pending','claimed','sending','failed')
+             THEN 'cancelled' ELSE status END,
+           claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,next_attempt_at=NULL,
+           last_error_code=CASE WHEN status IN ('pending','claimed','sending','failed')
+             THEN 'MAIL_CREDENTIAL_INVALID' ELSE last_error_code END,
+           updated_at=now() WHERE invite_id=$1`,
+        [invite.id],
       );
     }
   }

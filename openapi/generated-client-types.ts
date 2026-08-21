@@ -3800,7 +3800,18 @@ export interface operations {
                         status: "ok";
                         version: string;
                         checks: {
-                            [key: string]: "up" | "down" | "degraded" | "current";
+                            /** @enum {string} */
+                            postgres: "up" | "down";
+                            /** @enum {string} */
+                            redis: "up" | "down";
+                            /** @enum {string} */
+                            migrations: "current" | "down";
+                            /** @enum {string} */
+                            minio: "up" | "down";
+                            /** @enum {string} */
+                            geoService: "up" | "degraded";
+                            /** @enum {string} */
+                            mail: "up" | "degraded";
                         };
                     };
                 };

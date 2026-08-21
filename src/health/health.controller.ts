@@ -52,6 +52,7 @@ export class HealthController {
       migrations: 'down',
       minio: 'down',
       geoService: this.config.get<string>('geoService.baseUrl') ? 'up' : 'degraded',
+      mail: 'degraded',
     };
 
     await this.dataSource.query('SELECT 1');
@@ -65,6 +66,17 @@ export class HealthController {
     checks.redis = 'up';
     await this.storage.ping();
     checks.minio = 'up';
+
+    try {
+      const rows = (await this.dataSource.query(
+        `SELECT status,worker_heartbeat_at > now()-($1::text || ' seconds')::interval AS fresh
+         FROM mail_delivery_state WHERE id=1`,
+        [this.config.getOrThrow<number>('mail.workerHeartbeatStaleSeconds')],
+      )) as Array<{ status: string; fresh: boolean }>;
+      checks.mail = rows[0]?.status === 'up' && rows[0].fresh ? 'up' : 'degraded';
+    } catch {
+      checks.mail = 'degraded';
+    }
 
     return {
       status: 'ok',

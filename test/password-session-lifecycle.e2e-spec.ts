@@ -1,6 +1,7 @@
-import { createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
 import AppDataSource from '../src/database/data-source';
+import { waitForMailpitMessage } from './mailpit.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 const allowedOrigin = 'http://localhost:3000';
@@ -238,17 +239,33 @@ describe('password reset, change and session-revocation HTTP lifecycle', () => {
     expect(firstReset.response.status).toBe(202);
     expect(firstReset.elapsedMs).toBeGreaterThanOrEqual(130);
     expect(Math.abs(firstReset.elapsedMs - unknown.elapsedMs)).toBeLessThan(800);
-    const firstToken = await captureLatestResetToken(userId);
+    const firstDelivery = await waitForMailpitMessage(login, 1);
+    expect(firstDelivery.subject).toContain('đặt lại mật khẩu');
+    expect(firstDelivery.text).toContain('sao chép và dán');
+    expect(firstDelivery.text).not.toMatch(/https?:\/\//i);
+    const firstToken = {
+      id: await latestResetTokenId(userId),
+      token: firstDelivery.code,
+    };
+    expect(await waitForResetOutboxStatus(firstToken.id, 'sent')).toMatchObject({
+      status: 'sent',
+      payload_encrypted: null,
+    });
     const resetReplay = await requestReset(login, firstResetKey);
     expect(resetReplay.response.status).toBe(202);
     const outboxAfterReplay = await resetOutboxCount(userId);
     expect(outboxAfterReplay).toBe(1);
+    expect((await waitForMailpitMessage(login, 1)).messageId).toBe(firstDelivery.messageId);
 
     const secondResetKey = randomUUID();
     publicKeys.push(secondResetKey);
     const secondReset = await requestReset(login, secondResetKey);
     expect(secondReset.response.status).toBe(202);
-    const secondToken = await captureLatestResetToken(userId);
+    const secondDelivery = await waitForMailpitMessage(login, 2);
+    const secondToken = {
+      id: await latestResetTokenId(userId),
+      token: secondDelivery.code,
+    };
     expect(secondToken.id).not.toBe(firstToken.id);
 
     const publicJar = new CookieJar();
@@ -305,9 +322,9 @@ describe('password reset, change and session-revocation HTTP lifecycle', () => {
       code: recoveryCodes[1],
     });
     expect(preauthVerify.status).toBe(401);
-    expect(await decryptResetOutbox(secondToken.id)).toEqual({
-      passwordResetTokenId: secondToken.id,
-      status: 'used',
+    expect(await resetOutboxState(secondToken.id)).toMatchObject({
+      status: 'sent',
+      payload_encrypted: null,
     });
 
     const sessionA = await authenticatedLoginWithRecovery(resetPassword, recoveryCodes[2]!);
@@ -455,28 +472,40 @@ async function revokeAll(jar: CookieJar, key: string | undefined): Promise<Respo
   });
 }
 
-async function captureLatestResetToken(userId: string): Promise<{ id: string; token: string }> {
+async function latestResetTokenId(userId: string): Promise<string> {
   const rows = (await AppDataSource.query(
-    `SELECT o.payload_encrypted,t.id
+    `SELECT t.id
      FROM password_reset_tokens t JOIN mail_outbox o ON o.password_reset_token_id=t.id
      WHERE t.user_id=$1 ORDER BY t.created_at DESC LIMIT 1`,
     [userId],
-  )) as Array<{ id: string; payload_encrypted: string }>;
+  )) as Array<{ id: string }>;
   const row = rows[0];
   if (!row) throw new Error('Password reset outbox was not found');
-  const payload = JSON.parse(decryptField(row.payload_encrypted)) as { token?: string };
-  if (!payload.token) throw new Error('Password reset outbox did not contain a token');
-  return { id: row.id, token: payload.token };
+  return row.id;
 }
 
-async function decryptResetOutbox(resetTokenId: string): Promise<Record<string, unknown>> {
+async function resetOutboxState(resetTokenId: string): Promise<Record<string, unknown>> {
   const rows = (await AppDataSource.query(
-    'SELECT payload_encrypted FROM mail_outbox WHERE password_reset_token_id=$1',
+    `SELECT status,payload_encrypted,payload_scrubbed_at,last_error_code FROM mail_outbox
+     WHERE password_reset_token_id=$1`,
     [resetTokenId],
-  )) as Array<{ payload_encrypted: string }>;
-  const encrypted = rows[0]?.payload_encrypted;
-  if (!encrypted) throw new Error('Password reset outbox was not found');
-  return JSON.parse(decryptField(encrypted)) as Record<string, unknown>;
+  )) as Array<Record<string, unknown>>;
+  const row = rows[0];
+  if (!row) throw new Error('Password reset outbox was not found');
+  return row;
+}
+
+async function waitForResetOutboxStatus(
+  resetTokenId: string,
+  status: string,
+): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const row = await resetOutboxState(resetTokenId);
+    if (row.status === status) return row;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Password-reset mail outbox did not reach ${status}`);
 }
 
 async function resetOutboxCount(userId: string): Promise<number> {
@@ -486,22 +515,6 @@ async function resetOutboxCount(userId: string): Promise<number> {
     [userId],
   )) as Array<{ count: number }>;
   return rows[0]?.count ?? 0;
-}
-
-function decryptField(payload: string): string {
-  const [nonce, tag, encrypted] = payload.split('.');
-  if (!nonce || !tag || !encrypted) throw new Error('Encrypted capture is malformed');
-  const key = createHash('sha256')
-    .update(
-      process.env.FIELD_ENCRYPTION_KEY ?? 'local-only-field-encryption-key-change-in-production',
-    )
-    .digest();
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(nonce, 'base64url'));
-  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-  return Buffer.concat([
-    decipher.update(Buffer.from(encrypted, 'base64url')),
-    decipher.final(),
-  ]).toString('utf8');
 }
 
 async function rotateCsrf(jar: CookieJar): Promise<string> {

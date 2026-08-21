@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestWithContext } from '../common/http/request-context';
+import { apiJsonResponse, workflowResultSchema } from '../common/openapi/response-schemas';
 import { Principal, Roles } from '../identity/auth.decorators';
 import { CsrfGuard, RolesGuard, SessionGuard } from '../identity/auth.guards';
 import { requireIdempotencyKey } from '../layers/etag';
@@ -34,6 +35,7 @@ export class WorkflowController {
   @HttpCode(202)
   @Roles('editor')
   @ApiOperation({ operationId: 'submitRevision' })
+  @apiJsonResponse(202, workflowResultSchema)
   submit(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: SubmitRevisionDto,
@@ -48,6 +50,7 @@ export class WorkflowController {
   @Post('revisions/:revisionId\\:approve')
   @Roles('reviewer')
   @ApiOperation({ operationId: 'approveRevision' })
+  @apiJsonResponse(201, workflowResultSchema)
   approve(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: WorkflowCommentDto,
@@ -62,6 +65,7 @@ export class WorkflowController {
   @Post('revisions/:revisionId\\:request-changes')
   @Roles('reviewer')
   @ApiOperation({ operationId: 'requestRevisionChanges' })
+  @apiJsonResponse(201, workflowResultSchema)
   requestChanges(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: RequestChangesDto,
@@ -77,6 +81,7 @@ export class WorkflowController {
   @HttpCode(202)
   @Roles('publisher')
   @ApiOperation({ operationId: 'publishRevision' })
+  @apiJsonResponse(202, workflowResultSchema)
   publish(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: PublishRevisionDto,
@@ -91,6 +96,7 @@ export class WorkflowController {
   @Post('layers/:layerId\\:rollback')
   @Roles('publisher')
   @ApiOperation({ operationId: 'rollbackLayer' })
+  @apiJsonResponse(201, workflowResultSchema)
   rollback(
     @Param('layerId', ParseUUIDPipe) layerId: string,
     @Body() dto: RollbackDto,

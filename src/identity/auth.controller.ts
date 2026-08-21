@@ -3,6 +3,13 @@ import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
+import {
+  apiJsonResponse,
+  authPrincipalSchema,
+  csrfResultSchema,
+  loginResultSchema,
+  logoutResultSchema,
+} from '../common/openapi/response-schemas';
 import { Principal } from './auth.decorators';
 import { LoginDto, VerifyMfaDto } from './auth.dto';
 import {
@@ -30,6 +37,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   @ApiOperation({ operationId: 'login' })
+  @apiJsonResponse(200, loginResultSchema)
   async login(
     @Body() dto: LoginDto,
     @Req() request: RequestWithContext,
@@ -44,6 +52,7 @@ export class AuthController {
   @HttpCode(200)
   @UseGuards(PreAuthGuard)
   @ApiOperation({ operationId: 'verifyMfa' })
+  @apiJsonResponse(200, authPrincipalSchema)
   async verifyMfa(
     @Body() dto: VerifyMfaDto,
     @Req() request: RequestWithContext,
@@ -72,6 +81,7 @@ export class AuthController {
   @UseGuards(SessionGuard)
   @ApiCookieAuth('adminSession')
   @ApiOperation({ operationId: 'rotateCsrf' })
+  @apiJsonResponse(200, csrfResultSchema)
   async csrf(
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
     @Res({ passthrough: true }) response: Response,
@@ -91,6 +101,7 @@ export class AuthController {
   @UseGuards(SessionGuard)
   @ApiCookieAuth('adminSession')
   @ApiOperation({ operationId: 'getCurrentUser' })
+  @apiJsonResponse(200, authPrincipalSchema)
   me(@Principal() principal: NonNullable<RequestWithContext['principal']>) {
     return this.auth.principal(principal.id);
   }
@@ -100,6 +111,7 @@ export class AuthController {
   @UseGuards(SessionGuard, CsrfGuard)
   @ApiCookieAuth('adminSession')
   @ApiOperation({ operationId: 'logout' })
+  @apiJsonResponse(200, logoutResultSchema)
   async logout(
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
     @Req() request: RequestWithContext,

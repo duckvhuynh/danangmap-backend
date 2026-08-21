@@ -485,18 +485,156 @@ export interface components {
             method: "totp" | "recovery_code";
             code: string;
         };
-        CreateUserDto: Record<string, never>;
-        CreateInviteDto: Record<string, never>;
-        CreateLayerGroupDto: Record<string, never>;
-        CreateLayerDto: Record<string, never>;
-        FeatureMutationDto: Record<string, never>;
-        UpdateFeatureDto: Record<string, never>;
-        SubmitRevisionDto: Record<string, never>;
-        WorkflowCommentDto: Record<string, never>;
-        RequestChangesDto: Record<string, never>;
-        PublishRevisionDto: Record<string, never>;
-        RollbackDto: Record<string, never>;
-        CreateImportDto: Record<string, never>;
+        CreateUserDto: {
+            /** @example editor@example.gov.vn */
+            email: string;
+            /** @example editor01 */
+            username: string;
+            /** @example Biên tập viên 01 */
+            displayName: string;
+            /** @enum {string} */
+            role: "system_admin" | "editor" | "reviewer" | "publisher";
+            /** @enum {string} */
+            delivery: "manual" | "invite";
+            temporaryPassword?: string;
+        };
+        CreateInviteDto: {
+            /** @example reviewer@example.gov.vn */
+            email: string;
+            /** @example reviewer01 */
+            username: string;
+            /** @example Kiểm duyệt viên 01 */
+            displayName: string;
+            /** @enum {string} */
+            role: "system_admin" | "editor" | "reviewer" | "publisher";
+            /** @default 72 */
+            expiresInHours: number;
+        };
+        CreateLayerGroupDto: {
+            /** @example government */
+            slug: string;
+            /** @example Cơ quan hành chính */
+            title: string;
+            description?: string;
+            /** @default 0 */
+            displayOrder: number;
+            /** @default true */
+            defaultVisible: boolean;
+        };
+        LayerFieldDto: {
+            /** @example address */
+            key: string;
+            /** @example Địa chỉ */
+            label: string;
+            description?: string;
+            /** @enum {string} */
+            type: "text" | "long_text" | "number" | "integer" | "boolean" | "date" | "datetime" | "url" | "email" | "phone" | "enum" | "multi_enum" | "address" | "image" | "attachment";
+            /** @example map-pin */
+            icon?: string;
+            /** @default false */
+            required: boolean;
+            /** @default true */
+            public: boolean;
+            /** @default false */
+            searchable: boolean;
+            /** @default false */
+            filterable: boolean;
+            /** @default false */
+            sortable: boolean;
+            /** @default false */
+            sensitive: boolean;
+            /** @default true */
+            offlineCache: boolean;
+            defaultValue?: (string | number | boolean | {
+                [key: string]: unknown;
+            } | unknown[]) | null;
+            /** @default {} */
+            validation: {
+                [key: string]: unknown;
+            };
+            /** @default [] */
+            options: unknown[];
+            /** @default 0 */
+            displayOrder: number;
+        };
+        CreateLayerDto: {
+            /** @example administrative-offices */
+            slug: string;
+            /** Format: uuid */
+            groupId?: string;
+            /** @default 0 */
+            displayOrder: number;
+            /** @example Trụ sở hành chính */
+            title: string;
+            description?: string;
+            /** @enum {string} */
+            geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+            allowedGeometryKinds: ("point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle")[];
+            fields: components["schemas"]["LayerFieldDto"][];
+            /** @default {} */
+            style: {
+                [key: string]: unknown;
+            };
+            /** @default {} */
+            renderConfig: {
+                [key: string]: unknown;
+            };
+            /** @default {} */
+            popupConfig: {
+                [key: string]: unknown;
+            };
+        };
+        FeatureMutationDto: {
+            /**
+             * @example {
+             *       "type": "Point",
+             *       "coordinates": [
+             *         108.2208,
+             *         16.0678
+             *       ]
+             *     }
+             */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            geometryKind: "point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle";
+            radiusM?: number | null;
+            externalSource?: string;
+            externalId?: string;
+            properties: {
+                [key: string]: unknown;
+            };
+        };
+        UpdateFeatureDto: {
+            geometry?: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            geometryKind?: "point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle";
+            radiusM?: number | null;
+            properties?: {
+                [key: string]: unknown;
+            };
+        };
+        SubmitRevisionDto: {
+            summary: string;
+            reviewerNote?: string;
+        };
+        WorkflowCommentDto: {
+            comment?: string;
+        };
+        RequestChangesDto: {
+            comment: string;
+        };
+        PublishRevisionDto: {
+            releaseNote: string;
+        };
+        RollbackDto: {
+            /** Format: uuid */
+            targetSnapshotId: string;
+            reason: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -523,7 +661,20 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "mfa_required";
+                            mfaEnrollmentRequired: boolean;
+                            /** Format: date-time */
+                            challengeExpiresAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -544,7 +695,26 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            username: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            status: string;
+                            mfaEnabled: boolean;
+                            mustChangePassword: boolean;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -561,7 +731,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            csrfToken: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -578,7 +757,26 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            username: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            status: string;
+                            mfaEnabled: boolean;
+                            mustChangePassword: boolean;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -595,7 +793,19 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "logged_out";
+                            /** @enum {string} */
+                            recoveryAction: "delete";
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -612,7 +822,26 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            username: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            status: string;
+                            mfaEnabled: boolean;
+                            mustChangePassword: boolean;
+                        }[];
+                        meta: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
             };
         };
     };
@@ -633,7 +862,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -654,7 +892,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -671,7 +918,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -692,7 +948,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -709,7 +974,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -730,7 +1004,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -749,7 +1032,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -768,7 +1060,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -789,7 +1090,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -812,7 +1122,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -832,7 +1151,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -856,7 +1184,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -879,7 +1216,25 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            revisionId?: string;
+                            /** Format: uuid */
+                            layerId?: string;
+                            /** Format: uuid */
+                            snapshotId?: string;
+                            generation?: number;
+                            status?: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -902,7 +1257,25 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            revisionId?: string;
+                            /** Format: uuid */
+                            layerId?: string;
+                            /** Format: uuid */
+                            snapshotId?: string;
+                            generation?: number;
+                            status?: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -925,7 +1298,25 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            revisionId?: string;
+                            /** Format: uuid */
+                            layerId?: string;
+                            /** Format: uuid */
+                            snapshotId?: string;
+                            generation?: number;
+                            status?: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -948,7 +1339,25 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            revisionId?: string;
+                            /** Format: uuid */
+                            layerId?: string;
+                            /** Format: uuid */
+                            snapshotId?: string;
+                            generation?: number;
+                            status?: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -971,7 +1380,25 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            revisionId?: string;
+                            /** Format: uuid */
+                            layerId?: string;
+                            /** Format: uuid */
+                            snapshotId?: string;
+                            generation?: number;
+                            status?: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -988,7 +1415,62 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            group: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                title: string;
+                                displayOrder: number;
+                            } | null;
+                            displayOrder: number;
+                            title: string;
+                            description?: string | null;
+                            /** @enum {string} */
+                            geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                            allowedGeometryKinds: string[];
+                            /** Format: uuid */
+                            snapshotId: string;
+                            /** Format: uuid */
+                            revisionId: string;
+                            generation: number;
+                            featureCount: number;
+                            bounds?: number[] | null;
+                            /** @enum {string} */
+                            sourceKind: "geojson" | "mvt" | "hybrid";
+                            geoJsonUrl: string;
+                            tileUrlTemplate: string;
+                            sourceLayer: string;
+                            minZoom: number;
+                            maxZoom: number;
+                            cluster: boolean;
+                            style: {
+                                [key: string]: unknown;
+                            };
+                            popupConfig: {
+                                [key: string]: unknown;
+                            };
+                            filterCapabilities: {
+                                fieldKeys: string[];
+                                maxFilters: number;
+                            };
+                            searchCapabilities: {
+                                enabled: boolean;
+                                fieldKeys: string[];
+                            };
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -1007,7 +1489,81 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            group: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                title: string;
+                                displayOrder: number;
+                            } | null;
+                            displayOrder: number;
+                            title: string;
+                            description?: string | null;
+                            /** @enum {string} */
+                            geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                            allowedGeometryKinds: string[];
+                            /** Format: uuid */
+                            snapshotId: string;
+                            /** Format: uuid */
+                            revisionId: string;
+                            generation: number;
+                            featureCount: number;
+                            bounds?: number[] | null;
+                            /** @enum {string} */
+                            sourceKind: "geojson" | "mvt" | "hybrid";
+                            geoJsonUrl: string;
+                            tileUrlTemplate: string;
+                            sourceLayer: string;
+                            minZoom: number;
+                            maxZoom: number;
+                            cluster: boolean;
+                            style: {
+                                [key: string]: unknown;
+                            };
+                            popupConfig: {
+                                [key: string]: unknown;
+                            };
+                            filterCapabilities: {
+                                fieldKeys: string[];
+                                maxFilters: number;
+                            };
+                            searchCapabilities: {
+                                enabled: boolean;
+                                fieldKeys: string[];
+                            };
+                            /** Format: date-time */
+                            updatedAt: string;
+                            fields: {
+                                /** Format: uuid */
+                                id: string;
+                                key: string;
+                                label: string;
+                                description?: string | null;
+                                type: string;
+                                icon?: string | null;
+                                required: boolean;
+                                searchable: boolean;
+                                filterable: boolean;
+                                sortable?: boolean;
+                                defaultValue?: unknown;
+                                validation?: {
+                                    [key: string]: unknown;
+                                };
+                                options?: unknown[];
+                                displayOrder?: number;
+                            }[];
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -1026,7 +1582,35 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        type: "FeatureCollection";
+                        features: {
+                            /** @enum {string} */
+                            type: "Feature";
+                            /** Format: uuid */
+                            id: string;
+                            geometry: {
+                                type: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            properties: {
+                                [key: string]: unknown;
+                            };
+                            geometryKind?: string;
+                            radiusM?: number | null;
+                        }[];
+                        meta: {
+                            layerSlug: string;
+                            generation: number;
+                            returned: number;
+                            truncated: boolean;
+                            nextCursor: string | null;
+                        };
+                    };
+                };
             };
         };
     };
@@ -1046,7 +1630,40 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            type: "Feature";
+                            /** Format: uuid */
+                            id: string;
+                            geometry: {
+                                type: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            properties: {
+                                [key: string]: unknown;
+                            };
+                            geometryKind?: string;
+                            radiusM?: number | null;
+                            attachments: {
+                                [key: string]: unknown;
+                            }[];
+                            meta: {
+                                layerSlug: string;
+                                /** Format: uuid */
+                                snapshotId: string;
+                                generation: number;
+                                geometryKind: string;
+                                radiusM: number | null;
+                            };
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -1069,7 +1686,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/vnd.mapbox-vector-tile": string;
+                };
             };
         };
     };
@@ -1093,7 +1712,48 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            /** @enum {string} */
+                            source: "internal" | "geo_service";
+                            /** @enum {string} */
+                            kind: "feature" | "place";
+                            title: string;
+                            subtitle?: string | null;
+                            position: {
+                                longitude: number;
+                                latitude: number;
+                            };
+                            bbox?: number[] | null;
+                            layer: {
+                                [key: string]: unknown;
+                            } | null;
+                            /** Format: uuid */
+                            featureId: string | null;
+                            providerPlaceId: string | null;
+                            score: number;
+                            highlights: string[];
+                        }[];
+                        meta: {
+                            partial: boolean;
+                            sources: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    status: "ok" | "skipped" | "unavailable";
+                                    count: number;
+                                };
+                            };
+                            warnings: {
+                                code: string;
+                                message: string;
+                            }[];
+                            nextCursor: string | null;
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -1114,7 +1774,26 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            name: string;
+                            address?: string | null;
+                            position: {
+                                longitude: number;
+                                latitude: number;
+                            };
+                            phone?: string | null;
+                            website?: string | null;
+                            /** @enum {string} */
+                            source: "geo_service";
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -1129,7 +1808,16 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["CreateImportDto"];
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @enum {string} */
+                    format?: "csv" | "xlsx" | "geojson" | "kml";
+                    /** @enum {string} */
+                    mode: "append" | "replace" | "upsert";
+                    /** Format: uuid */
+                    clientRequestId: string;
+                };
             };
         };
         responses: {
@@ -1137,7 +1825,37 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            revisionId: string;
+                            status: string;
+                            /** @enum {string} */
+                            format: "csv" | "xlsx" | "geojson" | "kml";
+                            /** @enum {string} */
+                            mode: "append" | "replace" | "upsert";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                [key: string]: number;
+                            };
+                            failureCode?: string | null;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -1156,7 +1874,37 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            revisionId: string;
+                            status: string;
+                            /** @enum {string} */
+                            format: "csv" | "xlsx" | "geojson" | "kml";
+                            /** @enum {string} */
+                            mode: "append" | "replace" | "upsert";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                [key: string]: number;
+                            };
+                            failureCode?: string | null;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
             };
         };
     };
@@ -1173,7 +1921,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "ok";
+                        version: string;
+                    };
+                };
             };
         };
     };
@@ -1190,7 +1944,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "ok";
+                        version: string;
+                        checks: {
+                            [key: string]: "up" | "down" | "degraded" | "current";
+                        };
+                    };
+                };
             };
         };
     };

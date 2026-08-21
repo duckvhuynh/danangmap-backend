@@ -1,0 +1,402 @@
+import { ApiResponse } from '@nestjs/swagger';
+import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
+
+const uuid: SchemaObject = { type: 'string', format: 'uuid' };
+const dateTime: SchemaObject = { type: 'string', format: 'date-time' };
+const nullableString: SchemaObject = { type: 'string', nullable: true };
+const jsonObject: SchemaObject = { type: 'object', additionalProperties: true };
+
+export const requestMetaSchema: SchemaObject = {
+  type: 'object',
+  required: ['requestId'],
+  properties: { requestId: { type: 'string' } },
+};
+
+export const envelopeSchema = (
+  data: SchemaObject,
+  meta: SchemaObject = requestMetaSchema,
+): SchemaObject => ({
+  type: 'object',
+  required: ['data', 'meta'],
+  properties: { data, meta },
+});
+
+export const apiJsonResponse = (status: number, data: SchemaObject, meta?: SchemaObject) =>
+  ApiResponse({ status, schema: envelopeSchema(data, meta) });
+
+export const apiRawJsonResponse = (status: number, schema: SchemaObject) =>
+  ApiResponse({ status, content: { 'application/json': { schema } } });
+
+export const apiBinaryResponse = (status: number, mediaType: string) =>
+  ApiResponse({
+    status,
+    content: { [mediaType]: { schema: { type: 'string', format: 'binary' } } },
+  });
+
+export const genericObjectSchema = jsonObject;
+
+export const authPrincipalSchema: SchemaObject = {
+  type: 'object',
+  required: [
+    'id',
+    'email',
+    'username',
+    'displayName',
+    'role',
+    'status',
+    'mfaEnabled',
+    'mustChangePassword',
+  ],
+  properties: {
+    id: uuid,
+    email: { type: 'string', format: 'email' },
+    username: { type: 'string' },
+    displayName: { type: 'string' },
+    role: { type: 'string', enum: ['editor', 'reviewer', 'publisher', 'system_admin'] },
+    status: { type: 'string' },
+    mfaEnabled: { type: 'boolean' },
+    mustChangePassword: { type: 'boolean' },
+  },
+};
+
+export const loginResultSchema: SchemaObject = {
+  type: 'object',
+  required: ['status', 'mfaEnrollmentRequired', 'challengeExpiresAt'],
+  properties: {
+    status: { type: 'string', enum: ['mfa_required'] },
+    mfaEnrollmentRequired: { type: 'boolean' },
+    challengeExpiresAt: dateTime,
+  },
+};
+
+export const csrfResultSchema: SchemaObject = {
+  type: 'object',
+  required: ['csrfToken'],
+  properties: { csrfToken: { type: 'string' } },
+};
+
+export const logoutResultSchema: SchemaObject = {
+  type: 'object',
+  required: ['status', 'recoveryAction'],
+  properties: {
+    status: { type: 'string', enum: ['logged_out'] },
+    recoveryAction: { type: 'string', enum: ['delete'] },
+  },
+};
+
+const layerGroupSchema: SchemaObject = {
+  type: 'object',
+  nullable: true,
+  required: ['id', 'slug', 'title', 'displayOrder'],
+  properties: {
+    id: uuid,
+    slug: { type: 'string' },
+    title: { type: 'string' },
+    displayOrder: { type: 'integer' },
+  },
+};
+
+export const publicLayerSchema: SchemaObject = {
+  type: 'object',
+  required: [
+    'id',
+    'slug',
+    'group',
+    'displayOrder',
+    'title',
+    'geometryMode',
+    'allowedGeometryKinds',
+    'snapshotId',
+    'revisionId',
+    'generation',
+    'featureCount',
+    'sourceKind',
+    'geoJsonUrl',
+    'tileUrlTemplate',
+    'sourceLayer',
+    'minZoom',
+    'maxZoom',
+    'cluster',
+    'style',
+    'popupConfig',
+    'filterCapabilities',
+    'searchCapabilities',
+    'updatedAt',
+  ],
+  properties: {
+    id: uuid,
+    slug: { type: 'string' },
+    group: layerGroupSchema,
+    displayOrder: { type: 'integer' },
+    title: { type: 'string' },
+    description: nullableString,
+    geometryMode: { type: 'string', enum: ['point', 'circle', 'polyline', 'polygon', 'mixed'] },
+    allowedGeometryKinds: { type: 'array', items: { type: 'string' } },
+    snapshotId: uuid,
+    revisionId: uuid,
+    generation: { type: 'integer' },
+    featureCount: { type: 'integer', minimum: 0 },
+    bounds: {
+      type: 'array',
+      nullable: true,
+      minItems: 4,
+      maxItems: 4,
+      items: { type: 'number' },
+    },
+    sourceKind: { type: 'string', enum: ['geojson', 'mvt', 'hybrid'] },
+    geoJsonUrl: { type: 'string' },
+    tileUrlTemplate: { type: 'string' },
+    sourceLayer: { type: 'string' },
+    minZoom: { type: 'number' },
+    maxZoom: { type: 'number' },
+    cluster: { type: 'boolean' },
+    style: jsonObject,
+    popupConfig: jsonObject,
+    filterCapabilities: {
+      type: 'object',
+      required: ['fieldKeys', 'maxFilters'],
+      properties: {
+        fieldKeys: { type: 'array', items: { type: 'string' } },
+        maxFilters: { type: 'integer' },
+      },
+    },
+    searchCapabilities: {
+      type: 'object',
+      required: ['enabled', 'fieldKeys'],
+      properties: {
+        enabled: { type: 'boolean' },
+        fieldKeys: { type: 'array', items: { type: 'string' } },
+      },
+    },
+    updatedAt: dateTime,
+  },
+};
+
+export const publicLayerDetailSchema: SchemaObject = {
+  ...publicLayerSchema,
+  required: [...(publicLayerSchema.required ?? []), 'fields'],
+  properties: {
+    ...publicLayerSchema.properties,
+    fields: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['id', 'key', 'label', 'type', 'required', 'searchable', 'filterable'],
+        properties: {
+          id: uuid,
+          key: { type: 'string' },
+          label: { type: 'string' },
+          description: nullableString,
+          type: { type: 'string' },
+          icon: nullableString,
+          required: { type: 'boolean' },
+          searchable: { type: 'boolean' },
+          filterable: { type: 'boolean' },
+          sortable: { type: 'boolean' },
+          defaultValue: {},
+          validation: jsonObject,
+          options: { type: 'array', items: {} },
+          displayOrder: { type: 'integer' },
+        },
+      },
+    },
+  },
+};
+
+const geoJsonGeometrySchema: SchemaObject = {
+  type: 'object',
+  required: ['type'],
+  additionalProperties: true,
+  properties: { type: { type: 'string' } },
+};
+
+export const publicGeoJsonFeatureSchema: SchemaObject = {
+  type: 'object',
+  required: ['type', 'id', 'geometry', 'properties'],
+  properties: {
+    type: { type: 'string', enum: ['Feature'] },
+    id: uuid,
+    geometry: geoJsonGeometrySchema,
+    properties: jsonObject,
+    geometryKind: { type: 'string' },
+    radiusM: { type: 'number', nullable: true },
+  },
+};
+
+export const publicFeatureCollectionSchema: SchemaObject = {
+  type: 'object',
+  required: ['type', 'features', 'meta'],
+  properties: {
+    type: { type: 'string', enum: ['FeatureCollection'] },
+    features: { type: 'array', items: publicGeoJsonFeatureSchema },
+    meta: {
+      type: 'object',
+      required: ['layerSlug', 'generation', 'returned', 'truncated', 'nextCursor'],
+      properties: {
+        layerSlug: { type: 'string' },
+        generation: { type: 'integer' },
+        returned: { type: 'integer', minimum: 0 },
+        truncated: { type: 'boolean' },
+        nextCursor: nullableString,
+      },
+    },
+  },
+};
+
+export const publicFeatureDetailSchema: SchemaObject = {
+  type: 'object',
+  required: ['type', 'id', 'geometry', 'properties', 'attachments', 'meta'],
+  properties: {
+    ...publicGeoJsonFeatureSchema.properties,
+    attachments: { type: 'array', items: jsonObject },
+    meta: {
+      type: 'object',
+      required: ['layerSlug', 'snapshotId', 'generation', 'geometryKind', 'radiusM'],
+      properties: {
+        layerSlug: { type: 'string' },
+        snapshotId: uuid,
+        generation: { type: 'integer' },
+        geometryKind: { type: 'string' },
+        radiusM: { type: 'number', nullable: true },
+      },
+    },
+  },
+};
+
+const positionSchema: SchemaObject = {
+  type: 'object',
+  required: ['longitude', 'latitude'],
+  properties: { longitude: { type: 'number' }, latitude: { type: 'number' } },
+};
+
+export const publicSearchItemSchema: SchemaObject = {
+  type: 'object',
+  required: [
+    'id',
+    'source',
+    'kind',
+    'title',
+    'position',
+    'layer',
+    'featureId',
+    'providerPlaceId',
+    'score',
+    'highlights',
+  ],
+  properties: {
+    id: { type: 'string' },
+    source: { type: 'string', enum: ['internal', 'geo_service'] },
+    kind: { type: 'string', enum: ['feature', 'place'] },
+    title: { type: 'string' },
+    subtitle: nullableString,
+    position: positionSchema,
+    bbox: {
+      type: 'array',
+      nullable: true,
+      minItems: 4,
+      maxItems: 4,
+      items: { type: 'number' },
+    },
+    layer: { ...jsonObject, nullable: true },
+    featureId: { ...uuid, nullable: true },
+    providerPlaceId: nullableString,
+    score: { type: 'number' },
+    highlights: { type: 'array', items: { type: 'string' } },
+  },
+};
+
+export const publicSearchMetaSchema: SchemaObject = {
+  type: 'object',
+  required: ['partial', 'sources', 'warnings', 'nextCursor', 'requestId'],
+  properties: {
+    partial: { type: 'boolean' },
+    sources: {
+      type: 'object',
+      additionalProperties: {
+        type: 'object',
+        required: ['status', 'count'],
+        properties: {
+          status: { type: 'string', enum: ['ok', 'skipped', 'unavailable'] },
+          count: { type: 'integer', minimum: 0 },
+        },
+      },
+    },
+    warnings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['code', 'message'],
+        properties: { code: { type: 'string' }, message: { type: 'string' } },
+      },
+    },
+    nextCursor: nullableString,
+    requestId: { type: 'string' },
+  },
+};
+
+export const externalPlaceSchema: SchemaObject = {
+  type: 'object',
+  required: ['id', 'name', 'position', 'source'],
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    address: nullableString,
+    position: positionSchema,
+    phone: nullableString,
+    website: nullableString,
+    source: { type: 'string', enum: ['geo_service'] },
+  },
+};
+
+export const importJobSchema: SchemaObject = {
+  type: 'object',
+  required: ['id', 'revisionId', 'status', 'format', 'mode', 'file', 'progress', 'counts'],
+  properties: {
+    id: uuid,
+    revisionId: uuid,
+    status: { type: 'string' },
+    format: { type: 'string', enum: ['csv', 'xlsx', 'geojson', 'kml'] },
+    mode: { type: 'string', enum: ['append', 'replace', 'upsert'] },
+    file: {
+      type: 'object',
+      required: ['name', 'sizeBytes'],
+      properties: { name: { type: 'string' }, sizeBytes: { type: 'integer' } },
+    },
+    progress: { type: 'integer', minimum: 0, maximum: 100 },
+    counts: { type: 'object', additionalProperties: { type: 'number' } },
+    failureCode: nullableString,
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+};
+
+export const workflowResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: true,
+  properties: {
+    revisionId: uuid,
+    layerId: uuid,
+    snapshotId: uuid,
+    generation: { type: 'integer' },
+    status: { type: 'string' },
+  },
+};
+
+export const livenessSchema: SchemaObject = {
+  type: 'object',
+  required: ['status', 'version'],
+  properties: { status: { type: 'string', enum: ['ok'] }, version: { type: 'string' } },
+};
+
+export const readinessSchema: SchemaObject = {
+  type: 'object',
+  required: ['status', 'version', 'checks'],
+  properties: {
+    status: { type: 'string', enum: ['ok'] },
+    version: { type: 'string' },
+    checks: {
+      type: 'object',
+      additionalProperties: { type: 'string', enum: ['up', 'down', 'degraded', 'current'] },
+    },
+  },
+};

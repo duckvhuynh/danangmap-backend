@@ -29,7 +29,11 @@ describe('ImportUploadGuard', () => {
   });
 
   it('caps in-memory uploads at two concurrent requests and releases the slot', () => {
-    const responses = [new EventEmitter(), new EventEmitter(), new EventEmitter()];
+    const responses: [EventEmitter, EventEmitter, EventEmitter] = [
+      new EventEmitter(),
+      new EventEmitter(),
+      new EventEmitter(),
+    ];
     const guard = new ImportUploadGuard();
     expect(guard.canActivate(context('1024', responses[0]))).toBe(true);
     expect(guard.canActivate(context('1024', responses[1]))).toBe(true);

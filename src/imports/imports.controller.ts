@@ -12,9 +12,10 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiConsumes, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import type { RequestWithContext } from '../common/http/request-context';
+import { apiJsonResponse, importJobSchema } from '../common/openapi/response-schemas';
 import { Principal, Roles } from '../identity/auth.decorators';
 import { CsrfGuard, RolesGuard, SessionGuard } from '../identity/auth.guards';
 import { CreateImportDto } from './import.dto';
@@ -40,7 +41,20 @@ export class ImportsController {
     }),
   )
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'mode', 'clientRequestId'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        format: { type: 'string', enum: ['csv', 'xlsx', 'geojson', 'kml'] },
+        mode: { type: 'string', enum: ['append', 'replace', 'upsert'] },
+        clientRequestId: { type: 'string', format: 'uuid' },
+      },
+    },
+  })
   @ApiOperation({ operationId: 'createSpatialImport' })
+  @apiJsonResponse(202, importJobSchema)
   create(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -55,6 +69,7 @@ export class ImportsController {
   @Get('imports/:importId')
   @Roles('editor', 'system_admin')
   @ApiOperation({ operationId: 'getSpatialImport' })
+  @apiJsonResponse(200, importJobSchema)
   get(
     @Param('importId', ParseUUIDPipe) importId: string,
     @Principal() principal: NonNullable<RequestWithContext['principal']>,

@@ -17,6 +17,7 @@ import {
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
+import { apiJsonResponse, genericObjectSchema } from '../common/openapi/response-schemas';
 import { Principal, Roles } from '../identity/auth.decorators';
 import { CsrfGuard, RolesGuard, SessionGuard } from '../identity/auth.guards';
 import { requireIdempotencyKey } from './etag';
@@ -37,6 +38,7 @@ export class LayersController {
 
   @Get('layer-groups')
   @ApiOperation({ operationId: 'listLayerGroups' })
+  @apiJsonResponse(200, { type: 'array', items: genericObjectSchema })
   listGroups() {
     return this.layers.listGroups();
   }
@@ -45,6 +47,7 @@ export class LayersController {
   @Roles('editor')
   @UseGuards(CsrfGuard)
   @ApiOperation({ operationId: 'createLayerGroup' })
+  @apiJsonResponse(201, genericObjectSchema)
   createGroup(
     @Body() dto: CreateLayerGroupDto,
     @Req() request: RequestWithContext,
@@ -55,6 +58,7 @@ export class LayersController {
 
   @Get('layers')
   @ApiOperation({ operationId: 'listAdminLayers' })
+  @apiJsonResponse(200, { type: 'array', items: genericObjectSchema })
   listLayers() {
     return this.layers.listLayers();
   }
@@ -63,6 +67,7 @@ export class LayersController {
   @Roles('editor')
   @UseGuards(CsrfGuard)
   @ApiOperation({ operationId: 'createLayer' })
+  @apiJsonResponse(201, genericObjectSchema)
   async createLayer(
     @Body() dto: CreateLayerDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
@@ -78,6 +83,7 @@ export class LayersController {
 
   @Get('revisions/:revisionId')
   @ApiOperation({ operationId: 'getRevision' })
+  @apiJsonResponse(200, genericObjectSchema)
   async getRevision(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Res({ passthrough: true }) response: Response,
@@ -89,6 +95,7 @@ export class LayersController {
 
   @Get('revisions/:revisionId/workspace')
   @ApiOperation({ operationId: 'getRevisionWorkspace' })
+  @apiJsonResponse(200, genericObjectSchema)
   async workspace(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Res({ passthrough: true }) response: Response,
@@ -100,6 +107,7 @@ export class LayersController {
 
   @Get('revisions/:revisionId/features')
   @ApiOperation({ operationId: 'listAdminFeatures' })
+  @apiJsonResponse(200, { type: 'array', items: genericObjectSchema })
   listFeatures(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Query('bbox') bbox?: string,
@@ -112,6 +120,7 @@ export class LayersController {
   @Roles('editor')
   @UseGuards(CsrfGuard)
   @ApiOperation({ operationId: 'createFeature' })
+  @apiJsonResponse(201, genericObjectSchema)
   async createFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: FeatureMutationDto,
@@ -137,6 +146,7 @@ export class LayersController {
   @Roles('editor')
   @UseGuards(CsrfGuard)
   @ApiOperation({ operationId: 'updateFeature' })
+  @apiJsonResponse(200, genericObjectSchema)
   async updateFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,
@@ -163,6 +173,7 @@ export class LayersController {
   @Roles('editor')
   @UseGuards(CsrfGuard)
   @ApiOperation({ operationId: 'deleteFeature' })
+  @apiJsonResponse(200, genericObjectSchema)
   async deleteFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,

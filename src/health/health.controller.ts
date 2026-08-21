@@ -5,6 +5,11 @@ import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
 import { StorageService } from '../storage/storage.service';
 import { RawResponse } from '../common/http/raw-response.decorator';
+import {
+  apiRawJsonResponse,
+  livenessSchema,
+  readinessSchema,
+} from '../common/openapi/response-schemas';
 
 @ApiTags('health')
 @Controller('health')
@@ -31,6 +36,7 @@ export class HealthController {
   @Get('live')
   @Version(VERSION_NEUTRAL)
   @ApiOperation({ operationId: 'getLiveness' })
+  @apiRawJsonResponse(200, livenessSchema)
   live() {
     return { status: 'ok', version: this.config.getOrThrow<string>('app.version') };
   }
@@ -38,6 +44,7 @@ export class HealthController {
   @Get('ready')
   @Version(VERSION_NEUTRAL)
   @ApiOperation({ operationId: 'getReadiness' })
+  @apiRawJsonResponse(200, readinessSchema)
   async ready() {
     const checks: Record<string, 'up' | 'down' | 'degraded' | 'current'> = {
       postgres: 'down',

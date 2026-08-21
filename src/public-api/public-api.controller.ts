@@ -12,6 +12,18 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { RawResponse } from '../common/http/raw-response.decorator';
 import type { RequestWithContext } from '../common/http/request-context';
+import {
+  apiBinaryResponse,
+  apiJsonResponse,
+  apiRawJsonResponse,
+  externalPlaceSchema,
+  publicFeatureCollectionSchema,
+  publicFeatureDetailSchema,
+  publicLayerDetailSchema,
+  publicLayerSchema,
+  publicSearchItemSchema,
+  publicSearchMetaSchema,
+} from '../common/openapi/response-schemas';
 import { PublicApiService } from './public-api.service';
 
 @ApiTags('public')
@@ -21,6 +33,7 @@ export class PublicApiController {
 
   @Get('layers')
   @ApiOperation({ operationId: 'listPublicLayers' })
+  @apiJsonResponse(200, { type: 'array', items: publicLayerSchema })
   async catalog(@Req() request: RequestWithContext, @Res() response: Response) {
     const result = await this.publicApi.catalog();
     return this.cacheableJson(request, response, result.data, result.etag, 60);
@@ -28,6 +41,7 @@ export class PublicApiController {
 
   @Get('layers/:slug')
   @ApiOperation({ operationId: 'getPublicLayer' })
+  @apiJsonResponse(200, publicLayerDetailSchema)
   async layer(
     @Param('slug') slug: string,
     @Req() request: RequestWithContext,
@@ -40,6 +54,7 @@ export class PublicApiController {
   @Get('layers/:slug/features')
   @RawResponse()
   @ApiOperation({ operationId: 'listPublicFeatures' })
+  @apiRawJsonResponse(200, publicFeatureCollectionSchema)
   async features(
     @Param('slug') slug: string,
     @Query('bbox') bbox: string | undefined,
@@ -53,6 +68,7 @@ export class PublicApiController {
 
   @Get('layers/:slug/features/:featureId')
   @ApiOperation({ operationId: 'getPublicFeature' })
+  @apiJsonResponse(200, publicFeatureDetailSchema)
   async feature(
     @Param('slug') slug: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,
@@ -66,6 +82,7 @@ export class PublicApiController {
   @Get('tiles/:slug/:generation/:z/:x/:y.pbf')
   @RawResponse()
   @ApiOperation({ operationId: 'getPublicTile' })
+  @apiBinaryResponse(200, 'application/vnd.mapbox-vector-tile')
   async tile(
     @Param('slug') slug: string,
     @Param('generation', ParseIntPipe) generation: number,
@@ -85,6 +102,7 @@ export class PublicApiController {
 
   @Get('search')
   @ApiOperation({ operationId: 'searchPublicMap' })
+  @apiJsonResponse(200, { type: 'array', items: publicSearchItemSchema }, publicSearchMetaSchema)
   search(
     @Query('q') q: string,
     @Query('sources') sources?: string,
@@ -105,6 +123,7 @@ export class PublicApiController {
 
   @Get('places/:placeId')
   @ApiOperation({ operationId: 'getExternalPlace' })
+  @apiJsonResponse(200, externalPlaceSchema)
   place(@Param('placeId') placeId: string, @Query('fields') fields?: string) {
     return this.publicApi.placeDetails(placeId, fields);
   }

@@ -1019,7 +1019,19 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            title: string;
+                            description?: string | null;
+                            displayOrder: number;
+                            defaultVisible: boolean;
+                            /** Format: date-time */
+                            archivedAt?: string | null;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
                         }[];
                         meta: {
                             requestId: string;
@@ -1051,7 +1063,19 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            title: string;
+                            description?: string | null;
+                            displayOrder: number;
+                            defaultVisible: boolean;
+                            /** Format: date-time */
+                            archivedAt?: string | null;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
                         };
                         meta: {
                             requestId: string;
@@ -1077,7 +1101,21 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                            /** Format: uuid */
+                            groupId?: string | null;
+                            displayOrder: number;
+                            /** Format: date-time */
+                            archivedAt?: string | null;
+                            /** Format: uuid */
+                            revisionId?: string | null;
+                            title?: string | null;
+                            status?: string | null;
+                            geometryMode?: string | null;
+                            /** Format: date-time */
+                            updatedAt?: string | null;
                         }[];
                         meta: {
                             requestId: string;
@@ -1110,7 +1148,61 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            layer: {
+                                /** Format: uuid */
+                                id: string;
+                                slug: string;
+                                /** Format: uuid */
+                                groupId: string | null;
+                                displayOrder: number;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: date-time */
+                                archivedAt: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                            draftRevision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    [key: string]: unknown;
+                                };
+                                renderConfig: {
+                                    [key: string]: unknown;
+                                };
+                                popupConfig: {
+                                    [key: string]: unknown;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
                         };
                         meta: {
                             requestId: string;
@@ -1138,7 +1230,69 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            revision: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                layerId: string;
+                                revisionNo: number;
+                                status: string;
+                                title: string;
+                                description?: string | null;
+                                /** @enum {string} */
+                                geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed";
+                                allowedGeometryKinds: string[];
+                                style: {
+                                    [key: string]: unknown;
+                                };
+                                renderConfig: {
+                                    [key: string]: unknown;
+                                };
+                                popupConfig: {
+                                    [key: string]: unknown;
+                                };
+                                schemaVersion: number;
+                                lockVersion: number;
+                                cursorSeq: string;
+                                /** Format: uuid */
+                                createdBy: string;
+                                /** Format: uuid */
+                                supersedesRevisionId?: string | null;
+                                /** Format: date-time */
+                                submittedAt?: string | null;
+                                /** Format: date-time */
+                                approvedAt?: string | null;
+                                /** Format: date-time */
+                                publishedAt?: string | null;
+                                /** Format: date-time */
+                                createdAt?: string;
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            };
+                            fields: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                revisionId: string;
+                                key: string;
+                                label: string;
+                                description?: string | null;
+                                type: string;
+                                icon?: string | null;
+                                required: boolean;
+                                public: boolean;
+                                searchable: boolean;
+                                filterable: boolean;
+                                sortable: boolean;
+                                sensitive: boolean;
+                                offlineCache: boolean;
+                                defaultValue?: unknown;
+                                validation: {
+                                    [key: string]: unknown;
+                                };
+                                options: unknown[];
+                                displayOrder: number;
+                            }[];
                         };
                         meta: {
                             requestId: string;
@@ -1166,7 +1320,17 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            /** Format: uuid */
+                            revisionId: string;
+                            /** Format: uuid */
+                            layerId: string;
+                            status: string;
+                            serverCursor: string;
+                            featureCount: number;
+                            bounds: number[] | null;
+                            schemaVersion: number;
+                            /** Format: date-time */
+                            updatedAt: string;
                         };
                         meta: {
                             requestId: string;
@@ -1196,7 +1360,31 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            /** @enum {string} */
+                            type: "Feature";
+                            /** Format: uuid */
+                            id: string;
+                            geometry: {
+                                type: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            properties: {
+                                [key: string]: unknown;
+                            };
+                            attachments: {
+                                [key: string]: unknown;
+                            }[];
+                            meta: {
+                                geometryKind: string;
+                                radiusM: number | null;
+                                externalSource: string | null;
+                                externalId: string | null;
+                                /** Format: uuid */
+                                versionId: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                            };
                         }[];
                         meta: {
                             requestId: string;
@@ -1233,7 +1421,34 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            feature: {
+                                /** @enum {string} */
+                                type: "Feature";
+                                /** Format: uuid */
+                                id: string;
+                                geometry: {
+                                    type: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                                attachments: {
+                                    [key: string]: unknown;
+                                }[];
+                                meta: {
+                                    geometryKind: string;
+                                    radiusM: number | null;
+                                    externalSource: string | null;
+                                    externalId: string | null;
+                                    /** Format: uuid */
+                                    versionId: string;
+                                    /** Format: date-time */
+                                    updatedAt: string;
+                                };
+                            };
+                            serverCursor: string;
                         };
                         meta: {
                             requestId: string;
@@ -1266,7 +1481,9 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            /** @enum {string} */
+                            status: "deleted";
+                            serverCursor: string;
                         };
                         meta: {
                             requestId: string;
@@ -1303,7 +1520,34 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            feature: {
+                                /** @enum {string} */
+                                type: "Feature";
+                                /** Format: uuid */
+                                id: string;
+                                geometry: {
+                                    type: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                                attachments: {
+                                    [key: string]: unknown;
+                                }[];
+                                meta: {
+                                    geometryKind: string;
+                                    radiusM: number | null;
+                                    externalSource: string | null;
+                                    externalId: string | null;
+                                    /** Format: uuid */
+                                    versionId: string;
+                                    /** Format: date-time */
+                                    updatedAt: string;
+                                };
+                            };
+                            serverCursor: string;
                         };
                         meta: {
                             requestId: string;
@@ -1339,15 +1583,26 @@ export interface operations {
                     "application/json": {
                         data: {
                             /** Format: uuid */
-                            revisionId?: string;
+                            revisionId: string;
+                            status: string;
+                        } | {
                             /** Format: uuid */
-                            layerId?: string;
+                            originalRevisionId: string;
                             /** Format: uuid */
-                            snapshotId?: string;
-                            generation?: number;
-                            status?: string;
-                        } & {
-                            [key: string]: unknown;
+                            draftRevisionId: string;
+                            /** Format: uuid */
+                            supersedesRevisionId: string;
+                            originalStatus: string;
+                            draftStatus: string;
+                            draftEtag: string;
+                        } | {
+                            /** Format: uuid */
+                            publicationId?: string;
+                            /** Format: uuid */
+                            snapshotId: string;
+                            generation: number;
+                            /** @enum {string} */
+                            status: "completed";
                         };
                         meta: {
                             requestId: string;
@@ -1383,15 +1638,26 @@ export interface operations {
                     "application/json": {
                         data: {
                             /** Format: uuid */
-                            revisionId?: string;
+                            revisionId: string;
+                            status: string;
+                        } | {
                             /** Format: uuid */
-                            layerId?: string;
+                            originalRevisionId: string;
                             /** Format: uuid */
-                            snapshotId?: string;
-                            generation?: number;
-                            status?: string;
-                        } & {
-                            [key: string]: unknown;
+                            draftRevisionId: string;
+                            /** Format: uuid */
+                            supersedesRevisionId: string;
+                            originalStatus: string;
+                            draftStatus: string;
+                            draftEtag: string;
+                        } | {
+                            /** Format: uuid */
+                            publicationId?: string;
+                            /** Format: uuid */
+                            snapshotId: string;
+                            generation: number;
+                            /** @enum {string} */
+                            status: "completed";
                         };
                         meta: {
                             requestId: string;
@@ -1427,15 +1693,26 @@ export interface operations {
                     "application/json": {
                         data: {
                             /** Format: uuid */
-                            revisionId?: string;
+                            revisionId: string;
+                            status: string;
+                        } | {
                             /** Format: uuid */
-                            layerId?: string;
+                            originalRevisionId: string;
                             /** Format: uuid */
-                            snapshotId?: string;
-                            generation?: number;
-                            status?: string;
-                        } & {
-                            [key: string]: unknown;
+                            draftRevisionId: string;
+                            /** Format: uuid */
+                            supersedesRevisionId: string;
+                            originalStatus: string;
+                            draftStatus: string;
+                            draftEtag: string;
+                        } | {
+                            /** Format: uuid */
+                            publicationId?: string;
+                            /** Format: uuid */
+                            snapshotId: string;
+                            generation: number;
+                            /** @enum {string} */
+                            status: "completed";
                         };
                         meta: {
                             requestId: string;
@@ -1471,15 +1748,26 @@ export interface operations {
                     "application/json": {
                         data: {
                             /** Format: uuid */
-                            revisionId?: string;
+                            revisionId: string;
+                            status: string;
+                        } | {
                             /** Format: uuid */
-                            layerId?: string;
+                            originalRevisionId: string;
                             /** Format: uuid */
-                            snapshotId?: string;
-                            generation?: number;
-                            status?: string;
-                        } & {
-                            [key: string]: unknown;
+                            draftRevisionId: string;
+                            /** Format: uuid */
+                            supersedesRevisionId: string;
+                            originalStatus: string;
+                            draftStatus: string;
+                            draftEtag: string;
+                        } | {
+                            /** Format: uuid */
+                            publicationId?: string;
+                            /** Format: uuid */
+                            snapshotId: string;
+                            generation: number;
+                            /** @enum {string} */
+                            status: "completed";
                         };
                         meta: {
                             requestId: string;
@@ -1515,15 +1803,26 @@ export interface operations {
                     "application/json": {
                         data: {
                             /** Format: uuid */
-                            revisionId?: string;
+                            revisionId: string;
+                            status: string;
+                        } | {
                             /** Format: uuid */
-                            layerId?: string;
+                            originalRevisionId: string;
                             /** Format: uuid */
-                            snapshotId?: string;
-                            generation?: number;
-                            status?: string;
-                        } & {
-                            [key: string]: unknown;
+                            draftRevisionId: string;
+                            /** Format: uuid */
+                            supersedesRevisionId: string;
+                            originalStatus: string;
+                            draftStatus: string;
+                            draftEtag: string;
+                        } | {
+                            /** Format: uuid */
+                            publicationId?: string;
+                            /** Format: uuid */
+                            snapshotId: string;
+                            generation: number;
+                            /** @enum {string} */
+                            status: "completed";
                         };
                         meta: {
                             requestId: string;
@@ -2216,10 +2515,18 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            [key: string]: unknown;
+                            id: string;
+                            rowNumber: number;
+                            /** @enum {string} */
+                            severity: "warning" | "error";
+                            code: string;
+                            field?: string | null;
                         }[];
                         meta: {
-                            [key: string]: unknown;
+                            requestId: string;
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
                         };
                     };
                 };

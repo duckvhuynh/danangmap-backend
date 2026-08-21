@@ -348,6 +348,241 @@ export const externalPlaceSchema: SchemaObject = {
   },
 };
 
+export const adminLayerGroupSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'slug', 'title', 'displayOrder', 'defaultVisible'],
+  properties: {
+    id: uuid,
+    slug: { type: 'string' },
+    title: { type: 'string' },
+    description: nullableString,
+    displayOrder: { type: 'integer' },
+    defaultVisible: { type: 'boolean' },
+    archivedAt: { ...dateTime, nullable: true },
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+};
+
+export const adminLayerListItemSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'slug', 'displayOrder'],
+  properties: {
+    id: uuid,
+    slug: { type: 'string' },
+    groupId: { ...uuid, nullable: true },
+    displayOrder: { type: 'integer' },
+    archivedAt: { ...dateTime, nullable: true },
+    revisionId: { ...uuid, nullable: true },
+    title: { ...nullableString },
+    status: { ...nullableString },
+    geometryMode: { ...nullableString },
+    updatedAt: { ...dateTime, nullable: true },
+  },
+};
+
+export const adminLayerEntitySchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'slug', 'groupId', 'displayOrder', 'createdBy', 'archivedAt'],
+  properties: {
+    id: uuid,
+    slug: { type: 'string' },
+    groupId: { ...uuid, nullable: true },
+    displayOrder: { type: 'integer' },
+    createdBy: uuid,
+    archivedAt: { ...dateTime, nullable: true },
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+};
+
+export const adminRevisionSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'layerId',
+    'revisionNo',
+    'status',
+    'title',
+    'geometryMode',
+    'allowedGeometryKinds',
+    'style',
+    'renderConfig',
+    'popupConfig',
+    'schemaVersion',
+    'lockVersion',
+    'cursorSeq',
+    'createdBy',
+  ],
+  properties: {
+    id: uuid,
+    layerId: uuid,
+    revisionNo: { type: 'integer' },
+    status: { type: 'string' },
+    title: { type: 'string' },
+    description: nullableString,
+    geometryMode: { type: 'string', enum: ['point', 'circle', 'polyline', 'polygon', 'mixed'] },
+    allowedGeometryKinds: { type: 'array', items: { type: 'string' } },
+    style: jsonObject,
+    renderConfig: jsonObject,
+    popupConfig: jsonObject,
+    schemaVersion: { type: 'integer' },
+    lockVersion: { type: 'integer' },
+    cursorSeq: { type: 'string' },
+    createdBy: uuid,
+    supersedesRevisionId: { ...uuid, nullable: true },
+    submittedAt: { ...dateTime, nullable: true },
+    approvedAt: { ...dateTime, nullable: true },
+    publishedAt: { ...dateTime, nullable: true },
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+};
+
+export const adminLayerFieldSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'revisionId',
+    'key',
+    'label',
+    'type',
+    'required',
+    'public',
+    'searchable',
+    'filterable',
+    'sortable',
+    'sensitive',
+    'offlineCache',
+    'validation',
+    'options',
+    'displayOrder',
+  ],
+  properties: {
+    id: uuid,
+    revisionId: uuid,
+    key: { type: 'string' },
+    label: { type: 'string' },
+    description: nullableString,
+    type: { type: 'string' },
+    icon: nullableString,
+    required: { type: 'boolean' },
+    public: { type: 'boolean' },
+    searchable: { type: 'boolean' },
+    filterable: { type: 'boolean' },
+    sortable: { type: 'boolean' },
+    sensitive: { type: 'boolean' },
+    offlineCache: { type: 'boolean' },
+    defaultValue: { nullable: true },
+    validation: jsonObject,
+    options: { type: 'array', items: {} },
+    displayOrder: { type: 'integer' },
+  },
+};
+
+export const createLayerResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['layer', 'draftRevision'],
+  properties: { layer: adminLayerEntitySchema, draftRevision: adminRevisionSchema },
+};
+
+export const revisionResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['revision', 'fields'],
+  properties: {
+    revision: adminRevisionSchema,
+    fields: { type: 'array', items: adminLayerFieldSchema },
+  },
+};
+
+export const revisionWorkspaceSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'revisionId',
+    'layerId',
+    'status',
+    'serverCursor',
+    'featureCount',
+    'bounds',
+    'schemaVersion',
+    'updatedAt',
+  ],
+  properties: {
+    revisionId: uuid,
+    layerId: uuid,
+    status: { type: 'string' },
+    serverCursor: { type: 'string' },
+    featureCount: { type: 'integer', minimum: 0 },
+    bounds: {
+      type: 'array',
+      nullable: true,
+      minItems: 4,
+      maxItems: 4,
+      items: { type: 'number' },
+    },
+    schemaVersion: { type: 'integer' },
+    updatedAt: dateTime,
+  },
+};
+
+export const adminFeatureSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['type', 'id', 'geometry', 'properties', 'attachments', 'meta'],
+  properties: {
+    type: { type: 'string', enum: ['Feature'] },
+    id: uuid,
+    geometry: geoJsonGeometrySchema,
+    properties: jsonObject,
+    attachments: { type: 'array', items: jsonObject },
+    meta: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'geometryKind',
+        'radiusM',
+        'externalSource',
+        'externalId',
+        'versionId',
+        'updatedAt',
+      ],
+      properties: {
+        geometryKind: { type: 'string' },
+        radiusM: { type: 'number', nullable: true },
+        externalSource: nullableString,
+        externalId: nullableString,
+        versionId: uuid,
+        updatedAt: dateTime,
+      },
+    },
+  },
+};
+
+export const featureMutationResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['feature', 'serverCursor'],
+  properties: { feature: adminFeatureSchema, serverCursor: { type: 'string' } },
+};
+
+export const featureDeleteResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'serverCursor'],
+  properties: {
+    status: { type: 'string', enum: ['deleted'] },
+    serverCursor: { type: 'string' },
+  },
+};
+
 export const importJobSchema: SchemaObject = {
   type: 'object',
   required: [
@@ -394,16 +629,71 @@ export const importJobSchema: SchemaObject = {
   },
 };
 
-export const workflowResultSchema: SchemaObject = {
+export const importIssueSchema: SchemaObject = {
   type: 'object',
-  additionalProperties: true,
+  additionalProperties: false,
+  required: ['id', 'rowNumber', 'severity', 'code'],
   properties: {
-    revisionId: uuid,
-    layerId: uuid,
-    snapshotId: uuid,
-    generation: { type: 'integer' },
-    status: { type: 'string' },
+    id: { type: 'string' },
+    rowNumber: { type: 'integer', minimum: 1 },
+    severity: { type: 'string', enum: ['warning', 'error'] },
+    code: { type: 'string' },
+    field: nullableString,
   },
+};
+
+export const importIssueMetaSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['requestId', 'nextCursor', 'hasMore', 'limit'],
+  properties: {
+    requestId: { type: 'string' },
+    nextCursor: nullableString,
+    hasMore: { type: 'boolean' },
+    limit: { type: 'integer', minimum: 1, maximum: 200 },
+  },
+};
+
+export const workflowResultSchema: SchemaObject = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['revisionId', 'status'],
+      properties: { revisionId: uuid, status: { type: 'string' } },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'originalRevisionId',
+        'draftRevisionId',
+        'supersedesRevisionId',
+        'originalStatus',
+        'draftStatus',
+        'draftEtag',
+      ],
+      properties: {
+        originalRevisionId: uuid,
+        draftRevisionId: uuid,
+        supersedesRevisionId: uuid,
+        originalStatus: { type: 'string' },
+        draftStatus: { type: 'string' },
+        draftEtag: { type: 'string' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['snapshotId', 'generation', 'status'],
+      properties: {
+        publicationId: uuid,
+        snapshotId: uuid,
+        generation: { type: 'integer' },
+        status: { type: 'string', enum: ['completed'] },
+      },
+    },
+  ],
 };
 
 export const livenessSchema: SchemaObject = {

@@ -601,7 +601,49 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "additionalProperties": true
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "slug",
+                          "title",
+                          "displayOrder",
+                          "defaultVisible"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "displayOrder": {
+                            "type": "integer"
+                          },
+                          "defaultVisible": {
+                            "type": "boolean"
+                          },
+                          "archivedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "meta": {
@@ -667,7 +709,49 @@
                   "properties": {
                     "data": {
                       "type": "object",
-                      "additionalProperties": true
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "slug",
+                        "title",
+                        "displayOrder",
+                        "defaultVisible"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "displayOrder": {
+                          "type": "integer"
+                        },
+                        "defaultVisible": {
+                          "type": "boolean"
+                        },
+                        "archivedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -717,7 +801,56 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "additionalProperties": true
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "slug",
+                          "displayOrder"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "groupId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "displayOrder": {
+                            "type": "integer"
+                          },
+                          "archivedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "revisionId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "title": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "geometryMode": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          }
+                        }
                       }
                     },
                     "meta": {
@@ -792,7 +925,171 @@
                   "properties": {
                     "data": {
                       "type": "object",
-                      "additionalProperties": true
+                      "additionalProperties": false,
+                      "required": [
+                        "layer",
+                        "draftRevision"
+                      ],
+                      "properties": {
+                        "layer": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "id",
+                            "slug",
+                            "groupId",
+                            "displayOrder",
+                            "createdBy",
+                            "archivedAt"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "groupId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            },
+                            "displayOrder": {
+                              "type": "integer"
+                            },
+                            "createdBy": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "archivedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        "draftRevision": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "id",
+                            "layerId",
+                            "revisionNo",
+                            "status",
+                            "title",
+                            "geometryMode",
+                            "allowedGeometryKinds",
+                            "style",
+                            "renderConfig",
+                            "popupConfig",
+                            "schemaVersion",
+                            "lockVersion",
+                            "cursorSeq",
+                            "createdBy"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "layerId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "revisionNo": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "geometryMode": {
+                              "type": "string",
+                              "enum": [
+                                "point",
+                                "circle",
+                                "polyline",
+                                "polygon",
+                                "mixed"
+                              ]
+                            },
+                            "allowedGeometryKinds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "style": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "renderConfig": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "popupConfig": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "schemaVersion": {
+                              "type": "integer"
+                            },
+                            "lockVersion": {
+                              "type": "integer"
+                            },
+                            "cursorSeq": {
+                              "type": "string"
+                            },
+                            "createdBy": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supersedesRevisionId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            },
+                            "submittedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "approvedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "publishedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -849,7 +1146,211 @@
                   "properties": {
                     "data": {
                       "type": "object",
-                      "additionalProperties": true
+                      "additionalProperties": false,
+                      "required": [
+                        "revision",
+                        "fields"
+                      ],
+                      "properties": {
+                        "revision": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "id",
+                            "layerId",
+                            "revisionNo",
+                            "status",
+                            "title",
+                            "geometryMode",
+                            "allowedGeometryKinds",
+                            "style",
+                            "renderConfig",
+                            "popupConfig",
+                            "schemaVersion",
+                            "lockVersion",
+                            "cursorSeq",
+                            "createdBy"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "layerId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "revisionNo": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "geometryMode": {
+                              "type": "string",
+                              "enum": [
+                                "point",
+                                "circle",
+                                "polyline",
+                                "polygon",
+                                "mixed"
+                              ]
+                            },
+                            "allowedGeometryKinds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "style": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "renderConfig": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "popupConfig": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "schemaVersion": {
+                              "type": "integer"
+                            },
+                            "lockVersion": {
+                              "type": "integer"
+                            },
+                            "cursorSeq": {
+                              "type": "string"
+                            },
+                            "createdBy": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supersedesRevisionId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            },
+                            "submittedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "approvedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "publishedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        "fields": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "revisionId",
+                              "key",
+                              "label",
+                              "type",
+                              "required",
+                              "public",
+                              "searchable",
+                              "filterable",
+                              "sortable",
+                              "sensitive",
+                              "offlineCache",
+                              "validation",
+                              "options",
+                              "displayOrder"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "revisionId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "key": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "icon": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "required": {
+                                "type": "boolean"
+                              },
+                              "public": {
+                                "type": "boolean"
+                              },
+                              "searchable": {
+                                "type": "boolean"
+                              },
+                              "filterable": {
+                                "type": "boolean"
+                              },
+                              "sortable": {
+                                "type": "boolean"
+                              },
+                              "sensitive": {
+                                "type": "boolean"
+                              },
+                              "offlineCache": {
+                                "type": "boolean"
+                              },
+                              "defaultValue": {
+                                "nullable": true
+                              },
+                              "validation": {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              "options": {
+                                "type": "array",
+                                "items": {}
+                              },
+                              "displayOrder": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -906,7 +1407,53 @@
                   "properties": {
                     "data": {
                       "type": "object",
-                      "additionalProperties": true
+                      "additionalProperties": false,
+                      "required": [
+                        "revisionId",
+                        "layerId",
+                        "status",
+                        "serverCursor",
+                        "featureCount",
+                        "bounds",
+                        "schemaVersion",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "revisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "layerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "serverCursor": {
+                          "type": "string"
+                        },
+                        "featureCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "bounds": {
+                          "type": "array",
+                          "nullable": true,
+                          "minItems": 4,
+                          "maxItems": 4,
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -973,7 +1520,87 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "additionalProperties": true
+                        "additionalProperties": false,
+                        "required": [
+                          "type",
+                          "id",
+                          "geometry",
+                          "properties",
+                          "attachments",
+                          "meta"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "Feature"
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "geometry": {
+                            "type": "object",
+                            "required": [
+                              "type"
+                            ],
+                            "additionalProperties": true,
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "properties": {
+                            "type": "object",
+                            "additionalProperties": true
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          },
+                          "meta": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "geometryKind",
+                              "radiusM",
+                              "externalSource",
+                              "externalId",
+                              "versionId",
+                              "updatedAt"
+                            ],
+                            "properties": {
+                              "geometryKind": {
+                                "type": "string"
+                              },
+                              "radiusM": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "externalSource": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "externalId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "versionId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        }
                       }
                     },
                     "meta": {
@@ -1065,7 +1692,100 @@
                   "properties": {
                     "data": {
                       "type": "object",
-                      "additionalProperties": true
+                      "additionalProperties": false,
+                      "required": [
+                        "feature",
+                        "serverCursor"
+                      ],
+                      "properties": {
+                        "feature": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "type",
+                            "id",
+                            "geometry",
+                            "properties",
+                            "attachments",
+                            "meta"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "Feature"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "geometry": {
+                              "type": "object",
+                              "required": [
+                                "type"
+                              ],
+                              "additionalProperties": true,
+                              "properties": {
+                                "type": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "properties": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "attachments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                              }
+                            },
+                            "meta": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "geometryKind",
+                                "radiusM",
+                                "externalSource",
+                                "externalId",
+                                "versionId",
+                                "updatedAt"
+                              ],
+                              "properties": {
+                                "geometryKind": {
+                                  "type": "string"
+                                },
+                                "radiusM": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "externalSource": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "externalId": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "versionId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "serverCursor": {
+                          "type": "string"
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -1157,7 +1877,100 @@
                   "properties": {
                     "data": {
                       "type": "object",
-                      "additionalProperties": true
+                      "additionalProperties": false,
+                      "required": [
+                        "feature",
+                        "serverCursor"
+                      ],
+                      "properties": {
+                        "feature": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "type",
+                            "id",
+                            "geometry",
+                            "properties",
+                            "attachments",
+                            "meta"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "Feature"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "geometry": {
+                              "type": "object",
+                              "required": [
+                                "type"
+                              ],
+                              "additionalProperties": true,
+                              "properties": {
+                                "type": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "properties": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "attachments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                              }
+                            },
+                            "meta": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "geometryKind",
+                                "radiusM",
+                                "externalSource",
+                                "externalId",
+                                "versionId",
+                                "updatedAt"
+                              ],
+                              "properties": {
+                                "geometryKind": {
+                                  "type": "string"
+                                },
+                                "radiusM": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "externalSource": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "externalId": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "versionId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "serverCursor": {
+                          "type": "string"
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -1237,7 +2050,22 @@
                   "properties": {
                     "data": {
                       "type": "object",
-                      "additionalProperties": true
+                      "additionalProperties": false,
+                      "required": [
+                        "status",
+                        "serverCursor"
+                      ],
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "deleted"
+                          ]
+                        },
+                        "serverCursor": {
+                          "type": "string"
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -1320,28 +2148,88 @@
                   ],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true,
-                      "properties": {
-                        "revisionId": {
-                          "type": "string",
-                          "format": "uuid"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "revisionId",
+                            "status"
+                          ],
+                          "properties": {
+                            "revisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "layerId": {
-                          "type": "string",
-                          "format": "uuid"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "originalRevisionId",
+                            "draftRevisionId",
+                            "supersedesRevisionId",
+                            "originalStatus",
+                            "draftStatus",
+                            "draftEtag"
+                          ],
+                          "properties": {
+                            "originalRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "draftRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supersedesRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "originalStatus": {
+                              "type": "string"
+                            },
+                            "draftStatus": {
+                              "type": "string"
+                            },
+                            "draftEtag": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "snapshotId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "generation": {
-                          "type": "integer"
-                        },
-                        "status": {
-                          "type": "string"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "snapshotId",
+                            "generation",
+                            "status"
+                          ],
+                          "properties": {
+                            "publicationId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "snapshotId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "generation": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "completed"
+                              ]
+                            }
+                          }
                         }
-                      }
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -1424,28 +2312,88 @@
                   ],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true,
-                      "properties": {
-                        "revisionId": {
-                          "type": "string",
-                          "format": "uuid"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "revisionId",
+                            "status"
+                          ],
+                          "properties": {
+                            "revisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "layerId": {
-                          "type": "string",
-                          "format": "uuid"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "originalRevisionId",
+                            "draftRevisionId",
+                            "supersedesRevisionId",
+                            "originalStatus",
+                            "draftStatus",
+                            "draftEtag"
+                          ],
+                          "properties": {
+                            "originalRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "draftRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supersedesRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "originalStatus": {
+                              "type": "string"
+                            },
+                            "draftStatus": {
+                              "type": "string"
+                            },
+                            "draftEtag": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "snapshotId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "generation": {
-                          "type": "integer"
-                        },
-                        "status": {
-                          "type": "string"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "snapshotId",
+                            "generation",
+                            "status"
+                          ],
+                          "properties": {
+                            "publicationId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "snapshotId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "generation": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "completed"
+                              ]
+                            }
+                          }
                         }
-                      }
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -1528,28 +2476,88 @@
                   ],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true,
-                      "properties": {
-                        "revisionId": {
-                          "type": "string",
-                          "format": "uuid"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "revisionId",
+                            "status"
+                          ],
+                          "properties": {
+                            "revisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "layerId": {
-                          "type": "string",
-                          "format": "uuid"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "originalRevisionId",
+                            "draftRevisionId",
+                            "supersedesRevisionId",
+                            "originalStatus",
+                            "draftStatus",
+                            "draftEtag"
+                          ],
+                          "properties": {
+                            "originalRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "draftRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supersedesRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "originalStatus": {
+                              "type": "string"
+                            },
+                            "draftStatus": {
+                              "type": "string"
+                            },
+                            "draftEtag": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "snapshotId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "generation": {
-                          "type": "integer"
-                        },
-                        "status": {
-                          "type": "string"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "snapshotId",
+                            "generation",
+                            "status"
+                          ],
+                          "properties": {
+                            "publicationId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "snapshotId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "generation": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "completed"
+                              ]
+                            }
+                          }
                         }
-                      }
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -1632,28 +2640,88 @@
                   ],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true,
-                      "properties": {
-                        "revisionId": {
-                          "type": "string",
-                          "format": "uuid"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "revisionId",
+                            "status"
+                          ],
+                          "properties": {
+                            "revisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "layerId": {
-                          "type": "string",
-                          "format": "uuid"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "originalRevisionId",
+                            "draftRevisionId",
+                            "supersedesRevisionId",
+                            "originalStatus",
+                            "draftStatus",
+                            "draftEtag"
+                          ],
+                          "properties": {
+                            "originalRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "draftRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supersedesRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "originalStatus": {
+                              "type": "string"
+                            },
+                            "draftStatus": {
+                              "type": "string"
+                            },
+                            "draftEtag": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "snapshotId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "generation": {
-                          "type": "integer"
-                        },
-                        "status": {
-                          "type": "string"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "snapshotId",
+                            "generation",
+                            "status"
+                          ],
+                          "properties": {
+                            "publicationId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "snapshotId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "generation": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "completed"
+                              ]
+                            }
+                          }
                         }
-                      }
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -1736,28 +2804,88 @@
                   ],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "additionalProperties": true,
-                      "properties": {
-                        "revisionId": {
-                          "type": "string",
-                          "format": "uuid"
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "revisionId",
+                            "status"
+                          ],
+                          "properties": {
+                            "revisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "layerId": {
-                          "type": "string",
-                          "format": "uuid"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "originalRevisionId",
+                            "draftRevisionId",
+                            "supersedesRevisionId",
+                            "originalStatus",
+                            "draftStatus",
+                            "draftEtag"
+                          ],
+                          "properties": {
+                            "originalRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "draftRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supersedesRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "originalStatus": {
+                              "type": "string"
+                            },
+                            "draftStatus": {
+                              "type": "string"
+                            },
+                            "draftEtag": {
+                              "type": "string"
+                            }
+                          }
                         },
-                        "snapshotId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "generation": {
-                          "type": "integer"
-                        },
-                        "status": {
-                          "type": "string"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "snapshotId",
+                            "generation",
+                            "status"
+                          ],
+                          "properties": {
+                            "publicationId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "snapshotId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "generation": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "completed"
+                              ]
+                            }
+                          }
                         }
-                      }
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -3808,12 +4936,64 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "additionalProperties": true
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "rowNumber",
+                          "severity",
+                          "code"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "rowNumber": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "warning",
+                              "error"
+                            ]
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "field": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
                       }
                     },
                     "meta": {
                       "type": "object",
-                      "additionalProperties": true
+                      "additionalProperties": false,
+                      "required": [
+                        "requestId",
+                        "nextCursor",
+                        "hasMore",
+                        "limit"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "nextCursor": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 200
+                        }
+                      }
                     }
                   }
                 }

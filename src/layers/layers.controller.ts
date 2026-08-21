@@ -17,7 +17,17 @@ import {
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
-import { apiJsonResponse, genericObjectSchema } from '../common/openapi/response-schemas';
+import {
+  adminFeatureSchema,
+  adminLayerGroupSchema,
+  adminLayerListItemSchema,
+  apiJsonResponse,
+  createLayerResultSchema,
+  featureDeleteResultSchema,
+  featureMutationResultSchema,
+  revisionResultSchema,
+  revisionWorkspaceSchema,
+} from '../common/openapi/response-schemas';
 import { Principal, Roles } from '../identity/auth.decorators';
 import { CsrfGuard, RolesGuard, SessionGuard } from '../identity/auth.guards';
 import { requireIdempotencyKey } from './etag';
@@ -38,7 +48,7 @@ export class LayersController {
 
   @Get('layer-groups')
   @ApiOperation({ operationId: 'listLayerGroups' })
-  @apiJsonResponse(200, { type: 'array', items: genericObjectSchema })
+  @apiJsonResponse(200, { type: 'array', items: adminLayerGroupSchema })
   listGroups() {
     return this.layers.listGroups();
   }
@@ -48,7 +58,7 @@ export class LayersController {
   @UseGuards(CsrfGuard)
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayerGroup' })
-  @apiJsonResponse(201, genericObjectSchema)
+  @apiJsonResponse(201, adminLayerGroupSchema)
   createGroup(
     @Body() dto: CreateLayerGroupDto,
     @Req() request: RequestWithContext,
@@ -59,7 +69,7 @@ export class LayersController {
 
   @Get('layers')
   @ApiOperation({ operationId: 'listAdminLayers' })
-  @apiJsonResponse(200, { type: 'array', items: genericObjectSchema })
+  @apiJsonResponse(200, { type: 'array', items: adminLayerListItemSchema })
   listLayers() {
     return this.layers.listLayers();
   }
@@ -74,7 +84,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayer' })
-  @apiJsonResponse(201, genericObjectSchema)
+  @apiJsonResponse(201, createLayerResultSchema)
   async createLayer(
     @Body() dto: CreateLayerDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
@@ -90,7 +100,7 @@ export class LayersController {
 
   @Get('revisions/:revisionId')
   @ApiOperation({ operationId: 'getRevision' })
-  @apiJsonResponse(200, genericObjectSchema)
+  @apiJsonResponse(200, revisionResultSchema)
   async getRevision(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Res({ passthrough: true }) response: Response,
@@ -102,7 +112,7 @@ export class LayersController {
 
   @Get('revisions/:revisionId/workspace')
   @ApiOperation({ operationId: 'getRevisionWorkspace' })
-  @apiJsonResponse(200, genericObjectSchema)
+  @apiJsonResponse(200, revisionWorkspaceSchema)
   async workspace(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Res({ passthrough: true }) response: Response,
@@ -114,7 +124,7 @@ export class LayersController {
 
   @Get('revisions/:revisionId/features')
   @ApiOperation({ operationId: 'listAdminFeatures' })
-  @apiJsonResponse(200, { type: 'array', items: genericObjectSchema })
+  @apiJsonResponse(200, { type: 'array', items: adminFeatureSchema })
   listFeatures(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Query('bbox') bbox?: string,
@@ -134,7 +144,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createFeature' })
-  @apiJsonResponse(201, genericObjectSchema)
+  @apiJsonResponse(201, featureMutationResultSchema)
   async createFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: FeatureMutationDto,
@@ -162,7 +172,7 @@ export class LayersController {
   @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'updateFeature' })
-  @apiJsonResponse(200, genericObjectSchema)
+  @apiJsonResponse(200, featureMutationResultSchema)
   async updateFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,
@@ -191,7 +201,7 @@ export class LayersController {
   @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'deleteFeature' })
-  @apiJsonResponse(200, genericObjectSchema)
+  @apiJsonResponse(200, featureDeleteResultSchema)
   async deleteFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,

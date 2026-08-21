@@ -28,7 +28,8 @@ import { memoryStorage } from 'multer';
 import type { RequestWithContext } from '../common/http/request-context';
 import {
   apiJsonResponse,
-  genericObjectSchema,
+  importIssueMetaSchema,
+  importIssueSchema,
   importJobSchema,
 } from '../common/openapi/response-schemas';
 import { Principal, Roles } from '../identity/auth.decorators';
@@ -132,7 +133,7 @@ export class ImportsController {
   @ApiQuery({ name: 'cursor', required: false, type: Number, minimum: 0 })
   @ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 200 })
   @ApiOperation({ operationId: 'listSpatialImportIssues' })
-  @apiJsonResponse(200, { type: 'array', items: genericObjectSchema }, genericObjectSchema)
+  @apiJsonResponse(200, { type: 'array', items: importIssueSchema }, importIssueMetaSchema)
   issues(
     @Param('importId', ParseUUIDPipe) importId: string,
     @Query('cursor') cursor: string | undefined,

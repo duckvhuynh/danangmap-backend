@@ -12,6 +12,27 @@ const rawOperations = new Set([
   'listPublicFeatures',
   'getPublicTile',
 ]);
+const strictlyTypedResponseOperations = new Set([
+  'listLayerGroups',
+  'createLayerGroup',
+  'listAdminLayers',
+  'createLayer',
+  'getRevision',
+  'getRevisionWorkspace',
+  'listAdminFeatures',
+  'createFeature',
+  'updateFeature',
+  'deleteFeature',
+  'updateSpatialImportMapping',
+  'validateSpatialImport',
+  'listSpatialImportIssues',
+  'applySpatialImport',
+  'submitRevision',
+  'approveRevision',
+  'requestRevisionChanges',
+  'publishRevision',
+  'rollbackLayer',
+]);
 const parameterContracts = {
   listPublicFeatures: [
     ['query', 'bbox', false],
@@ -148,6 +169,23 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
         const jsonSchema = response.content?.['application/json']?.schema;
         if (!jsonSchema?.properties?.data || !jsonSchema?.properties?.meta) {
           throw new Error(`Success envelope schema missing data/meta: ${operationId} ${status}`);
+        }
+        if (strictlyTypedResponseOperations.has(operationId)) {
+          const dataSchema = resolveSchema(jsonSchema.properties.data);
+          const schemasToCheck = [
+            dataSchema,
+            ...(dataSchema?.type === 'array' ? [resolveSchema(dataSchema.items)] : []),
+          ];
+          if (
+            schemasToCheck.some(
+              (schema) =>
+                schema?.type === 'object' &&
+                schema.additionalProperties === true &&
+                Object.keys(schema.properties ?? {}).length === 0,
+            )
+          ) {
+            throw new Error(`Generic success data schema is forbidden: ${operationId} ${status}`);
+          }
         }
       }
     }

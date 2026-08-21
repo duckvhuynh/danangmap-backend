@@ -18,8 +18,20 @@ describe('environment validation', () => {
   });
 
   it('normalizes typed configuration values', () => {
-    expect(validateEnvironment({ ...baseline, PORT: '4100', COOKIE_SECURE: 'true' })).toEqual(
-      expect.objectContaining({ PORT: 4100, COOKIE_SECURE: true }),
+    expect(
+      validateEnvironment({
+        ...baseline,
+        PORT: '4100',
+        COOKIE_SECURE: 'true',
+        TRUST_PROXY_HOPS: '1',
+      }),
+    ).toEqual(expect.objectContaining({ PORT: 4100, COOKIE_SECURE: true, TRUST_PROXY_HOPS: 1 }));
+  });
+
+  it('keeps proxy trust off by default and rejects an unbounded hop count', () => {
+    expect(validateEnvironment(baseline).TRUST_PROXY_HOPS).toBe(0);
+    expect(() => validateEnvironment({ ...baseline, TRUST_PROXY_HOPS: '4' })).toThrow(
+      'Invalid environment configuration',
     );
   });
 });

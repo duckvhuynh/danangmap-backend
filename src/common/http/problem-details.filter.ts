@@ -41,6 +41,15 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const requestId =
       request.requestId ?? response.getHeader('X-Request-Id')?.toString() ?? 'unknown';
 
+    if (status === 429) {
+      const configuredRetry = body.details?.retryAfterSeconds;
+      const retryAfter =
+        typeof configuredRetry === 'number' && Number.isFinite(configuredRetry)
+          ? Math.max(1, Math.ceil(configuredRetry))
+          : 60;
+      response.setHeader('Retry-After', String(retryAfter));
+    }
+
     if (status >= 500) {
       this.logger.error(
         JSON.stringify({

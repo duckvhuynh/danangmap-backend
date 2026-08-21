@@ -5,6 +5,20 @@ const [openApiText, generatedTypes] = await Promise.all([
   readFile('openapi/generated-client-types.ts', 'utf8'),
 ]);
 const document = JSON.parse(openApiText);
+const requireWriteOnlyFields = (schemaName, fieldNames) => {
+  const schema = document.components?.schemas?.[schemaName];
+  for (const fieldName of fieldNames) {
+    if (!schema?.properties?.[fieldName]) {
+      throw new Error(`${schemaName} is missing ${fieldName}`);
+    }
+    if (!schema.required?.includes(fieldName)) {
+      throw new Error(`${schemaName}.${fieldName} must be required`);
+    }
+    if (schema.properties[fieldName].writeOnly !== true) {
+      throw new Error(`${schemaName}.${fieldName} must be write-only`);
+    }
+  }
+};
 const methods = new Set(['get', 'post', 'put', 'patch', 'delete', 'options', 'head']);
 const rawOperations = new Set([
   'getLiveness',
@@ -17,11 +31,14 @@ const strictlyTypedResponseOperations = new Set([
   'verifyMfa',
   'startMfaEnrollment',
   'confirmMfaEnrollment',
+  'inspectInvite',
+  'acceptInvite',
   'rotateCsrf',
   'getCurrentUser',
   'listUsers',
   'createUser',
   'createInvite',
+  'revokeInvite',
   'listLayerGroups',
   'createLayerGroup',
   'listAdminLayers',
@@ -49,11 +66,16 @@ const parameterContracts = {
   verifyMfa: [['header', 'X-CSRF-Token', true]],
   startMfaEnrollment: [['header', 'X-CSRF-Token', true]],
   confirmMfaEnrollment: [['header', 'X-CSRF-Token', true]],
+  acceptInvite: [['header', 'X-CSRF-Token', true]],
   createUser: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
   createInvite: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  revokeInvite: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
@@ -122,7 +144,7 @@ const parameterContracts = {
   ],
 };
 const preauthCsrfOperations = new Set(['verifyMfa', 'startMfaEnrollment', 'confirmMfaEnrollment']);
-const publicCsrfOperations = new Set(['login']);
+const publicCsrfOperations = new Set(['login', 'acceptInvite']);
 const resolveSchema = (schema) => {
   if (!schema?.$ref) return schema;
   const prefix = '#/components/schemas/';
@@ -237,6 +259,8 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
   }
 }
 if (seen.size === 0) throw new Error('OpenAPI document has no operations');
+requireWriteOnlyFields('InspectInviteDto', ['token']);
+requireWriteOnlyFields('AcceptInviteDto', ['token', 'password', 'passwordConfirmation']);
 const tile = document.paths?.['/api/v1/public/tiles/{slug}/{generation}/{z}/{x}/{y}.pbf']?.get;
 if (!tile?.responses?.['200']?.content?.['application/vnd.mapbox-vector-tile']?.schema) {
   throw new Error('MVT success response must declare application/vnd.mapbox-vector-tile');

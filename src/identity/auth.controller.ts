@@ -7,13 +7,20 @@ import {
   apiJsonResponse,
   authPrincipalSchema,
   csrfResultSchema,
+  inviteInspectionSchema,
   loginResultSchema,
   logoutResultSchema,
   mfaEnrollmentConfirmationSchema,
   mfaEnrollmentSchema,
 } from '../common/openapi/response-schemas';
 import { Principal } from './auth.decorators';
-import { ConfirmMfaEnrollmentDto, LoginDto, VerifyMfaDto } from './auth.dto';
+import {
+  AcceptInviteDto,
+  ConfirmMfaEnrollmentDto,
+  InspectInviteDto,
+  LoginDto,
+  VerifyMfaDto,
+} from './auth.dto';
 import {
   CSRF_COOKIE,
   CsrfGuard,
@@ -50,6 +57,32 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.auth.login(dto, this.metadata(request));
+    response.cookie(PREAUTH_COOKIE, result.token, this.cookieOptions(5 * 60_000));
+    this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
+    return result.data;
+  }
+
+  @Post('invites\\:inspect')
+  @HttpCode(200)
+  @ApiOperation({ operationId: 'inspectInvite' })
+  @apiJsonResponse(200, inviteInspectionSchema)
+  inspectInvite(@Body() dto: InspectInviteDto, @Req() request: RequestWithContext) {
+    return this.auth.inspectInvite(dto, this.metadata(request));
+  }
+
+  @Post('invites\\:accept')
+  @HttpCode(200)
+  @UseGuards(CsrfGuard)
+  @ApiSecurity('csrf')
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'acceptInvite' })
+  @apiJsonResponse(200, loginResultSchema)
+  async acceptInvite(
+    @Body() dto: AcceptInviteDto,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.auth.acceptInvite(dto, this.metadata(request));
     response.cookie(PREAUTH_COOKIE, result.token, this.cookieOptions(5 * 60_000));
     this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
     return result.data;

@@ -87,6 +87,175 @@
         ]
       }
     },
+    "/api/v1/auth/invites:inspect": {
+      "post": {
+        "operationId": "inspectInvite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectInviteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "maskedEmail",
+                        "role",
+                        "expiresAt",
+                        "requiresMfaEnrollment"
+                      ],
+                      "properties": {
+                        "maskedEmail": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "editor",
+                            "reviewer",
+                            "publisher",
+                            "system_admin"
+                          ]
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "requiresMfaEnrollment": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/invites:accept": {
+      "post": {
+        "operationId": "acceptInvite",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInviteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "status",
+                        "mfaEnrollmentRequired",
+                        "challengeExpiresAt"
+                      ],
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "mfa_required"
+                          ]
+                        },
+                        "mfaEnrollmentRequired": {
+                          "type": "boolean"
+                        },
+                        "challengeExpiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
     "/api/v1/auth/mfa/verify": {
       "post": {
         "operationId": "verifyMfa",
@@ -988,6 +1157,101 @@
                           ]
                         },
                         "expiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/invites/{inviteId}:revoke": {
+      "post": {
+        "operationId": "revokeInvite",
+        "parameters": [
+          {
+            "name": "inviteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "status",
+                        "revokedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "revoked"
+                          ]
+                        },
+                        "revokedAt": {
                           "type": "string",
                           "format": "date-time"
                         }
@@ -6127,6 +6391,48 @@
         "required": [
           "login",
           "password"
+        ]
+      },
+      "InspectInviteDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 32,
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "AcceptInviteDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 32,
+            "maxLength": 512
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 12,
+            "maxLength": 200
+          },
+          "passwordConfirmation": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 12,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "token",
+          "password",
+          "passwordConfirmation"
         ]
       },
       "VerifyMfaDto": {

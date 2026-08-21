@@ -1,10 +1,22 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestWithContext } from '../common/http/request-context';
 import { requireIdempotencyKey } from '../layers/etag';
 import {
   apiJsonResponse,
   authPrincipalSchema,
+  inviteRevocationSchema,
   inviteResultSchema,
   userCreationResultSchema,
   userListMetaSchema,
@@ -73,5 +85,27 @@ export class UsersController {
   ) {
     const key = requireIdempotencyKey(idempotencyKey);
     return this.auth.createInvite(dto, principal.id, principal.role, request.requestId, key);
+  }
+
+  @Post('invites/:inviteId\\:revoke')
+  @HttpCode(200)
+  @Roles('system_admin')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'revokeInvite' })
+  @apiJsonResponse(200, inviteRevocationSchema)
+  revokeInvite(
+    @Param('inviteId', ParseUUIDPipe) inviteId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    const key = requireIdempotencyKey(idempotencyKey);
+    return this.auth.revokeInvite(inviteId, principal.id, principal.role, request.requestId, key);
   }
 }

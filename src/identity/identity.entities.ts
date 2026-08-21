@@ -94,6 +94,7 @@ export class InviteEntity {
   @Column({ name: 'expires_at', type: 'timestamptz' }) expiresAt: Date;
   @Column({ name: 'used_at', type: 'timestamptz', nullable: true }) usedAt: Date | null;
   @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true }) revokedAt: Date | null;
+  @Column({ name: 'accepted_user_id', type: 'uuid', nullable: true }) acceptedUserId: string | null;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }
 
@@ -102,6 +103,7 @@ export class MailOutboxEntity {
   @PrimaryGeneratedColumn('uuid') id: string;
   @Column({ name: 'template_key', type: 'text' }) templateKey: string;
   @Column({ name: 'recipient_email', type: 'text' }) recipientEmail: string;
+  @Column({ name: 'invite_id', type: 'uuid', nullable: true }) inviteId: string | null;
   @Column({ name: 'payload_encrypted', type: 'text' }) payloadEncrypted: string;
   @Column({ type: 'text', default: 'pending' }) status: string;
   @Column({ type: 'integer', default: 0 }) attempts: number;

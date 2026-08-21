@@ -24,8 +24,8 @@ Slice đầu tiên chỉ cần fixture Point và Polygon để chứng minh ki�
 | D2 — Design source of truth | `COMPLETE` | `DESIGN.md` đã ghi decision/date/artifact, Tabler Icons, blue tokens, Google Maps-like radius/shadow và trạng thái `SELECTED_READY_TO_SCAFFOLD` |
 | D3 — UI scaffold unlocked | `UNLOCKED` | Selection/source-of-truth gate đạt tại `2d35ec5`; visual QA hoàn tất tại `0899ebd`; commit design phải là ancestor của commit UI đầu tiên |
 | V1 — Published read slice | `IN_PROGRESS` | Backend typed public API/query policy (`7ec3bc7`, `efc1a29`) và frontend pin/consume (`aa0380b`, `3fd3e027`) riêng lẻ xanh; issue #9 đã đóng, còn cross-stack issue #11 chưa đạt |
-| V2 — Controlled publication slice | `IN_PROGRESS` | Backend workflow/admin shell source đã bắt đầu; ba actor, deny matrix, atomic pointer và public generation assertions chưa đủ evidence tại issue #11 |
-| V3 — Four-format import slice | `IN_PROGRESS` | Backend bốn parser, `feature_id|external_identity`, upload replay và Docker fixture equivalence đạt tại `bd5013b` (CI `32448008945` đang chạy); frontend wizard và browser cross-stack chưa đạt |
+| V2 — Controlled publication slice | `IN_PROGRESS` | Draft PR backend `#13`/`6800ff6` có HTTP three-actor, deny, redaction và atomic-pointer evidence với CI `32449796541` xanh nhưng chưa merge; browser cross-stack issue #11 vẫn mở |
+| V3 — Four-format import slice | `IN_PROGRESS` | Backend bốn parser/equivalence đạt tại `bd5013b` + CI `32448008945`; frontend typed wizard pin cùng contract đạt tại `ab806d6`; browser cross-stack/imported-feature publication chưa đạt |
 
 Frontend gate issue `#1` có đủ evidence để đóng tại `2d35ec5` + `0899ebd`. Backend M0 issue `#1` vẫn mở cho tới khi các exit criteria M0 còn lại trong `PLANS.md` có bằng chứng.
 
@@ -117,13 +117,13 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 - [ ] **VS-029 — Backend:** User/role/session migration và deterministic Editor/Reviewer/Publisher/System Admin seed. Mapping: `B-008`, `B-056`.
   - Acceptance: một primary role; session revoke fields; seed idempotent.
-- [ ] **VS-030 — Backend:** RBAC guard và separation policy predicates. Mapping: `B-016`, `B-017`.
+- [ ] **VS-030 — Backend:** RBAC guard và separation policy predicates. Mapping: `B-016`, `B-017`. Partial evidence: draft PR backend `#13`/`6800ff6` có real HTTP role/SoD deny matrix, CI `32449796541` xanh; chưa có main-branch merge/browser evidence.
   - Acceptance: allow/deny tests gồm self-review, prior participant publish và System Admin bypass.
 - [x] **VS-031 — Backend:** Draft create, feature mutation và optimistic ETag. Mapping: `B-026`, `B-027`. Evidence: spatial core + real domain replay tests through backend `e62c478`; create layer/feature one effect, original ETag/result survives service restart.
   - Acceptance: server UUID; stale write fail; audit participant recorded; cùng idempotency key/hash trả nguyên status/body/ETag cũ, khác hash trả `IDEMPOTENCY_KEY_REUSED`.
-- [ ] **VS-032 — Backend:** Validate/submit và approve commands. Mapping: `B-028`, `B-029`, `B-030`.
+- [ ] **VS-032 — Backend:** Validate/submit và approve commands. Mapping: `B-028`, `B-029`, `B-030`. Partial evidence: draft PR backend `#13`/`6800ff6` chạy submit/replay/approve và self/participant deny qua HTTP thật; PR chưa merge.
   - Acceptance: submitted revision immutable; invalid/self-review bị chặn; retry tuần tự/đồng thời chỉ tạo một transition/audit qua durable DB receipt.
-- [ ] **VS-033 — Backend:** Snapshot builder và atomic pointer switch. Mapping: `B-031`, `B-032`.
+- [ ] **VS-033 — Backend:** Snapshot builder và atomic pointer switch. Mapping: `B-031`, `B-032`. Partial evidence: draft PR backend `#13`/`6800ff6` chứng minh one generation, private redaction và injected pointer failure giữ snapshot/generation cũ; PR chưa merge.
   - Acceptance: private field stripped; build failure giữ snapshot cũ; success tăng generation và invalidate cache sau commit; concurrent publish duplicate chỉ tạo một snapshot/generation và trả lại original result.
 - [ ] **VS-034 — Frontend:** Minimal desktop editor for seeded properties/geometry save and submit. Mapping: `F-020`, `F-027`, `F-029`, `F-032`.
   - Acceptance: server/local state được phân biệt; mobile capability gate không render mutation tools.
@@ -144,9 +144,9 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: `PATCH /imports/{id}/mapping`, `POST /imports/{id}:validate`, `GET /imports/{id}/issues`; state/progress monotonic; match key chỉ `feature_id|external_identity`.
 - [x] **IMP-006 — Backend:** Apply atomic/skip-invalid/upsert. Mapping: `B-049`, `B-050`, `B-051`, phần idempotency của `B-052`. Evidence: GeoJSON core `efc1a29`, durable receipt `e62c478`, four-format/upsert/upload race hardening `bd5013b`; Docker 8 suites/24 tests pass.
   - Acceptance: `POST /imports/{id}:apply` dùng ETag + idempotency; false-skip commit `0`; true-skip chỉ valid; retry không duplicate; `feature_id` missing match tạo server UUID; wrong-layer/malformed ID thành deterministic issue.
-- [ ] **IMP-007 — Frontend:** Wizard tối thiểu upload → mapping → validate/issues → apply. Mapping: `F-036`, `F-037`, `F-038`, phần reconnect/result của `F-039`.
-  - Acceptance: bốn format chọn được; sheet/geometry/field/mode/upsert/skip-invalid rõ; UI không tự parse file lớn hoặc lưu binary vào Dexie.
-- [ ] **IMP-008 — QA/Cross-repo:** Fixture equivalence và UI integration. Mapping: `Q-003`, `Q-004`, `Q-008`, `Q-015`. Partial evidence: backend `bd5013b` chứng minh CSV coordinates/WKT, XLSX, GeoJSON, KML cùng normalized 2 valid + 1 invalid; skip false/true/retry trên PostGIS/Redis/MinIO thật. Frontend/browser publication còn mở.
+- [x] **IMP-007 — Frontend:** Wizard tối thiểu upload → mapping → validate/issues → apply. Mapping: `F-036`, `F-037`, `F-038`, phần reconnect/result của `F-039`. Evidence: frontend `ab806d6` pin OpenAPI backend `bd5013b`; api/type/lint, Vitest 51/51, build, desktop CSV Playwright, Docker health 200.
+  - Acceptance: bốn format chọn được; XLSX inspection/sheet, CSV encoding/delimiter, geometry/field/mode, hai upsert key, skip-invalid và terminal/error states rõ; UI không tự parse file lớn hoặc lưu binary vào Dexie; ambiguous upload retry giữ cùng request/key.
+- [ ] **IMP-008 — QA/Cross-repo:** Fixture equivalence và UI integration. Mapping: `Q-003`, `Q-004`, `Q-008`, `Q-015`. Partial evidence: backend `bd5013b` chứng minh CSV coordinates/WKT, XLSX, GeoJSON, KML cùng normalized 2 valid + 1 invalid; skip false/true/retry trên PostGIS/Redis/MinIO thật. Frontend `ab806d6` có typed wizard + desktop CSV mocked-contract Playwright; real browser/API publication còn mở.
   - Acceptance: bốn fixture tương đương tạo cùng normalized records/counts trong Docker; UI E2E ít nhất một format; imported record đi tiếp qua submit/approve/publish/public. Tracking: backend issue `#11`.
 
 `cancel` và full report-download vẫn thuộc `B-048`, `B-052`, `F-038`, `F-039` và không được tuyên bố Done từ slice tối thiểu này.
@@ -160,11 +160,11 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 - [ ] **VS-038 — QA/Frontend:** Playwright published read path. Mapping: `Q-011`.
   - Acceptance: `/` direct map, catalog, toggle, Point/Polygon, detail, Street/Light, list, mobile sheet, no URL state.
 - [ ] **VS-039 — QA/Cross-repo:** Playwright controlled publication path. Mapping: `Q-005`, `Q-015`.
-  - Acceptance: three actors pass; self-review/participant-publish/admin-bypass deny; public generation chỉ đổi sau publish success. Tracking: backend issue `#11`.
+  - Acceptance: three actors pass; self-review/participant-publish/admin-bypass deny; public generation chỉ đổi sau publish success. Draft PR backend `#13` chứng minh backend HTTP path nhưng chưa chạy frontend/browser; tracking: backend issue `#11`.
 - [ ] **VS-040 — QA/Cross-repo:** Failure-path assertions và artifact capture.
   - Acceptance: PostGIS unavailable readiness fail; API problem envelope; public partial layer failure; publication build fail giữ snapshot; screenshots/traces lưu khi test fail.
 - [ ] **VS-041 — QA/Cross-repo:** Re-run Docker E2E từ môi trường sạch.
-  - Acceptance: hai run liên tiếp pass, seed không duplicate, không dùng volume/data developer, teardown chỉ xóa volume mang project name E2E.
+  - Acceptance: hai run liên tiếp pass, seed không duplicate, không dùng volume/data developer, teardown chỉ xóa volume mang project name E2E. Draft PR backend `#13` có hai fresh-volume image/readiness/CORS/catalog smoke runs pin frontend `ab806d6`; browser journeys chưa đạt.
 
 Lệnh chuẩn dự kiến sau khi compose được triển khai:
 
@@ -197,7 +197,7 @@ Không đóng milestone issue chỉ từ commit tồn tại. Issue chỉ đượ
 
 ## 6. Quality gates bắt buộc
 
-- [ ] OpenAPI lint/diff pass; generated frontend client không stale.
+- [x] OpenAPI lint/diff pass; generated frontend client không stale. Evidence: backend `bd5013b` + CI `32448008945`; frontend pin `ab806d6` và `api:check` pass.
 - [x] TypeScript typecheck, lint, unit và production build pass ở cả hai repo. Evidence: backend `1767787`, frontend `9c70b65`.
 - [x] TypeORM `synchronize=false`; fresh migration chạy trên PostGIS thật. Evidence: backend `1767787`.
 - [ ] Public projection leak test có field private fixture và trả `0` leak.

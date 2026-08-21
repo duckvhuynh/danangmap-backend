@@ -106,10 +106,17 @@ describe('PostGIS integration', () => {
          'circle-fixture','{}','00000000-0000-4000-8000-000000000004',now())`,
       [circleFixture.snapshotId, circleFixture.layerId, circleFixture.revisionId],
     );
+    await AppDataSource.query(
+      `INSERT INTO layer_publications(layer_id,active_snapshot_id) VALUES($1,$2)`,
+      [circleFixture.layerId, circleFixture.snapshotId],
+    );
   });
 
   afterAll(async () => {
     if (AppDataSource.isInitialized) {
+      await AppDataSource.query('DELETE FROM layer_publications WHERE layer_id=$1', [
+        circleFixture.layerId,
+      ]);
       await AppDataSource.query('DELETE FROM publication_snapshots WHERE id=$1', [
         circleFixture.snapshotId,
       ]);
@@ -174,5 +181,27 @@ describe('PostGIS integration', () => {
     const tile = await publicApi.tile(circleFixture.slug, 1, 14, 13117, 7450);
     expect(tile.tile.byteLength).toBeGreaterThan(0);
     expect(mvtGeometryTypes(tile.tile)).toContain(3);
+  });
+
+  it('buffers the circle in meters within a two-percent area tolerance', async () => {
+    const rows = (await AppDataSource.query(
+      `SELECT radius_m AS radius,
+              ST_Area(ST_Buffer(geometry::geography,radius_m)::geography) AS area
+       FROM feature_versions WHERE id=$1`,
+      [circleFixture.versionId],
+    )) as Array<{ radius: number; area: number }>;
+    const expectedArea = Math.PI * 250 ** 2;
+    expect(rows[0]?.radius).toBe(250);
+    expect(Math.abs(Number(rows[0]?.area) - expectedArea) / expectedArea).toBeLessThan(0.02);
+  });
+
+  it('keeps the canonical public GeoJSON circle as Point plus radiusM', async () => {
+    const collection = await publicApi.featureCollection(circleFixture.slug, undefined, 10);
+    expect(collection.features).toHaveLength(1);
+    expect(collection.features[0]).toMatchObject({
+      geometry: { type: 'Point', coordinates: [108.2208, 16.0678] },
+      geometryKind: 'circle',
+      radiusM: 250,
+    });
   });
 });

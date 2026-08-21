@@ -60,7 +60,7 @@ flowchart TD
   P --> Q[Production cutover]
 ```
 
-Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Các bước selection/derive/visual QA đã hoàn tất tại `2d35ec5` + `0899ebd`; backend bốn-format import/equivalence đã có local Docker evidence tại `bd5013b` và đang chờ CI `32448008945`. Vị trí hiện tại trên đường găng là frontend import contract pin, three-actor browser cross-stack và các gate còn mở trong `docs/EXECUTION-CHECKLIST.md`.
+Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Các bước selection/derive/visual QA đã hoàn tất tại `2d35ec5` + `0899ebd`; backend bốn-format import/equivalence đạt tại `bd5013b` với CI `32448008945` xanh, frontend typed wizard pin cùng contract đạt tại `ab806d6`. Vị trí hiện tại trên đường găng là three-actor workflow/publication HTTP + browser cross-stack và các gate còn mở trong `docs/EXECUTION-CHECKLIST.md`.
 
 ## 4. Milestone và exit criteria
 
@@ -76,7 +76,9 @@ flowchart TD
 | M7 — V1 migration | Manifest, transforms, rehearsals, reconciliation | Count/checksum/geometry report và product-owner sign-off |
 | M8 — Hardening & release | Performance/security, Coolify staging, runbooks, cutover | Go/no-go signed; smoke xanh; accepted no-backup risk được ghi nhận |
 
-`bd5013b` chỉ đóng sub-gate backend parser/mapping/apply/equivalence và upload replay của M4. M4 vẫn `In Progress` cho frontend wizard/cross-stack, attachment quarantine/scan/binding, Geo Service/external partial-failure và toàn bộ exit criteria còn lại; CI `32448008945` phải xanh trước khi coi evidence backend đã ổn định.
+`bd5013b` đóng sub-gate backend parser/mapping/apply/equivalence và upload replay của M4; CI `32448008945` đã xanh toàn bộ. Frontend wizard pin tại `ab806d6` đóng sub-gate UI riêng. M4 vẫn `In Progress` cho real cross-stack/imported-feature publication, attachment quarantine/scan/binding, Geo Service/external partial-failure và toàn bộ exit criteria còn lại.
+
+Draft PR backend `#13` tại `6800ff6` có CI `32449796541` xanh cho controlled-publication HTTP, deny matrix, private redaction, atomic pointer failure và hai fresh-volume container smoke runs. Evidence này vẫn là `Partial` cho tới khi PR được review/merge; nó không thay thế Playwright chạy frontend thật, imported-feature publication hoặc issue cross-stack `#11`.
 
 ## 5. Issue-ready backlog
 

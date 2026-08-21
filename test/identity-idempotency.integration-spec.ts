@@ -13,6 +13,7 @@ import {
   MailOutboxEntity,
   UserEntity,
 } from '../src/identity/identity.entities';
+import type { IdentityRateLimitService } from '../src/identity/identity-rate-limit.service';
 
 jest.mock('otplib', () => ({ verify: jest.fn() }));
 
@@ -116,6 +117,10 @@ describe('Identity command idempotency', () => {
       config,
       AppDataSource,
       new IdempotencyService(),
+      {
+        enforceInviteInspect: () => Promise.resolve(),
+        enforceInviteAccept: () => Promise.resolve(),
+      } as unknown as IdentityRateLimitService,
     );
   }
 });

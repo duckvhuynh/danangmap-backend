@@ -44,6 +44,26 @@ export class ConfirmMfaEnrollmentDto {
   code: string;
 }
 
+export class InspectInviteDto {
+  @ApiProperty({ writeOnly: true, minLength: 32, maxLength: 512 })
+  @IsString()
+  @Length(32, 512)
+  @Matches(/^[A-Za-z0-9_-]+$/)
+  token: string;
+}
+
+export class AcceptInviteDto extends InspectInviteDto {
+  @ApiProperty({ writeOnly: true, minLength: 12, maxLength: 200 })
+  @IsString()
+  @Length(12, 200)
+  password: string;
+
+  @ApiProperty({ writeOnly: true, minLength: 12, maxLength: 200 })
+  @IsString()
+  @Length(12, 200)
+  passwordConfirmation: string;
+}
+
 export class CreateUserDto {
   @ApiProperty({ example: 'editor@example.gov.vn' })
   @IsEmail()

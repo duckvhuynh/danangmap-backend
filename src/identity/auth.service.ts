@@ -4,12 +4,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import argon2 from 'argon2';
 import { randomBytes } from 'node:crypto';
 import { generateSecret, generateURI, verify } from 'otplib';
-import { DataSource, type EntityManager, IsNull, Repository } from 'typeorm';
+import { DataSource, type EntityManager, IsNull, QueryFailedError, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
-import type { CreateInviteDto, CreateUserDto, LoginDto, VerifyMfaDto } from './auth.dto';
+import type {
+  AcceptInviteDto,
+  CreateInviteDto,
+  CreateUserDto,
+  InspectInviteDto,
+  LoginDto,
+  VerifyMfaDto,
+} from './auth.dto';
 import {
   AdminSessionEntity,
   InviteEntity,
@@ -18,6 +25,7 @@ import {
   UserMfaRecoveryCodeEntity,
   UserEntity,
 } from './identity.entities';
+import { IdentityRateLimitService } from './identity-rate-limit.service';
 
 interface RequestMetadata {
   requestId: string;
@@ -37,6 +45,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly dataSource: DataSource,
     private readonly idempotency: IdempotencyService,
+    private readonly rateLimits: IdentityRateLimitService,
   ) {}
 
   async login(dto: LoginDto, metadata: RequestMetadata) {
@@ -405,6 +414,198 @@ export class AuthService {
     });
   }
 
+  async inspectInvite(dto: InspectInviteDto, metadata: RequestMetadata) {
+    await this.rateLimits.enforceInviteInspect(metadata.ip, dto.token);
+    const invite = await this.invites.findOneBy({ tokenHash: this.crypto.digest(dto.token) });
+    if (!invite || !this.isInviteUsable(invite)) this.throwInvalidInvite();
+    return {
+      maskedEmail: this.maskEmail(invite.email),
+      role: invite.role,
+      expiresAt: invite.expiresAt.toISOString(),
+      requiresMfaEnrollment: true,
+    };
+  }
+
+  async acceptInvite(dto: AcceptInviteDto, metadata: RequestMetadata) {
+    await this.rateLimits.enforceInviteAccept(metadata.ip, dto.token);
+    if (dto.password !== dto.passwordConfirmation) {
+      throw new AppException(422, 'VALIDATION_FAILED', 'Mật khẩu xác nhận không khớp.');
+    }
+    const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const invite = await manager.findOne(InviteEntity, {
+          where: { tokenHash: this.crypto.digest(dto.token) },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!invite || !this.isInviteUsable(invite)) this.throwInvalidInvite();
+
+        const normalizedEmail = invite.email.trim().toLowerCase();
+        const normalizedUsername = invite.username.trim().toLowerCase();
+        await this.lockIdentityKeys(manager, normalizedEmail, normalizedUsername);
+        const identityUsers = await manager.find(UserEntity, {
+          where: [{ emailNormalized: normalizedEmail }, { usernameNormalized: normalizedUsername }],
+          lock: { mode: 'pessimistic_write' },
+        });
+        const emailUser = identityUsers.find((user) => user.emailNormalized === normalizedEmail);
+        const usernameUser = identityUsers.find(
+          (user) => user.usernameNormalized === normalizedUsername,
+        );
+        if (emailUser && usernameUser && emailUser.id !== usernameUser.id) {
+          this.throwInviteIdentityConflict();
+        }
+        let user = emailUser ?? usernameUser;
+        if (user) {
+          const reusablePlaceholder =
+            user.emailNormalized === normalizedEmail &&
+            user.usernameNormalized === normalizedUsername &&
+            ['inactive', 'invited'].includes(user.status) &&
+            user.passwordHash === null &&
+            user.disabledAt === null &&
+            !user.mfaEnabled;
+          if (!reusablePlaceholder) this.throwInviteIdentityConflict();
+          user.email = normalizedEmail;
+          user.username = normalizedUsername;
+          user.displayName = invite.displayName.trim();
+          user.role = invite.role;
+          user.status = 'active';
+          user.passwordHash = passwordHash;
+          user.mustChangePassword = false;
+          user.mfaEnabled = false;
+          user.mfaSecretEncrypted = null;
+          user.failedLoginCount = 0;
+          user.lockedUntil = null;
+          user = await manager.save(UserEntity, user);
+        } else {
+          user = await manager.save(UserEntity, {
+            email: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            username: normalizedUsername,
+            usernameNormalized: normalizedUsername,
+            displayName: invite.displayName.trim(),
+            role: invite.role,
+            status: 'active',
+            passwordHash,
+            mustChangePassword: false,
+            mfaEnabled: false,
+            mfaSecretEncrypted: null,
+            failedLoginCount: 0,
+            lockedUntil: null,
+            disabledAt: null,
+          });
+        }
+
+        const now = new Date();
+        await manager.update(
+          AdminSessionEntity,
+          { userId: user.id, revokedAt: IsNull() },
+          {
+            revokedAt: now,
+          },
+        );
+        await manager.delete(UserMfaRecoveryCodeEntity, { userId: user.id });
+        await manager.delete(UserMfaMethodEntity, { userId: user.id });
+        invite.usedAt = now;
+        invite.acceptedUserId = user.id;
+        await manager.save(InviteEntity, invite);
+        await this.scrubInviteOutbox(manager, invite.id, 'accepted');
+        const challenge = await this.createPreauthSession(manager, user.id, metadata);
+        await this.insertAudit(
+          manager,
+          user.id,
+          user.role,
+          metadata.requestId,
+          'user.created_from_invite',
+          'user',
+          user.id,
+          { assignedRole: user.role, inviteId: invite.id },
+        );
+        await this.insertAudit(
+          manager,
+          user.id,
+          user.role,
+          metadata.requestId,
+          'invite.accepted',
+          'invite',
+          invite.id,
+          { assignedRole: user.role, userId: user.id },
+        );
+        return {
+          token: challenge.token,
+          csrfToken: challenge.csrfToken,
+          data: {
+            status: 'mfa_required' as const,
+            mfaEnrollmentRequired: true,
+            challengeExpiresAt: challenge.expiresAt.toISOString(),
+          },
+        };
+      });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) this.throwInviteIdentityConflict();
+      throw error;
+    }
+  }
+
+  async revokeInvite(
+    inviteId: string,
+    actorId: string,
+    actorRole: string,
+    requestId: string,
+    idempotencyKey: string,
+  ) {
+    const requestDigest = this.idempotency.digest({ inviteId });
+    return this.dataSource.transaction(async (manager) => {
+      const claim = await this.idempotency.claim<Record<string, unknown>>(
+        manager,
+        actorId,
+        'invite.revoke',
+        idempotencyKey,
+        requestDigest,
+      );
+      if (!claim.owner) return this.replayed(claim.response);
+      const invite = await manager.findOne(InviteEntity, {
+        where: { id: inviteId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!invite) {
+        throw new AppException(404, 'INVITE_NOT_FOUND', 'Không tìm thấy lời mời.');
+      }
+      if (invite.usedAt) {
+        throw new AppException(409, 'INVITE_NOT_REVOCABLE', 'Lời mời không thể thu hồi.');
+      }
+      const revokedAt = invite.revokedAt ?? new Date();
+      if (!invite.revokedAt) {
+        invite.revokedAt = revokedAt;
+        await manager.save(InviteEntity, invite);
+        await this.scrubInviteOutbox(manager, invite.id, 'revoked');
+        await this.insertAudit(
+          manager,
+          actorId,
+          actorRole,
+          requestId,
+          'invite.revoked',
+          'invite',
+          invite.id,
+          {},
+        );
+      }
+      const response = {
+        id: invite.id,
+        status: 'revoked' as const,
+        revokedAt: revokedAt.toISOString(),
+      };
+      await this.idempotency.complete(
+        manager,
+        actorId,
+        'invite.revoke',
+        idempotencyKey,
+        response,
+        200,
+      );
+      return response;
+    });
+  }
+
   private async lockActivePreauth(
     manager: EntityManager,
     sessionId: string,
@@ -555,6 +756,30 @@ export class AuthService {
     return { session, sessionToken, csrfToken };
   }
 
+  private async createPreauthSession(
+    manager: EntityManager,
+    userId: string,
+    metadata: RequestMetadata,
+  ) {
+    const token = this.crypto.randomToken();
+    const csrfToken = this.crypto.randomToken(24);
+    const expiresAt = new Date(Date.now() + 5 * 60_000);
+    const session = manager.create(AdminSessionEntity, {
+      userId,
+      tokenHash: this.crypto.digest(token),
+      csrfHash: this.crypto.digest(csrfToken),
+      kind: 'preauth',
+      expiresAt,
+      revokedAt: null,
+      ipHash: metadata.ip ? this.crypto.digest(metadata.ip) : null,
+      userAgent: metadata.userAgent?.slice(0, 512) ?? null,
+      mfaFailedAttempts: 0,
+      mfaLockedUntil: null,
+    });
+    await manager.save(AdminSessionEntity, session);
+    return { session, token, csrfToken, expiresAt };
+  }
+
   private generateRecoveryCode(): string {
     return randomBytes(10)
       .toString('hex')
@@ -613,35 +838,56 @@ export class AuthService {
     requestId: string,
   ) {
     const normalizedEmail = dto.email.trim().toLowerCase();
-    await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
-      `invite:${normalizedEmail}`,
-    ]);
-    const idempotencyProbe = await manager.findOne(InviteEntity, {
-      where: { email: normalizedEmail, usedAt: IsNull(), revokedAt: IsNull() },
+    const normalizedUsername = dto.username.trim().toLowerCase();
+    await this.lockIdentityKeys(manager, normalizedEmail, normalizedUsername);
+    const userConflict = await manager.findOne(UserEntity, {
+      where: [{ emailNormalized: normalizedEmail }, { usernameNormalized: normalizedUsername }],
+    });
+    if (userConflict) {
+      throw new AppException(
+        409,
+        'INVITE_IDENTITY_CONFLICT',
+        'Email hoặc tên đăng nhập đã thuộc một tài khoản nội bộ.',
+      );
+    }
+    const probes = await manager.find(InviteEntity, {
+      where: [
+        { email: normalizedEmail, usedAt: IsNull(), revokedAt: IsNull() },
+        { username: normalizedUsername, usedAt: IsNull(), revokedAt: IsNull() },
+      ],
       order: { createdAt: 'DESC' },
     });
-    if (idempotencyProbe?.expiresAt && idempotencyProbe.expiresAt > new Date()) {
-      if (
-        idempotencyProbe.username !== dto.username.trim().toLowerCase() ||
-        idempotencyProbe.displayName !== dto.displayName.trim() ||
-        idempotencyProbe.role !== dto.role
-      ) {
+    const now = new Date();
+    const activeProbes = probes.filter((probe) => probe.expiresAt > now);
+    const matchingProbe = activeProbes.find(
+      (probe) => probe.email === normalizedEmail && probe.username === normalizedUsername,
+    );
+    if (matchingProbe) {
+      if (matchingProbe.displayName !== dto.displayName.trim() || matchingProbe.role !== dto.role) {
         throw new AppException(
           409,
           'INVITE_ACTIVE_CONFLICT',
           'Email đã có lời mời đang hoạt động với thông tin khác.',
         );
       }
-      return this.inviteResponse(idempotencyProbe);
+      return this.inviteResponse(matchingProbe);
     }
-    if (idempotencyProbe) {
-      await manager.update(InviteEntity, idempotencyProbe.id, { revokedAt: new Date() });
+    if (activeProbes.length > 0) {
+      throw new AppException(
+        409,
+        'INVITE_ACTIVE_CONFLICT',
+        'Email hoặc tên đăng nhập đã có lời mời đang hoạt động.',
+      );
+    }
+    for (const expired of probes) {
+      await manager.update(InviteEntity, expired.id, { revokedAt: now });
+      await this.scrubInviteOutbox(manager, expired.id, 'expired');
     }
     const token = this.crypto.randomToken();
     const expiresAt = new Date(Date.now() + dto.expiresInHours * 60 * 60_000);
     const invite = await manager.save(InviteEntity, {
       email: normalizedEmail,
-      username: dto.username.trim().toLowerCase(),
+      username: normalizedUsername,
       displayName: dto.displayName.trim(),
       role: dto.role,
       tokenHash: this.crypto.digest(token),
@@ -649,10 +895,12 @@ export class AuthService {
       expiresAt,
       usedAt: null,
       revokedAt: null,
+      acceptedUserId: null,
     });
     await manager.insert(MailOutboxEntity, {
       templateKey: 'identity.invite',
       recipientEmail: invite.email,
+      inviteId: invite.id,
       payloadEncrypted: this.crypto.encrypt(JSON.stringify({ inviteId: invite.id, token })),
       status: 'pending',
       attempts: 0,
@@ -672,6 +920,67 @@ export class AuthService {
       },
     );
     return this.inviteResponse(invite);
+  }
+
+  private async lockIdentityKeys(
+    manager: EntityManager,
+    normalizedEmail: string,
+    normalizedUsername: string,
+  ): Promise<void> {
+    const keys = [
+      `identity:email:${normalizedEmail}`,
+      `identity:username:${normalizedUsername}`,
+    ].sort();
+    for (const key of keys) {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [key]);
+    }
+  }
+
+  private async scrubInviteOutbox(
+    manager: EntityManager,
+    inviteId: string,
+    status: 'accepted' | 'revoked' | 'expired',
+  ): Promise<void> {
+    await manager.query(
+      `UPDATE mail_outbox
+       SET payload_encrypted=$2,
+           status=CASE WHEN status IN ('pending','sending') THEN 'failed' ELSE status END,
+           next_attempt_at=NULL,
+           updated_at=now()
+       WHERE invite_id=$1`,
+      [inviteId, this.crypto.encrypt(JSON.stringify({ inviteId, status }))],
+    );
+  }
+
+  private isInviteUsable(invite: InviteEntity): boolean {
+    return !invite.usedAt && !invite.revokedAt && invite.expiresAt > new Date();
+  }
+
+  private throwInvalidInvite(): never {
+    throw new AppException(
+      400,
+      'INVITE_INVALID_OR_EXPIRED',
+      'Lời mời không hợp lệ hoặc đã hết hạn.',
+    );
+  }
+
+  private throwInviteIdentityConflict(): never {
+    throw new AppException(
+      409,
+      'INVITE_ACCEPTANCE_CONFLICT',
+      'Không thể hoàn tất lời mời với thông tin hiện tại.',
+    );
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) return false;
+    return (error.driverError as { code?: string } | undefined)?.code === '23505';
+  }
+
+  private maskEmail(email: string): string {
+    const [local = '', domain = ''] = email.split('@');
+    const visible = local.slice(0, 1);
+    return `${visible}${'*'.repeat(Math.max(3, local.length - 1))}@${domain}`;
   }
 
   private async insertAudit(

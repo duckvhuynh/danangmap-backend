@@ -25,6 +25,7 @@ describe('environment validation', () => {
         COOKIE_SECURE: 'true',
         GEO_SERVICE_RETRY_ATTEMPTS: '3',
         GEO_SERVICE_BREAKER_FAILURE_THRESHOLD: '10',
+        TRUST_PROXY_HOPS: '1',
       }),
     ).toEqual(
       expect.objectContaining({
@@ -32,6 +33,7 @@ describe('environment validation', () => {
         COOKIE_SECURE: true,
         GEO_SERVICE_RETRY_ATTEMPTS: 3,
         GEO_SERVICE_BREAKER_FAILURE_THRESHOLD: 10,
+        TRUST_PROXY_HOPS: 1,
       }),
     );
   });
@@ -41,6 +43,13 @@ describe('environment validation', () => {
       'Invalid environment configuration',
     );
     expect(() => validateEnvironment({ ...baseline, GEO_SERVICE_BREAKER_OPEN_MS: '999' })).toThrow(
+      'Invalid environment configuration',
+    );
+  });
+
+  it('keeps proxy trust off by default and rejects an unbounded hop count', () => {
+    expect(validateEnvironment(baseline).TRUST_PROXY_HOPS).toBe(0);
+    expect(() => validateEnvironment({ ...baseline, TRUST_PROXY_HOPS: '4' })).toThrow(
       'Invalid environment configuration',
     );
   });

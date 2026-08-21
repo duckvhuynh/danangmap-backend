@@ -10,6 +10,7 @@ import {
 } from './auth.guards';
 import { AuthService } from './auth.service';
 import { UsersController } from './users.controller';
+import { IdentityRateLimitService } from './identity-rate-limit.service';
 import {
   AdminSessionEntity,
   InviteEntity,
@@ -31,7 +32,15 @@ import {
     ]),
   ],
   controllers: [AuthController, UsersController],
-  providers: [AuthService, SessionGuard, PreAuthGuard, OptionalAuthGuard, RolesGuard, CsrfGuard],
+  providers: [
+    AuthService,
+    IdentityRateLimitService,
+    SessionGuard,
+    PreAuthGuard,
+    OptionalAuthGuard,
+    RolesGuard,
+    CsrfGuard,
+  ],
   exports: [SessionGuard, RolesGuard, CsrfGuard, TypeOrmModule],
 })
 export class IdentityModule {}

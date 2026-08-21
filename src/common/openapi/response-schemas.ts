@@ -72,6 +72,29 @@ export const inviteResultSchema: SchemaObject = {
   },
 };
 
+export const inviteInspectionSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['maskedEmail', 'role', 'expiresAt', 'requiresMfaEnrollment'],
+  properties: {
+    maskedEmail: { type: 'string' },
+    role: { type: 'string', enum: ['editor', 'reviewer', 'publisher', 'system_admin'] },
+    expiresAt: dateTime,
+    requiresMfaEnrollment: { type: 'boolean', enum: [true] },
+  },
+};
+
+export const inviteRevocationSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'status', 'revokedAt'],
+  properties: {
+    id: uuid,
+    status: { type: 'string', enum: ['revoked'] },
+    revokedAt: dateTime,
+  },
+};
+
 export const userCreationResultSchema: SchemaObject = {
   oneOf: [authPrincipalSchema, inviteResultSchema],
 };

@@ -15,6 +15,14 @@ export async function createApplication() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
   const allowedOrigins = frontendOrigins(config.getOrThrow<string>('app.frontendOrigins'));
+  const trustProxyHops = config.getOrThrow<number>('app.trustProxyHops');
+
+  if (trustProxyHops > 0) {
+    const express = app.getHttpAdapter().getInstance() as {
+      set(name: string, value: number): void;
+    };
+    express.set('trust proxy', trustProxyHops);
+  }
 
   app.enableShutdownHooks();
   app.setGlobalPrefix('api', { exclude: ['health/live', 'health/ready'] });

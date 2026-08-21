@@ -24,5 +24,9 @@ export const configuration = () => ({
     authHeader: process.env.GEO_SERVICE_AUTH_HEADER || undefined,
     connectTimeoutMs: Number(process.env.GEO_SERVICE_CONNECT_TIMEOUT_MS ?? 2_000),
     totalTimeoutMs: Number(process.env.GEO_SERVICE_TOTAL_TIMEOUT_MS ?? 5_000),
+    retryAttempts: Number(process.env.GEO_SERVICE_RETRY_ATTEMPTS ?? 2),
+    retryDelayMs: Number(process.env.GEO_SERVICE_RETRY_DELAY_MS ?? 100),
+    breakerFailureThreshold: Number(process.env.GEO_SERVICE_BREAKER_FAILURE_THRESHOLD ?? 5),
+    breakerOpenMs: Number(process.env.GEO_SERVICE_BREAKER_OPEN_MS ?? 30_000),
   },
 });

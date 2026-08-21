@@ -2209,7 +2209,7 @@ export interface operations {
                             position: {
                                 longitude: number;
                                 latitude: number;
-                            };
+                            } | null;
                             bbox?: number[] | null;
                             layer: {
                                 [key: string]: unknown;
@@ -2267,7 +2267,7 @@ export interface operations {
                             position: {
                                 longitude: number;
                                 latitude: number;
-                            };
+                            } | null;
                             phone?: string | null;
                             website?: string | null;
                             /** @enum {string} */

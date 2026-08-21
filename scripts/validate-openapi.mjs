@@ -263,6 +263,15 @@ if (
 ) {
   throw new Error('Import inspection descriptor is missing or untyped');
 }
+const searchPosition =
+  operationsById.get('searchPublicMap')?.responses?.['200']?.content?.['application/json']?.schema
+    ?.properties?.data?.items?.properties?.position;
+const placePosition =
+  operationsById.get('getExternalPlace')?.responses?.['200']?.content?.['application/json']?.schema
+    ?.properties?.data?.properties?.position;
+if (searchPosition?.nullable !== true || placePosition?.nullable !== true) {
+  throw new Error('Geo Service position must remain required and nullable');
+}
 for (const [name, schema] of Object.entries(document.components?.schemas ?? {})) {
   if (
     schema?.type === 'object' &&
@@ -292,5 +301,11 @@ if (
   !generatedTypes.includes('parserStatus: "pending" | "inspected";')
 ) {
   throw new Error('Generated import polling unions are missing');
+}
+const nullablePositionTypes = generatedTypes.match(
+  /position: \{\s+longitude: number;\s+latitude: number;\s+\} \| null;/g,
+);
+if ((nullablePositionTypes?.length ?? 0) < 2) {
+  throw new Error('Generated search and place detail positions must include null');
 }
 console.log(`Validated ${seen.size} unique operation IDs and typed success responses.`);

@@ -2,12 +2,24 @@ import type { PublicationJobView } from './publication.dto';
 import type { PublicationJobRow } from './publication-job.repository';
 
 const FAILURE_MESSAGES: Record<string, { userMessage: string; retryable: boolean }> = {
+  PUBLICATION_ACTOR_INELIGIBLE: {
+    userMessage: 'Quyền công bố của người yêu cầu không còn hợp lệ.',
+    retryable: false,
+  },
+  PUBLICATION_BASE_STALE: {
+    userMessage: 'Publication hiện hành đã thay đổi trong lúc xử lý.',
+    retryable: false,
+  },
   PUBLICATION_BUILD_LIMIT_EXCEEDED: {
     userMessage: 'Revision vượt quá giới hạn xử lý công bố.',
     retryable: false,
   },
   PUBLICATION_INPUT_INVALID: {
     userMessage: 'Revision không còn hợp lệ để công bố.',
+    retryable: false,
+  },
+  PUBLICATION_SEPARATION_OF_DUTIES: {
+    userMessage: 'Người yêu cầu không còn đáp ứng nguyên tắc phân tách nhiệm vụ.',
     retryable: false,
   },
   PUBLICATION_DEPENDENCY_UNAVAILABLE: {

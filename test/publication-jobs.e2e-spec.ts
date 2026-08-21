@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { Queue } from 'bullmq';
 import AppDataSource from '../src/database/data-source';
 import { PUBLICATION_QUEUE } from '../src/jobs/jobs.constants';
@@ -51,13 +51,17 @@ interface JobView {
 }
 
 const describeAsync = process.env.ASYNC_PUBLICATION_ENABLED === 'true' ? describe : describe.skip;
+const expectWorker = process.env.ASYNC_PUBLICATION_WORKER_EXPECTED === 'true';
 
 describeAsync('durable publication admission HTTP E2E', () => {
   const startedAt = new Date();
   const groupId = randomUUID();
   const layerId = randomUUID();
   const revisionId = randomUUID();
+  const featureId = randomUUID();
+  const featureVersionId = randomUUID();
   const failedJobId = randomUUID();
+  const layerSlug = `async-publication-${layerId}`;
   let publisher: Actor;
   let actors: Actor[];
   let admittedJobId: string | null = null;
@@ -92,7 +96,7 @@ describeAsync('durable publication admission HTTP E2E', () => {
     );
     await AppDataSource.query(
       `INSERT INTO layers(id,slug,group_id,created_by) VALUES($1,$2,$3,$4)`,
-      [layerId, `async-publication-${layerId}`, groupId, users.editor.id],
+      [layerId, layerSlug, groupId, users.editor.id],
     );
     await AppDataSource.query(
       `INSERT INTO layer_revisions(
@@ -100,6 +104,48 @@ describeAsync('durable publication admission HTTP E2E', () => {
          created_by,submitted_at,approved_at
        ) VALUES($1,$2,1,'approved','Async publication E2E','point','{point}',$3,now(),now())`,
       [revisionId, layerId, users.editor.id],
+    );
+    await AppDataSource.query(
+      `INSERT INTO layer_fields(
+         revision_id,key,label,type,required,public,sensitive,searchable,filterable,
+         offline_cache,display_order
+       ) VALUES
+         ($1,'name','Private name','text',false,false,false,true,true,false,1),
+         ($1,'address','Private address','address',false,false,false,true,true,false,2),
+         ($1,'public_code','Public code','text',true,true,false,true,true,true,3),
+         ($1,'documents','Private storage object','attachment',false,true,false,true,true,false,4),
+         ($1,'photo','Private image object','image',false,true,false,true,true,false,5)`,
+      [revisionId],
+    );
+    await AppDataSource.query(`INSERT INTO features(id,layer_id) VALUES($1,$2)`, [
+      featureId,
+      layerId,
+    ]);
+    await AppDataSource.query(
+      `INSERT INTO feature_versions(
+         id,feature_id,revision_id,geometry,geometry_kind,properties,checksum,created_by
+       ) VALUES(
+         $1,$2,$3,ST_SetSRID(ST_MakePoint(108.2,16.05),4326),'point',$4::jsonb,$5,$6
+       )`,
+      [
+        featureVersionId,
+        featureId,
+        revisionId,
+        JSON.stringify({
+          name: 'private-name-http-canary',
+          address: 'private-address-http-canary',
+          public_code: 'public-http-code',
+          documents: ['storage-key-http-canary'],
+          photo: ['image-key-http-canary'],
+        }),
+        'source-http-canary-checksum',
+        users.editor.id,
+      ],
+    );
+    await AppDataSource.query(
+      `INSERT INTO revision_features(revision_id,feature_id,feature_version_id,ordinal)
+       VALUES($1,$2,$3,1)`,
+      [revisionId, featureId, featureVersionId],
     );
     await AppDataSource.query(
       `INSERT INTO revision_participants(revision_id,user_id,participation_type)
@@ -158,6 +204,12 @@ describeAsync('durable publication admission HTTP E2E', () => {
         await manager.query(`DELETE FROM publication_jobs WHERE layer_id=$1`, [layerId]);
         await manager.query(`DELETE FROM workflow_events WHERE revision_id=$1`, [revisionId]);
         await manager.query(`DELETE FROM revision_participants WHERE revision_id=$1`, [revisionId]);
+        await manager.query(`DELETE FROM revision_features WHERE revision_id=$1`, [revisionId]);
+        await manager.query(`DELETE FROM feature_versions WHERE revision_id=$1`, [revisionId]);
+        await manager.query(`DELETE FROM layer_fields WHERE revision_id=$1`, [revisionId]);
+        await manager.query(`DELETE FROM layer_publications WHERE layer_id=$1`, [layerId]);
+        await manager.query(`DELETE FROM publication_snapshots WHERE layer_id=$1`, [layerId]);
+        await manager.query(`DELETE FROM features WHERE layer_id=$1`, [layerId]);
         await manager.query(`DELETE FROM layer_revisions WHERE id=$1`, [revisionId]);
         await manager.query(`DELETE FROM layers WHERE id=$1`, [layerId]);
         await manager.query(`DELETE FROM layer_groups WHERE id=$1`, [groupId]);
@@ -277,6 +329,7 @@ describeAsync('durable publication admission HTTP E2E', () => {
       'IDEMPOTENCY_KEY_REUSED',
     );
 
+    if (expectWorker) await waitForJobStatus(job.id, 'succeeded');
     const rows = (await AppDataSource.query(
       `SELECT job.client_intent,job.status,job.phase,job.requested_by,
               revision.status AS revision_status,revision.lock_version,
@@ -290,17 +343,55 @@ describeAsync('durable publication admission HTTP E2E', () => {
        JOIN layer_revisions revision ON revision.id=job.revision_id WHERE job.id=$1`,
       [job.id],
     )) as Array<Record<string, unknown>>;
-    expect(rows[0]).toMatchObject({
-      client_intent: 'desktop',
-      status: 'queued',
-      phase: 'queued',
-      requested_by: users.publisher.id,
-      revision_status: 'publishing',
-      lock_version: 2,
-      outbox_count: 1,
-      event_count: 1,
-      audit_count: 1,
-    });
+    expect(rows[0]).toMatchObject(
+      expectWorker
+        ? {
+            client_intent: 'desktop',
+            status: 'succeeded',
+            phase: 'completed',
+            requested_by: users.publisher.id,
+            revision_status: 'published',
+            lock_version: 3,
+            outbox_count: 1,
+            event_count: 1,
+            audit_count: 1,
+          }
+        : {
+            client_intent: 'desktop',
+            status: 'queued',
+            phase: 'queued',
+            requested_by: users.publisher.id,
+            revision_status: 'publishing',
+            lock_version: 2,
+            outbox_count: 1,
+            event_count: 1,
+            audit_count: 1,
+          },
+    );
+    if (expectWorker) {
+      const terminal = await get(publisher, `/api/v1/admin/publication-jobs/${job.id}`);
+      expect(terminal.status).toBe(200);
+      expect((await json<Envelope<JobView>>(terminal)).data).toMatchObject({
+        status: 'succeeded',
+        phase: 'completed',
+        progress: { completedUnits: 1, totalUnits: 1, percent: 100 },
+        failure: null,
+      });
+      const pointer = (await AppDataSource.query(
+        `SELECT snapshot.generation::integer AS generation,snapshot.feature_count
+         FROM layer_publications pointer
+         JOIN publication_snapshots snapshot ON snapshot.id=pointer.active_snapshot_id
+         WHERE pointer.layer_id=$1`,
+        [layerId],
+      )) as Array<{ generation: number; feature_count: number }>;
+      expect(pointer).toEqual([{ generation: 1, feature_count: 1 }]);
+      await expectCanonicalPublicHttpProjection(job.id);
+      const readiness = await fetch(`${apiBaseUrl}/health/ready`);
+      expect(readiness.status).toBe(200);
+      expect((await json<{ checks: { publication: string } }>(readiness)).checks.publication).toBe(
+        'up',
+      );
+    }
     const audits = (await AppDataSource.query(
       `SELECT metadata FROM audit_logs WHERE action='publication.queued' AND resource_id=$1`,
       [revisionId],
@@ -375,6 +466,150 @@ describeAsync('durable publication admission HTTP E2E', () => {
     )) as Array<Record<string, unknown>>;
     return rows[0];
   }
+
+  async function waitForJobStatus(
+    jobId: string,
+    status: string,
+    timeoutMs = 20_000,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const rows = (await AppDataSource.query(`SELECT status FROM publication_jobs WHERE id=$1`, [
+        jobId,
+      ])) as Array<{ status: string }>;
+      if (rows[0]?.status === status) return;
+      if (rows[0]?.status === 'failed') {
+        throw new Error(`Publication worker failed before reaching ${status}.`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(`Timed out waiting for publication job status ${status}.`);
+  }
+
+  async function expectCanonicalPublicHttpProjection(jobId: string): Promise<void> {
+    const catalogResponse = await fetch(`${apiBaseUrl}/api/v1/public/layers`);
+    expect(catalogResponse.status).toBe(200);
+    const catalog = (await json<Envelope<Array<Record<string, unknown>>>>(catalogResponse)).data;
+    const catalogLayer = catalog.find((layer) => layer.id === layerId);
+    expect(catalogLayer).toMatchObject({
+      filterCapabilities: { fieldKeys: ['public_code'] },
+      searchCapabilities: { enabled: true, fieldKeys: ['public_code'] },
+    });
+    expectNoPublicHttpCanaries(catalogLayer);
+
+    const detailResponse = await fetch(`${apiBaseUrl}/api/v1/public/layers/${layerSlug}`);
+    expect(detailResponse.status).toBe(200);
+    const detail = (await json<Envelope<Record<string, unknown>>>(detailResponse)).data as {
+      fields: Array<{ key: string }>;
+    };
+    expect(detail.fields.map((field) => field.key)).toEqual(['public_code']);
+    expectNoPublicHttpCanaries(detail);
+
+    const featuresResponse = await fetch(
+      `${apiBaseUrl}/api/v1/public/layers/${layerSlug}/features`,
+    );
+    expect(featuresResponse.status).toBe(200);
+    const featuresEtag = requiredHeader(featuresResponse, 'etag');
+    const collection = await json<{
+      type: 'FeatureCollection';
+      features: Array<Record<string, unknown>>;
+      meta: Record<string, unknown>;
+    }>(featuresResponse);
+    expect(featuresEtag).toBe(
+      `"${createHash('sha256').update(JSON.stringify(collection)).digest('base64url')}"`,
+    );
+    expect(collection.features).toHaveLength(1);
+    expect(collection.features[0]).toMatchObject({
+      type: 'Feature',
+      id: featureId,
+      properties: { public_code: 'public-http-code' },
+    });
+    expectNoPublicHttpCanaries(collection);
+    const conditional = await fetch(`${apiBaseUrl}/api/v1/public/layers/${layerSlug}/features`, {
+      headers: { 'If-None-Match': featuresEtag },
+    });
+    expect(conditional.status).toBe(304);
+
+    const filtered = await fetch(
+      `${apiBaseUrl}/api/v1/public/layers/${layerSlug}/features?filter=${encodeURIComponent('public_code:eq:public-http-code')}`,
+    );
+    expect(filtered.status).toBe(200);
+    expect(
+      (await json<{ features: Array<{ id: string }> }>(filtered)).features.map(
+        (feature) => feature.id,
+      ),
+    ).toEqual([featureId]);
+    await expectProblem(
+      fetch(
+        `${apiBaseUrl}/api/v1/public/layers/${layerSlug}/features?filter=${encodeURIComponent('documents:eq:storage-key-http-canary')}`,
+      ),
+      400,
+      'FILTER_NOT_ALLOWED',
+    );
+
+    const featureResponse = await fetch(
+      `${apiBaseUrl}/api/v1/public/layers/${layerSlug}/features/${featureId}`,
+    );
+    expect(featureResponse.status).toBe(200);
+    const feature = (await json<Envelope<Record<string, unknown>>>(featureResponse)).data;
+    expect(feature).toMatchObject({
+      id: featureId,
+      properties: { public_code: 'public-http-code' },
+      attachments: [],
+    });
+    expectNoPublicHttpCanaries(feature);
+
+    const searchResponse = await fetch(
+      `${apiBaseUrl}/api/v1/public/search?q=public-http-code&sources=internal&layerIds=${layerId}`,
+    );
+    expect(searchResponse.status).toBe(200);
+    const search = await json<{ data: Array<Record<string, unknown>> }>(searchResponse);
+    expect(search.data).toHaveLength(1);
+    expect(search.data[0]).toMatchObject({
+      featureId,
+      title: featureId,
+      subtitle: null,
+    });
+    expectNoPublicHttpCanaries(search);
+    for (const canary of [
+      'private-name-http-canary',
+      'private-address-http-canary',
+      'storage-key-http-canary',
+      'image-key-http-canary',
+    ]) {
+      const hiddenResponse = await fetch(
+        `${apiBaseUrl}/api/v1/public/search?q=${encodeURIComponent(canary)}&sources=internal&layerIds=${layerId}`,
+      );
+      expect(hiddenResponse.status).toBe(200);
+      expect((await json<{ data: unknown[] }>(hiddenResponse)).data).toEqual([]);
+    }
+
+    const tileResponse = await fetch(`${apiBaseUrl}/api/v1/public/tiles/${layerSlug}/1/0/0/0.pbf`);
+    expect(tileResponse.status).toBe(200);
+    const tile = Buffer.from(await tileResponse.arrayBuffer());
+    expectNoPublicHttpCanaries(tile.toString('latin1'));
+
+    const build = (await AppDataSource.query(
+      `SELECT job.build_checksum,snapshot.checksum,batch.public_checksum,batch.public_projection
+       FROM publication_jobs job
+       JOIN publication_snapshots snapshot ON snapshot.id=job.result_snapshot_id
+       JOIN publication_job_batches batch ON batch.job_id=job.id
+       WHERE job.id=$1`,
+      [jobId],
+    )) as Array<{
+      build_checksum: string;
+      checksum: string;
+      public_checksum: string;
+      public_projection: Array<Record<string, unknown>>;
+    }>;
+    expect(build).toHaveLength(1);
+    expect(build[0]!.checksum).toBe(build[0]!.build_checksum);
+    expect(build[0]!.checksum).toBe(
+      createHash('sha256').update(build[0]!.public_checksum).digest('hex'),
+    );
+    expect(build[0]!.public_projection).toEqual(collection.features);
+    expectNoPublicHttpCanaries(build[0]!.public_projection);
+  }
 });
 
 async function get(actor: Actor, path: string, ifNoneMatch?: string) {
@@ -412,6 +647,18 @@ function requiredHeader(response: Response, name: string): string {
   const value = response.headers.get(name);
   if (!value) throw new Error(`Missing ${name}`);
   return value;
+}
+
+function expectNoPublicHttpCanaries(value: unknown): void {
+  const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+  for (const canary of [
+    'private-name-http-canary',
+    'private-address-http-canary',
+    'storage-key-http-canary',
+    'image-key-http-canary',
+  ]) {
+    expect(serialized).not.toContain(canary);
+  }
 }
 
 async function json<T>(response: Response): Promise<T> {

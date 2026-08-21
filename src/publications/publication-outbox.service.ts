@@ -64,7 +64,12 @@ export class PublicationOutboxService implements OnModuleInit, OnApplicationShut
       const reconciliation = await this.repository.queuedForReconciliation(batchSize * 4);
       for (const job of reconciliation) {
         const bullJobId = this.bullJobId(job.id);
-        if (!(await this.queue.getJob(bullJobId))) {
+        const existing = await this.queue.getJob(bullJobId);
+        const state = existing ? await existing.getState() : null;
+        if (existing && (state === 'completed' || state === 'failed' || state === 'delayed')) {
+          await existing.remove();
+        }
+        if (!existing || state === 'completed' || state === 'failed' || state === 'delayed') {
           await this.addJob(job.id, job.payloadVersion);
           this.logger.log(
             JSON.stringify({
@@ -96,6 +101,8 @@ export class PublicationOutboxService implements OnModuleInit, OnApplicationShut
       { publicationJobId, payloadVersion },
       {
         jobId: this.bullJobId(publicationJobId),
+        // PostgreSQL attempts/available_at are authoritative. Bull is delivery only;
+        // transport retry must not outlive the durable capped retry schedule.
         attempts: 1,
         removeOnComplete: false,
         removeOnFail: false,

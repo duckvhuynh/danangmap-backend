@@ -16,6 +16,7 @@ import { LayersService } from '../src/layers/layers.service';
 import { publicationPointerEtag } from '../src/layers/etag';
 import { PublicationRollbackService } from '../src/history/publication-rollback.service';
 import { PublicationAdmissionService } from '../src/publications/publication-admission.service';
+import { PublicationFingerprintService } from '../src/publications/publication-fingerprint.service';
 import { PublicationJobRepository } from '../src/publications/publication-job.repository';
 import { WorkflowService } from '../src/workflow/workflow.service';
 
@@ -609,7 +610,7 @@ describe('Domain command idempotency', () => {
   function createAdmissionService() {
     return new PublicationAdmissionService(
       AppDataSource,
-      crypto,
+      new PublicationFingerprintService(crypto),
       new IdempotencyService(),
       new PublicationJobRepository(AppDataSource),
       new ConfigService({

@@ -19820,7 +19820,8 @@
                         "migrations",
                         "minio",
                         "geoService",
-                        "mail"
+                        "mail",
+                        "publication"
                       ],
                       "properties": {
                         "postgres": {
@@ -19863,6 +19864,14 @@
                           "enum": [
                             "up",
                             "degraded"
+                          ]
+                        },
+                        "publication": {
+                          "type": "string",
+                          "enum": [
+                            "up",
+                            "degraded",
+                            "disabled"
                           ]
                         }
                       }

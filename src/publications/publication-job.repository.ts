@@ -213,11 +213,13 @@ export class PublicationJobRepository {
   ): Promise<Array<{ id: string; payloadVersion: number }>> {
     return this.dataSource.transaction(async (manager) => {
       const cursorRows = this.rows<{
+        availableAt: Date | null;
         createdAt: Date | null;
         jobId: string | null;
       }>(
         await manager.query(
-          `SELECT reconciliation_cursor_created_at AS "createdAt",
+          `SELECT reconciliation_cursor_available_at AS "availableAt",
+                  reconciliation_cursor_created_at AS "createdAt",
                   reconciliation_cursor_job_id AS "jobId"
            FROM publication_worker_state WHERE id=1 FOR UPDATE`,
         ),
@@ -225,17 +227,24 @@ export class PublicationJobRepository {
       const cursor = cursorRows[0];
       if (!cursor) throw new Error('Publication worker state is missing.');
 
-      let jobs = await this.reconciliationPage(manager, limit, cursor.createdAt, cursor.jobId);
-      if (jobs.length === 0 && cursor.createdAt && cursor.jobId) {
-        jobs = await this.reconciliationPage(manager, limit, null, null);
+      let jobs = await this.reconciliationPage(
+        manager,
+        limit,
+        cursor.availableAt,
+        cursor.createdAt,
+        cursor.jobId,
+      );
+      if (jobs.length === 0 && cursor.availableAt && cursor.createdAt && cursor.jobId) {
+        jobs = await this.reconciliationPage(manager, limit, null, null, null);
       }
       const last = jobs.at(-1);
       if (last) {
         await manager.query(
           `UPDATE publication_worker_state
-           SET reconciliation_cursor_created_at=$1,reconciliation_cursor_job_id=$2,updated_at=now()
+           SET reconciliation_cursor_available_at=$1,reconciliation_cursor_created_at=$2,
+               reconciliation_cursor_job_id=$3,updated_at=now()
            WHERE id=1`,
-          [last.createdAt, last.id],
+          [last.availableAt, last.createdAt, last.id],
         );
       }
       return jobs.map(({ id, payloadVersion }) => ({ id, payloadVersion }));
@@ -252,7 +261,7 @@ export class PublicationJobRepository {
              FROM publication_jobs WHERE status='queued'
            ),0),
            building_count=(SELECT count(*)::integer FROM publication_jobs WHERE status='building'),
-           last_error_code=$1,updated_at=now()
+           dispatch_error_code=$1,updated_at=now()
        WHERE id=1`,
       [errorCode],
     );
@@ -276,21 +285,31 @@ export class PublicationJobRepository {
   private async reconciliationPage(
     manager: EntityManager,
     limit: number,
+    cursorAvailableAt: Date | null,
     cursorCreatedAt: Date | null,
     cursorJobId: string | null,
-  ): Promise<Array<{ id: string; payloadVersion: number; createdAt: Date }>> {
+  ): Promise<Array<{ id: string; payloadVersion: number; availableAt: Date; createdAt: Date }>> {
     const cursorPredicate =
-      cursorCreatedAt && cursorJobId
-        ? `AND (job.created_at,job.id)>($2::timestamptz,$3::uuid)`
+      cursorAvailableAt && cursorCreatedAt && cursorJobId
+        ? `AND (job.available_at,job.created_at,job.id)>
+             ($2::timestamptz,$3::timestamptz,$4::uuid)`
         : '';
-    const parameters = cursorPredicate ? [limit, cursorCreatedAt, cursorJobId] : [limit];
-    return this.rows<{ id: string; payloadVersion: number; createdAt: Date }>(
+    const parameters = cursorPredicate
+      ? [limit, cursorAvailableAt, cursorCreatedAt, cursorJobId]
+      : [limit];
+    return this.rows<{
+      id: string;
+      payloadVersion: number;
+      availableAt: Date;
+      createdAt: Date;
+    }>(
       await manager.query(
-        `SELECT job.id,outbox.payload_version AS "payloadVersion",job.created_at AS "createdAt"
+        `SELECT job.id,outbox.payload_version AS "payloadVersion",
+                job.available_at AS "availableAt",job.created_at AS "createdAt"
          FROM publication_jobs job
          JOIN publication_job_outbox outbox ON outbox.publication_job_id=job.id
-         WHERE job.status='queued' ${cursorPredicate}
-         ORDER BY job.created_at,job.id LIMIT $1`,
+         WHERE job.status='queued' AND job.available_at<=now() ${cursorPredicate}
+         ORDER BY job.available_at,job.created_at,job.id LIMIT $1`,
         parameters,
       ),
     );

@@ -47,12 +47,18 @@ describe('environment validation', () => {
         ASYNC_PUBLICATION_ENABLED: 'true',
         PUBLICATION_DISPATCH_BATCH_SIZE: '100',
         PUBLICATION_OUTBOX_LEASE_SECONDS: '300',
+        PUBLICATION_BUILD_BATCH_SIZE: '500',
+        PUBLICATION_MAX_FEATURES: '1000000',
+        PUBLICATION_MAX_VERTICES: '20000000',
       }),
     ).toEqual(
       expect.objectContaining({
         ASYNC_PUBLICATION_ENABLED: true,
         PUBLICATION_DISPATCH_BATCH_SIZE: 100,
         PUBLICATION_OUTBOX_LEASE_SECONDS: 300,
+        PUBLICATION_BUILD_BATCH_SIZE: 500,
+        PUBLICATION_MAX_FEATURES: 1_000_000,
+        PUBLICATION_MAX_VERTICES: 20_000_000,
       }),
     );
     expect(() => validateEnvironment({ ...baseline, ASYNC_PUBLICATION_ENABLED: 'yes' })).toThrow(
@@ -63,6 +69,26 @@ describe('environment validation', () => {
     ).toThrow('PUBLICATION_DISPATCH_BATCH_SIZE');
   });
 
+  it('keeps publication recovery controls bounded and test-only', () => {
+    expect(() => validateEnvironment({ ...baseline, PUBLICATION_BUILD_BATCH_SIZE: '501' })).toThrow(
+      'PUBLICATION_BUILD_BATCH_SIZE',
+    );
+    expect(() =>
+      validateEnvironment({
+        ...baseline,
+        NODE_ENV: 'development',
+        PUBLICATION_TEST_FAILPOINT: 'after_batch_commit',
+      }),
+    ).toThrow('publication test controls are allowed only when NODE_ENV=test');
+    expect(
+      validateEnvironment({
+        ...baseline,
+        NODE_ENV: 'test',
+        PUBLICATION_TEST_BARRIER: 'before_pointer_switch',
+      }).PUBLICATION_TEST_BARRIER,
+    ).toBe('before_pointer_switch');
+  });
+
   it('refuses the admission-only async publication flag in production', () => {
     expect(() =>
       validateEnvironment({
@@ -71,7 +97,7 @@ describe('environment validation', () => {
         ASYNC_PUBLICATION_ENABLED: 'true',
       }),
     ).toThrow(
-      'ASYNC_PUBLICATION_ENABLED: must remain false in production until the durable builder is complete',
+      'ASYNC_PUBLICATION_ENABLED: must remain false in production until frontend and exact E2E activation pass',
     );
     expect(
       validateEnvironment({

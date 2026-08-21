@@ -340,6 +340,16 @@ if (!csrfProblem?.properties?.code?.enum?.includes('CSRF_INVALID')) {
 if (!generatedTypes.includes('getCsrfToken: {') || generatedTypes.includes('rotateCsrf: {')) {
   throw new Error('Generated client CSRF operation ID is stale');
 }
+const readinessChecks =
+  operationsById.get('getReadiness')?.responses?.['200']?.content?.['application/json']?.schema
+    ?.properties?.checks;
+if (
+  !readinessChecks?.required?.includes('publication') ||
+  JSON.stringify(readinessChecks?.properties?.publication?.enum) !==
+    JSON.stringify(['up', 'degraded', 'disabled'])
+) {
+  throw new Error('Readiness must expose the typed durable publication worker check');
+}
 requireWriteOnlyFields('InspectInviteDto', ['token']);
 requireWriteOnlyFields('AcceptInviteDto', ['token', 'password', 'passwordConfirmation']);
 requireWriteOnlyFields('ChangePasswordDto', [

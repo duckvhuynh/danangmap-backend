@@ -95,6 +95,10 @@ services:
       FRONTEND_ORIGINS: http://localhost:3000
       COOKIE_SECURE: 'false'
       MFA_TOTP_ISSUER: DanangMap
+      SEED_ADMIN_PASSWORD: ChangeMe-Admin-2026!
+      SEED_EDITOR_PASSWORD: ChangeMe-Editor-2026!
+      SEED_REVIEWER_PASSWORD: ChangeMe-Reviewer-2026!
+      SEED_PUBLISHER_PASSWORD: ChangeMe-Publisher-2026!
       SEED_MFA_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
       GEO_SERVICE_BASE_URL: ''
       API_BASE_URL: http://api:4000

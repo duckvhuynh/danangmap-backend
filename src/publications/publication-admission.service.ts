@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, type EntityManager } from 'typeorm';
-import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import type { PublishRevisionDto } from '../layers/layer.dto';
 import type { PublicationJobView } from './publication.dto';
+import { PublicationFingerprintService } from './publication-fingerprint.service';
 import { PublicationJobRepository } from './publication-job.repository';
 import {
   asynchronousPublicationResult,
@@ -25,15 +25,8 @@ interface RevisionRow {
   id: string;
   layer_id: string;
   status: string;
-  created_by: string;
-  geometry_mode: string;
-  allowed_geometry_kinds: string[];
-  style: Record<string, unknown>;
-  render_config: Record<string, unknown>;
-  popup_config: Record<string, unknown>;
   schema_version: number;
   lock_version: number;
-  cursor_seq: string;
 }
 
 interface ActivePointer {
@@ -46,7 +39,7 @@ interface ActivePointer {
 export class PublicationAdmissionService {
   constructor(
     private readonly dataSource: DataSource,
-    private readonly crypto: CryptoService,
+    private readonly fingerprint: PublicationFingerprintService,
     private readonly idempotency: IdempotencyService,
     private readonly repository: PublicationJobRepository,
     private readonly config: ConfigService,
@@ -110,19 +103,7 @@ export class PublicationAdmissionService {
       }
       const pointer = await this.assertPublicationBaseCurrent(manager, revision);
       const nextRevisionLockVersion = revision.lock_version + 1;
-      const revisionFingerprint = this.crypto.checksum(
-        JSON.stringify([
-          revision.id,
-          revision.layer_id,
-          revision.geometry_mode,
-          revision.allowed_geometry_kinds,
-          revision.style,
-          revision.render_config,
-          revision.popup_config,
-          revision.schema_version,
-          revision.cursor_seq,
-        ]),
-      );
+      const revisionFingerprint = await this.fingerprint.calculate(manager, revision.id);
 
       await manager.query(
         `UPDATE layer_revisions

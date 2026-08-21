@@ -72,6 +72,8 @@ export class PublicationJobBatchEntity {
   @Column({ name: 'vertex_count', type: 'bigint' }) vertexCount: string;
   @Column({ type: 'double precision', array: true, nullable: true }) bounds: number[] | null;
   @Column({ name: 'public_checksum', type: 'text' }) publicChecksum: string;
+  @Column({ name: 'public_projection', type: 'jsonb' })
+  publicProjection: Array<Record<string, unknown>>;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }
 
@@ -108,9 +110,23 @@ export class PublicationWorkerStateEntity {
   oldestQueuedAgeSeconds: number;
   @Column({ name: 'building_count', type: 'integer', default: 0 }) buildingCount: number;
   @Column({ name: 'last_error_code', type: 'text', nullable: true }) lastErrorCode: string | null;
+  @Column({ name: 'dispatch_error_code', type: 'text', nullable: true })
+  dispatchErrorCode: string | null;
+  @Column({ name: 'worker_error_code', type: 'text', nullable: true })
+  workerErrorCode: string | null;
+  @Column({ name: 'reconciliation_cursor_available_at', type: 'timestamptz', nullable: true })
+  reconciliationCursorAvailableAt: Date | null;
   @Column({ name: 'reconciliation_cursor_created_at', type: 'timestamptz', nullable: true })
   reconciliationCursorCreatedAt: Date | null;
   @Column({ name: 'reconciliation_cursor_job_id', type: 'uuid', nullable: true })
   reconciliationCursorJobId: string | null;
+  @Column({ name: 'last_recovery_sweep_at', type: 'timestamptz', nullable: true })
+  lastRecoverySweepAt: Date | null;
+  @Column({ name: 'recovered_lease_count', type: 'bigint', default: 0 })
+  recoveredLeaseCount: string;
+  @Column({ name: 'completed_job_count', type: 'bigint', default: 0 })
+  completedJobCount: string;
+  @Column({ name: 'failed_job_count', type: 'bigint', default: 0 })
+  failedJobCount: string;
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;
 }

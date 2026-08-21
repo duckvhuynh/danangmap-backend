@@ -7881,6 +7881,8 @@ export interface operations {
                             geoService: "up" | "degraded";
                             /** @enum {string} */
                             mail: "up" | "degraded";
+                            /** @enum {string} */
+                            publication: "up" | "degraded" | "disabled";
                         };
                     };
                 };

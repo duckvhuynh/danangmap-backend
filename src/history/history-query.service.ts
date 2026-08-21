@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource, type EntityManager } from 'typeorm';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
+import { canonicalPublicFieldSql } from '../common/public-field.policy';
 import { publicationPointerEtag } from '../layers/etag';
 import type {
   AuditHistoryQueryDto,
@@ -58,6 +59,7 @@ const LAYER_AUDIT_ACTION_PATTERNS: Record<string, readonly string[]> = {
     'revision.changes_requested',
     'revision.published',
     'publication.queued',
+    'publication.failed',
     'publication.rolled_back',
   ],
   publisher: [
@@ -66,6 +68,7 @@ const LAYER_AUDIT_ACTION_PATTERNS: Record<string, readonly string[]> = {
     'revision.changes_requested',
     'revision.published',
     'publication.queued',
+    'publication.failed',
     'publication.rolled_back',
   ],
 };
@@ -87,6 +90,7 @@ const CONTENT_AUDIT_METADATA_KEYS = new Set([
   'displayOrder',
   'draftRevisionId',
   'featureCount',
+  'failureCode',
   'fieldKey',
   'generation',
   'geometryKind',
@@ -124,7 +128,6 @@ const SYSTEM_AUDIT_METADATA_KEYS = new Set([
   'assignedRole',
   'delivery',
   'expiresAt',
-  'failureCode',
   'inviteId',
   'method',
   'recoveryCodeCount',
@@ -167,6 +170,7 @@ const AUDIT_ACTION_METADATA_KEYS: Record<string, readonly string[]> = {
     'publicCacheVersion',
   ],
   'publication.queued': ['jobId', 'layerId', 'revisionId', 'clientIntent'],
+  'publication.failed': ['jobId', 'layerId', 'revisionId', 'failureCode'],
   'revision.approved': ['comment'],
   'revision.changes_requested': ['comment', 'successorRevisionId'],
   'revision.config_updated': ['impact'],
@@ -407,12 +411,11 @@ export class HistoryQueryService {
           `WITH public_keys AS (
            SELECT COALESCE(array_agg(key ORDER BY key),'{}'::text[]) AS keys
            FROM (
-             SELECT key
-             FROM layer_fields
-             WHERE revision_id IN ($1,$2)
-             GROUP BY key
-             HAVING bool_and(public AND NOT sensitive)
-                AND NOT bool_or(type IN ('attachment','image'))
+             SELECT field.key
+             FROM layer_fields field
+             WHERE field.revision_id IN ($1,$2)
+             GROUP BY field.key
+             HAVING bool_and(${canonicalPublicFieldSql('field')})
            ) safe
          ), current_features AS (
            SELECT member.feature_id,version.geometry,version.properties,version.radius_m
@@ -454,11 +457,10 @@ export class HistoryQueryService {
         )) as Array<Record<string, unknown>>;
         const changedPropertyRows = (await manager.query(
           `WITH public_keys AS (
-            SELECT key FROM layer_fields
-            WHERE revision_id IN ($1,$2)
-            GROUP BY key
-            HAVING bool_and(public AND NOT sensitive)
-               AND NOT bool_or(type IN ('attachment','image'))
+            SELECT field.key FROM layer_fields field
+            WHERE field.revision_id IN ($1,$2)
+            GROUP BY field.key
+            HAVING bool_and(${canonicalPublicFieldSql('field')})
          ), compared AS (
            SELECT current_version.properties AS current_properties,
                   base_version.properties AS base_properties
@@ -487,14 +489,10 @@ export class HistoryQueryService {
            SELECT COALESCE(current_fields.key,base_fields.key) AS key,
                   current_fields.id AS current_id,base_fields.id AS base_id,
                    CASE
-                     WHEN current_fields.id IS NULL THEN base_fields.public AND NOT base_fields.sensitive
-                       AND base_fields.type NOT IN ('attachment','image')
-                     WHEN base_fields.id IS NULL THEN current_fields.public AND NOT current_fields.sensitive
-                       AND current_fields.type NOT IN ('attachment','image')
-                     ELSE current_fields.public AND NOT current_fields.sensitive
-                       AND base_fields.public AND NOT base_fields.sensitive
-                       AND current_fields.type NOT IN ('attachment','image')
-                       AND base_fields.type NOT IN ('attachment','image')
+                     WHEN current_fields.id IS NULL THEN ${canonicalPublicFieldSql('base_fields')}
+                     WHEN base_fields.id IS NULL THEN ${canonicalPublicFieldSql('current_fields')}
+                     ELSE ${canonicalPublicFieldSql('current_fields')}
+                       AND ${canonicalPublicFieldSql('base_fields')}
                    END AS safe_public,
                   (to_jsonb(current_fields)-'id'-'revision_id')
                     IS DISTINCT FROM (to_jsonb(base_fields)-'id'-'revision_id') AS changed
@@ -530,12 +528,11 @@ export class HistoryQueryService {
         const diffCursor = query.cursor ? this.decodeFeatureDiffCursor(query.cursor) : null;
         const entryRows = (await manager.query(
           `WITH safe_fields AS (
-          SELECT key
-          FROM layer_fields
-          WHERE revision_id IN ($1,$2)
-          GROUP BY key
-          HAVING bool_and(public AND NOT sensitive)
-             AND NOT bool_or(type IN ('attachment','image'))
+          SELECT field.key
+          FROM layer_fields field
+          WHERE field.revision_id IN ($1,$2)
+          GROUP BY field.key
+          HAVING bool_and(${canonicalPublicFieldSql('field')})
         ), current_features AS (
           SELECT member.feature_id,version.geometry,version.geometry_kind,
                  version.properties,version.radius_m,version.checksum

@@ -5,6 +5,7 @@ import AppDataSource from '../src/database/data-source';
 import { PUBLICATION_BUILD_JOB, PUBLICATION_QUEUE } from '../src/jobs/jobs.constants';
 import { PublicationJobRepository } from '../src/publications/publication-job.repository';
 import { PublicationOutboxService } from '../src/publications/publication-outbox.service';
+import { PublicationWorkerRepository } from '../src/publications/publication-worker.repository';
 
 jest.setTimeout(60_000);
 
@@ -48,6 +49,7 @@ describe('durable publication outbox with real PostgreSQL and Redis', () => {
           dispatchBatchSize: 25,
           outboxLeaseSeconds: 15,
           maxAttempts: 5,
+          retryBackoffMs: 1_000,
         },
       }),
     );
@@ -83,12 +85,14 @@ describe('durable publication outbox with real PostgreSQL and Redis', () => {
           dispatchBatchSize: 1,
           outboxLeaseSeconds: 15,
           maxAttempts: 5,
+          retryBackoffMs: 1_000,
         },
       }),
     );
     await AppDataSource.query(
       `UPDATE publication_worker_state
-       SET reconciliation_cursor_created_at=NULL,reconciliation_cursor_job_id=NULL WHERE id=1`,
+       SET reconciliation_cursor_available_at=NULL,reconciliation_cursor_created_at=NULL,
+           reconciliation_cursor_job_id=NULL WHERE id=1`,
     );
     const fairnessFixtures = [];
     for (let index = 0; index < 6; index += 1) {
@@ -116,6 +120,102 @@ describe('durable publication outbox with real PostgreSQL and Redis', () => {
       const fixtureIndex = fixtureIds.findIndex((candidate) => candidate.jobId === fixture.jobId);
       if (fixtureIndex >= 0) fixtureIds.splice(fixtureIndex, 1);
     }
+  });
+
+  it('does not starve a delayed retry behind the cursor while newer jobs keep arriving', async () => {
+    const repository = new PublicationJobRepository(AppDataSource);
+    const fairService = new PublicationOutboxService(
+      queue,
+      repository,
+      new ConfigService({
+        publication: {
+          asyncEnabled: true,
+          dispatchIntervalMs: 60_000,
+          dispatchBatchSize: 1,
+          outboxLeaseSeconds: 15,
+          maxAttempts: 5,
+          retryBackoffMs: 1_000,
+        },
+      }),
+    );
+    await AppDataSource.query(
+      `UPDATE publication_worker_state
+       SET reconciliation_cursor_available_at=NULL,reconciliation_cursor_created_at=NULL,
+           reconciliation_cursor_job_id=NULL WHERE id=1`,
+    );
+
+    const delayed = await createFixture();
+    await AppDataSource.query(
+      `UPDATE publication_jobs
+       SET available_at=now()+interval '1 hour',lock_version=lock_version+1 WHERE id=$1`,
+      [delayed.jobId],
+    );
+    await markOutboxDispatched(delayed.jobId);
+
+    const firstPage = [];
+    for (let index = 0; index < 4; index += 1) {
+      const fixture = await createFixture();
+      firstPage.push(fixture);
+      await markOutboxDispatched(fixture.jobId);
+      await queue.add(
+        PUBLICATION_BUILD_JOB,
+        { publicationJobId: fixture.jobId, payloadVersion: 1 },
+        { jobId: `publication-${fixture.jobId}`, removeOnComplete: false, removeOnFail: false },
+      );
+    }
+    await fairService.dispatchOnce();
+    expect(await queue.getJob(`publication-${delayed.jobId}`)).toBeUndefined();
+
+    await AppDataSource.query(
+      `UPDATE publication_jobs SET available_at=now(),lock_version=lock_version+1 WHERE id=$1`,
+      [delayed.jobId],
+    );
+    const newer = [];
+    for (let index = 0; index < 4; index += 1) {
+      const fixture = await createFixture();
+      newer.push(fixture);
+      await markOutboxDispatched(fixture.jobId);
+      await queue.add(
+        PUBLICATION_BUILD_JOB,
+        { publicationJobId: fixture.jobId, payloadVersion: 1 },
+        { jobId: `publication-${fixture.jobId}`, removeOnComplete: false, removeOnFail: false },
+      );
+    }
+    await fairService.dispatchOnce();
+    expect(await queue.getJob(`publication-${delayed.jobId}`)).toBeDefined();
+
+    for (const fixture of [delayed, ...firstPage, ...newer]) {
+      await (await queue.getJob(`publication-${fixture.jobId}`))?.remove();
+      await AppDataSource.query(`DELETE FROM publication_jobs WHERE id=$1`, [fixture.jobId]);
+      await AppDataSource.query(`DELETE FROM layer_revisions WHERE id=$1`, [fixture.revisionId]);
+      await AppDataSource.query(`DELETE FROM layers WHERE id=$1`, [fixture.layerId]);
+      const fixtureIndex = fixtureIds.findIndex((candidate) => candidate.jobId === fixture.jobId);
+      if (fixtureIndex >= 0) fixtureIds.splice(fixtureIndex, 1);
+    }
+  });
+
+  it('keeps dispatcher and worker failures independently observable', async () => {
+    const repository = new PublicationJobRepository(AppDataSource);
+    await AppDataSource.query(
+      `UPDATE publication_worker_state
+       SET worker_error_code='PUBLICATION_DEPENDENCY_UNAVAILABLE',dispatch_error_code=NULL
+       WHERE id=1`,
+    );
+    await repository.updateDispatchState(null);
+    expect(await componentErrors()).toEqual({
+      dispatch_error_code: null,
+      worker_error_code: 'PUBLICATION_DEPENDENCY_UNAVAILABLE',
+    });
+
+    await repository.updateDispatchState('PUBLICATION_QUEUE_UNAVAILABLE');
+    await new PublicationWorkerRepository(AppDataSource).workerHeartbeat(null);
+    expect(await componentErrors()).toEqual({
+      dispatch_error_code: 'PUBLICATION_QUEUE_UNAVAILABLE',
+      worker_error_code: null,
+    });
+    await AppDataSource.query(
+      `UPDATE publication_worker_state SET dispatch_error_code=NULL,worker_error_code=NULL WHERE id=1`,
+    );
   });
 
   it('dispatches once with deterministic safe job data and survives an acknowledgement replay', async () => {
@@ -171,6 +271,31 @@ describe('durable publication outbox with real PostgreSQL and Redis', () => {
     expect(outbox[0]).toEqual({ status: 'dispatched', attempts: 1, last_error_code: null });
   });
 
+  it('replaces a far-delayed Bull retry once the authoritative database job is ready', async () => {
+    const fixture = await createFixture();
+    await markOutboxDispatched(fixture.jobId);
+    const bullJobId = `publication-${fixture.jobId}`;
+    await queue.add(
+      PUBLICATION_BUILD_JOB,
+      { publicationJobId: fixture.jobId, payloadVersion: 1 },
+      {
+        jobId: bullJobId,
+        attempts: 20,
+        delay: 24 * 60 * 60 * 1_000,
+        backoff: { type: 'exponential', delay: 60_000 },
+        removeOnComplete: false,
+        removeOnFail: false,
+      },
+    );
+    expect(await (await queue.getJob(bullJobId))!.getState()).toBe('delayed');
+
+    await service.dispatchOnce();
+    const reclaimed = await queue.getJob(bullJobId);
+    expect(await reclaimed?.getState()).toBe('waiting');
+    expect(reclaimed?.opts.attempts).toBe(1);
+    expect(reclaimed?.opts.delay ?? 0).toBe(0);
+  });
+
   it('recovers an expired dispatch lease without duplicating the durable job', async () => {
     const fixture = await createFixture();
     await AppDataSource.query(
@@ -215,5 +340,30 @@ describe('durable publication outbox with real PostgreSQL and Redis', () => {
       jobId,
     ]);
     return { layerId, revisionId, jobId };
+  }
+
+  async function componentErrors() {
+    const rows = (await AppDataSource.query(
+      `SELECT dispatch_error_code,worker_error_code FROM publication_worker_state WHERE id=1`,
+    )) as Array<{ dispatch_error_code: string | null; worker_error_code: string | null }>;
+    return rows[0]!;
+  }
+
+  async function markOutboxDispatched(jobId: string): Promise<void> {
+    const leaseToken = randomUUID();
+    await AppDataSource.query(
+      `UPDATE publication_job_outbox
+       SET status='dispatching',attempts=attempts+1,lease_token=$2,
+           lease_owner='fairness-fixture',lease_expires_at=now()+interval '1 minute'
+       WHERE publication_job_id=$1`,
+      [jobId, leaseToken],
+    );
+    await AppDataSource.query(
+      `UPDATE publication_job_outbox
+       SET status='dispatched',dispatched_at=now(),lease_token=NULL,
+           lease_owner=NULL,lease_expires_at=NULL
+       WHERE publication_job_id=$1 AND lease_token=$2`,
+      [jobId, leaseToken],
+    );
   }
 });

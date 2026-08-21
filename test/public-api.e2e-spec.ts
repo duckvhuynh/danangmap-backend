@@ -1,3 +1,5 @@
+import AppDataSource from '../src/database/data-source';
+
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 
 describe('Public API E2E', () => {
@@ -80,6 +82,94 @@ describe('Public API E2E', () => {
     const tile = Buffer.from(await response.arrayBuffer());
     expect(tile.byteLength).toBeGreaterThan(0);
     expect(tile.includes(Buffer.from('internal_note'))).toBe(false);
+  });
+
+  it('keeps every public representation and ETag stable across a legacy private-only change', async () => {
+    const ownsDataSource = !AppDataSource.isInitialized;
+    if (ownsDataSource) await AppDataSource.initialize();
+    const featureVersionId = '50000000-0000-4000-8000-000000000001';
+    const snapshotId = '60000000-0000-4000-8000-000000000001';
+    const beforeRows = (await AppDataSource.query(
+      `SELECT properties,checksum FROM feature_versions WHERE id=$1`,
+      [featureVersionId],
+    )) as Array<{ properties: Record<string, unknown>; checksum: string }>;
+    const beforeSnapshot = (await AppDataSource.query(
+      `SELECT checksum FROM publication_snapshots WHERE id=$1`,
+      [snapshotId],
+    )) as Array<{ checksum: string }>;
+    expect(beforeRows).toHaveLength(1);
+    expect(beforeSnapshot).toHaveLength(1);
+
+    const capture = async () => {
+      const catalogResponse = await fetch(`${apiBaseUrl}/api/v1/public/layers`);
+      const catalog = (await catalogResponse.json()) as unknown as { data: unknown };
+      const layerResponse = await fetch(`${apiBaseUrl}/api/v1/public/layers/schools`);
+      const layer = (await layerResponse.json()) as unknown as { data: unknown };
+      const collectionResponse = await fetch(
+        `${apiBaseUrl}/api/v1/public/layers/schools/features?limit=10`,
+      );
+      const collection = (await collectionResponse.json()) as unknown;
+      const featureResponse = await fetch(
+        `${apiBaseUrl}/api/v1/public/layers/schools/features/40000000-0000-4000-8000-000000000001`,
+      );
+      const feature = (await featureResponse.json()) as unknown as { data: unknown };
+      const searchResponse = await fetch(
+        `${apiBaseUrl}/api/v1/public/search?q=Trường&sources=internal`,
+      );
+      const searchPayload = (await searchResponse.json()) as unknown as {
+        data: unknown;
+        meta: Record<string, unknown>;
+      };
+      const searchMeta = { ...searchPayload.meta };
+      delete searchMeta.requestId;
+      const tileResponse = await fetch(
+        `${apiBaseUrl}/api/v1/public/tiles/schools/1/14/13117/7450.pbf`,
+      );
+      return {
+        catalog: catalog.data,
+        catalogEtag: catalogResponse.headers.get('etag'),
+        layer: layer.data,
+        layerEtag: layerResponse.headers.get('etag'),
+        collection,
+        collectionEtag: collectionResponse.headers.get('etag'),
+        feature: feature.data,
+        featureEtag: featureResponse.headers.get('etag'),
+        search: { data: searchPayload.data, meta: searchMeta },
+        tile: Buffer.from(await tileResponse.arrayBuffer()),
+        tileEtag: tileResponse.headers.get('etag'),
+      };
+    };
+
+    try {
+      const before = await capture();
+      expect(before.tileEtag).toBe(`"tile-${snapshotId}-1-14-13117-7450"`);
+      expect(before.tileEtag).not.toContain(beforeSnapshot[0]!.checksum);
+      await AppDataSource.query(
+        `UPDATE feature_versions
+         SET properties=jsonb_set(properties,'{internal_note}','"private-only-changed"'::jsonb),
+             checksum='private-only-feature-checksum-changed'
+         WHERE id=$1`,
+        [featureVersionId],
+      );
+      await AppDataSource.query(
+        `UPDATE publication_snapshots SET checksum='private-only-snapshot-checksum-changed'
+         WHERE id=$1`,
+        [snapshotId],
+      );
+      const after = await capture();
+      expect(after).toEqual(before);
+      expect(JSON.stringify(after)).not.toContain('private-only-changed');
+    } finally {
+      await AppDataSource.query(
+        `UPDATE feature_versions SET properties=$2::jsonb,checksum=$3 WHERE id=$1`,
+        [featureVersionId, JSON.stringify(beforeRows[0]!.properties), beforeRows[0]!.checksum],
+      );
+      await AppDataSource.query(`UPDATE publication_snapshots SET checksum=$2 WHERE id=$1`, [
+        snapshotId,
+        beforeSnapshot[0]!.checksum,
+      ]);
+      if (ownsDataSource) await AppDataSource.destroy();
+    }
   });
 
   it.each([

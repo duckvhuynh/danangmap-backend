@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const pinnedFrontendSha = '41ff532bea0f2ff46bacb88c4797befd20ae38de';
+const pinnedFrontendSha = '2981c8737c31756b1180d2fb14e2d64548155bd7';
 const frontendContext = resolve(process.env.DANANGMAP_FRONTEND_CONTEXT ?? '../danangmap-frontend');
 const frontendSha = git(['-C', frontendContext, 'rev-parse', 'HEAD']).trim();
 const expectedSha = process.env.DANANGMAP_FRONTEND_SHA?.trim();
@@ -93,20 +93,20 @@ for (let run = 1; run <= runCount; run += 1) {
       env: environment,
       stdio: 'inherit',
     });
-    const result = spawnSync(
+    const startResult = spawnSync(
       'docker',
-      [
-        ...composeArgs,
-        'up',
-        '--build',
-        '--abort-on-container-exit',
-        '--exit-code-from',
-        'fullstack-browser',
-        'fullstack-browser',
-      ],
+      [...composeArgs, 'up', '--build', '--detach', 'fullstack-browser'],
       { cwd: process.cwd(), env: environment, encoding: 'utf8', stdio: 'inherit' },
     );
-    exitCode = result.status ?? 1;
+    if (startResult.status === 0) {
+      const waitResult = spawnSync('docker', [...composeArgs, 'wait', 'fullstack-browser'], {
+        cwd: process.cwd(),
+        env: environment,
+        encoding: 'utf8',
+        stdio: 'inherit',
+      });
+      exitCode = waitResult.status ?? 1;
+    }
   } finally {
     const logs = spawnSync('docker', [...composeArgs, 'logs', '--no-color'], {
       cwd: process.cwd(),

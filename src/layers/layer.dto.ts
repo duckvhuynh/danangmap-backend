@@ -420,6 +420,129 @@ export class CreateLayerDto {
   popupConfig: LayerPopupConfigDto = {};
 }
 
+export class ListCatalogQueryDto {
+  @ApiProperty({ required: false, enum: ['true', 'false'], default: 'false' })
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  includeArchived?: 'true' | 'false';
+}
+
+export class UpdateLayerGroupDto {
+  @ApiProperty({ required: false, maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  title?: string;
+
+  @ApiProperty({ required: false, type: String, nullable: true, maxLength: 2000 })
+  @IsOptional()
+  @IsString()
+  @Length(0, 2_000)
+  description?: string | null;
+
+  @ApiProperty({ required: false, type: 'integer' })
+  @IsOptional()
+  @IsInt()
+  displayOrder?: number;
+
+  @ApiProperty({ required: false, type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  defaultVisible?: boolean;
+}
+
+export class ArchiveLayerGroupDto {
+  @ApiProperty({ enum: ['ungroup'], example: 'ungroup' })
+  @IsIn(['ungroup'])
+  orphanLayerPolicy: 'ungroup';
+}
+
+export class UpdateLayerDto {
+  @ApiProperty({ required: false, type: String, format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  groupId?: string | null;
+
+  @ApiProperty({ required: false, type: 'integer' })
+  @IsOptional()
+  @IsInt()
+  displayOrder?: number;
+
+  @ApiProperty({ required: false, type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  defaultVisible?: boolean;
+}
+
+export class CatalogOrderItemDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  id: string;
+
+  @ApiProperty({ type: 'integer' })
+  @IsInt()
+  displayOrder: number;
+}
+
+export class ReorderCatalogDto {
+  @ApiProperty({ type: () => CatalogOrderItemDto, isArray: true, minItems: 1, maxItems: 500 })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ArrayUnique((item: CatalogOrderItemDto) => item.id)
+  @ValidateNested({ each: true })
+  @Type(() => CatalogOrderItemDto)
+  items: CatalogOrderItemDto[];
+}
+
+export class RevisionConfigurationDto {
+  @ApiProperty({ maxLength: 200 })
+  @IsString()
+  @Length(1, 200)
+  title: string;
+
+  @ApiProperty({ required: false, type: String, nullable: true, maxLength: 2000 })
+  @IsOptional()
+  @IsString()
+  @Length(0, 2_000)
+  description?: string | null;
+
+  @ApiProperty({ enum: GEOMETRY_MODES })
+  @IsIn(GEOMETRY_MODES)
+  geometryMode: GeometryMode;
+
+  @ApiProperty({ type: 'array', enum: GEOMETRY_KINDS, isArray: true, minItems: 1, maxItems: 7 })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(7)
+  @ArrayUnique()
+  @IsIn(GEOMETRY_KINDS, { each: true })
+  allowedGeometryKinds: GeometryKind[];
+
+  @ApiProperty({ type: () => LayerFieldDto, isArray: true, minItems: 1, maxItems: 100 })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayerFieldDto)
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  fields: LayerFieldDto[];
+
+  @ApiProperty({ type: () => LayerStyleDto })
+  @ValidateNested()
+  @Type(() => LayerStyleDto)
+  style: LayerStyleDto;
+
+  @ApiProperty({ type: () => LayerRenderConfigDto })
+  @ValidateNested()
+  @Type(() => LayerRenderConfigDto)
+  renderConfig: LayerRenderConfigDto;
+
+  @ApiProperty({ type: () => LayerPopupConfigDto })
+  @ValidateNested()
+  @Type(() => LayerPopupConfigDto)
+  popupConfig: LayerPopupConfigDto;
+}
+
 export class FeatureMutationDto {
   @ApiProperty({
     type: Object,

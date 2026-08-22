@@ -9,48 +9,73 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
 import {
   adminFeatureSchema,
+  adminLayerDetailSchema,
   adminLayerGroupSchema,
   adminLayerListItemSchema,
   apiJsonResponse,
+  apiVersionedJsonResponse,
+  catalogReorderResultSchema,
   createLayerResultSchema,
   featureDeleteResultSchema,
   featureMutationResultSchema,
   revisionResultSchema,
+  revisionConfigurationImpactSchema,
+  revisionConfigurationResultSchema,
   revisionWorkspaceSchema,
+  successorDraftResultSchema,
 } from '../common/openapi/response-schemas';
 import { Principal, Roles } from '../identity/auth.decorators';
 import { CsrfGuard, RolesGuard, SessionGuard } from '../identity/auth.guards';
-import { requireIdempotencyKey } from './etag';
+import { requireIdempotencyKey, resourceEtag } from './etag';
+import { LayerCatalogService } from './layer-catalog.service';
 import {
+  ArchiveLayerGroupDto,
   CreateLayerDto,
   CreateLayerGroupDto,
   FeatureMutationDto,
+  ListCatalogQueryDto,
+  ReorderCatalogDto,
+  RevisionConfigurationDto,
+  UpdateLayerDto,
+  UpdateLayerGroupDto,
   UpdateFeatureDto,
 } from './layer.dto';
 import { LayersService } from './layers.service';
+import { RevisionConfigurationService } from './revision-configuration.service';
 
 @ApiTags('admin-layers')
 @ApiCookieAuth('adminSession')
 @Controller({ path: 'admin', version: '1' })
 @UseGuards(SessionGuard, RolesGuard)
 export class LayersController {
-  constructor(private readonly layers: LayersService) {}
+  constructor(
+    private readonly layers: LayersService,
+    private readonly catalog: LayerCatalogService,
+    private readonly revisionConfiguration: RevisionConfigurationService,
+  ) {}
 
   @Get('layer-groups')
+  @ApiQuery({ name: 'includeArchived', required: false, type: Boolean })
   @ApiOperation({ operationId: 'listLayerGroups' })
-  @apiJsonResponse(200, { type: 'array', items: adminLayerGroupSchema })
-  listGroups() {
-    return this.layers.listGroups();
+  @apiVersionedJsonResponse(200, { type: 'array', items: adminLayerGroupSchema })
+  async listGroups(
+    @Query() query: ListCatalogQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.catalog.listGroups(query.includeArchived === 'true');
+    response.setHeader('ETag', result.etag);
+    return result.data;
   }
 
   @Post('layer-groups')
@@ -63,22 +88,145 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayerGroup' })
-  @apiJsonResponse(201, adminLayerGroupSchema)
-  createGroup(
+  @apiVersionedJsonResponse(201, adminLayerGroupSchema)
+  async createGroup(
     @Body() dto: CreateLayerGroupDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
     requireIdempotencyKey(idempotencyKey);
-    return this.layers.createGroup(dto, principal, request.requestId, idempotencyKey!);
+    const group = await this.layers.createGroup(dto, principal, request.requestId, idempotencyKey!);
+    response.setHeader('ETag', resourceEtag('layer-group', group.id, group.lockVersion));
+    return group;
+  }
+
+  @Get('layer-groups/:groupId')
+  @ApiOperation({ operationId: 'getLayerGroup' })
+  @apiVersionedJsonResponse(200, adminLayerGroupSchema)
+  async getGroup(
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.catalog.getGroup(groupId);
+    response.setHeader('ETag', result.etag);
+    return result.group;
+  }
+
+  @Patch('layer-groups/:groupId')
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'updateLayerGroup' })
+  @apiVersionedJsonResponse(200, adminLayerGroupSchema)
+  async updateGroup(
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Body() dto: UpdateLayerGroupDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.catalog.updateGroup(
+      groupId,
+      dto,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.group;
+  }
+
+  @Post('layer-groups\\:reorder')
+  @HttpCode(200)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true, description: 'ETag from listLayerGroups.' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'reorderLayerGroups' })
+  @apiVersionedJsonResponse(200, catalogReorderResultSchema)
+  async reorderGroups(
+    @Body() dto: ReorderCatalogDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.catalog.reorderGroups(
+      dto,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
+  @Post('layer-groups/:groupId\\:archive')
+  @HttpCode(200)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'archiveLayerGroup' })
+  @apiVersionedJsonResponse(200, adminLayerGroupSchema)
+  async archiveGroup(
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Body() dto: ArchiveLayerGroupDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.catalog.archiveGroup(
+      groupId,
+      dto,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.group;
   }
 
   @Get('layers')
+  @ApiQuery({ name: 'includeArchived', required: false, type: Boolean })
   @ApiOperation({ operationId: 'listAdminLayers' })
-  @apiJsonResponse(200, { type: 'array', items: adminLayerListItemSchema })
-  listLayers() {
-    return this.layers.listLayers();
+  @apiVersionedJsonResponse(200, { type: 'array', items: adminLayerListItemSchema })
+  async listLayers(
+    @Query() query: ListCatalogQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.catalog.listLayers(query.includeArchived === 'true');
+    response.setHeader('ETag', result.etag);
+    return result.data;
   }
 
   @Post('layers')
@@ -91,7 +239,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayer' })
-  @apiJsonResponse(201, createLayerResultSchema)
+  @apiVersionedJsonResponse(201, createLayerResultSchema)
   async createLayer(
     @Body() dto: CreateLayerDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
@@ -110,9 +258,188 @@ export class LayersController {
     return { layer: result.layer, draftRevision: result.draftRevision };
   }
 
+  @Get('layers/:layerId')
+  @ApiOperation({ operationId: 'getAdminLayer' })
+  @apiVersionedJsonResponse(200, adminLayerDetailSchema)
+  async getLayer(
+    @Param('layerId', ParseUUIDPipe) layerId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.catalog.getLayer(layerId);
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
+  @Patch('layers/:layerId')
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'updateLayerCatalogConfig' })
+  @apiVersionedJsonResponse(200, adminLayerDetailSchema)
+  async updateLayer(
+    @Param('layerId', ParseUUIDPipe) layerId: string,
+    @Body() dto: UpdateLayerDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.catalog.updateLayer(
+      layerId,
+      dto,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
+  @Post('layers\\:reorder')
+  @HttpCode(200)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true, description: 'ETag from listAdminLayers.' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'reorderLayers' })
+  @apiVersionedJsonResponse(200, catalogReorderResultSchema)
+  async reorderLayers(
+    @Body() dto: ReorderCatalogDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.catalog.reorderLayers(
+      dto,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
+  @Post('layers/:layerId\\:archive')
+  @HttpCode(200)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'archiveLayer' })
+  @apiVersionedJsonResponse(200, adminLayerDetailSchema)
+  async archiveLayer(
+    @Param('layerId', ParseUUIDPipe) layerId: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.catalog.setLayerArchived(
+      layerId,
+      true,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
+  @Post('layers/:layerId\\:unarchive')
+  @HttpCode(200)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'unarchiveLayer' })
+  @apiVersionedJsonResponse(200, adminLayerDetailSchema)
+  async unarchiveLayer(
+    @Param('layerId', ParseUUIDPipe) layerId: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.catalog.setLayerArchived(
+      layerId,
+      false,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
+  @Post('layers/:layerId/drafts')
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true, description: 'ETag of the published revision.' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'createSuccessorDraft' })
+  @apiVersionedJsonResponse(201, successorDraftResultSchema)
+  async createSuccessorDraft(
+    @Param('layerId', ParseUUIDPipe) layerId: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.revisionConfiguration.createSuccessorDraft(
+      layerId,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
   @Get('revisions/:revisionId')
   @ApiOperation({ operationId: 'getRevision' })
-  @apiJsonResponse(200, revisionResultSchema)
+  @apiVersionedJsonResponse(200, revisionResultSchema)
   async getRevision(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Res({ passthrough: true }) response: Response,
@@ -122,9 +449,62 @@ export class LayersController {
     return { revision: result.revision, fields: result.fields };
   }
 
+  @Post('revisions/:revisionId/config\\:impact')
+  @HttpCode(200)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'previewRevisionConfigurationImpact' })
+  @apiVersionedJsonResponse(200, revisionConfigurationImpactSchema)
+  async previewRevisionConfigImpact(
+    @Param('revisionId', ParseUUIDPipe) revisionId: string,
+    @Body() dto: RevisionConfigurationDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.revisionConfiguration.preview(revisionId, dto, ifMatch);
+    response.setHeader('ETag', result.etag);
+    return result.impact;
+  }
+
+  @Put('revisions/:revisionId/config')
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiHeader({ name: 'If-Match', required: true })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'replaceDraftRevisionConfiguration' })
+  @apiVersionedJsonResponse(200, revisionConfigurationResultSchema)
+  async replaceRevisionConfig(
+    @Param('revisionId', ParseUUIDPipe) revisionId: string,
+    @Body() dto: RevisionConfigurationDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    requireIdempotencyKey(idempotencyKey);
+    const result = await this.revisionConfiguration.replace(
+      revisionId,
+      dto,
+      ifMatch,
+      principal,
+      request.requestId,
+      idempotencyKey!,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
   @Get('revisions/:revisionId/workspace')
   @ApiOperation({ operationId: 'getRevisionWorkspace' })
-  @apiJsonResponse(200, revisionWorkspaceSchema)
+  @apiVersionedJsonResponse(200, revisionWorkspaceSchema)
   async workspace(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Res({ passthrough: true }) response: Response,
@@ -156,7 +536,7 @@ export class LayersController {
   })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createFeature' })
-  @apiJsonResponse(201, featureMutationResultSchema)
+  @apiVersionedJsonResponse(201, featureMutationResultSchema)
   async createFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Body() dto: FeatureMutationDto,
@@ -185,7 +565,7 @@ export class LayersController {
   @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'updateFeature' })
-  @apiJsonResponse(200, featureMutationResultSchema)
+  @apiVersionedJsonResponse(200, featureMutationResultSchema)
   async updateFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,
@@ -214,7 +594,7 @@ export class LayersController {
   @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag.' })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'deleteFeature' })
-  @apiJsonResponse(200, featureDeleteResultSchema)
+  @apiVersionedJsonResponse(200, featureDeleteResultSchema)
   async deleteFeature(
     @Param('revisionId', ParseUUIDPipe) revisionId: string,
     @Param('featureId', ParseUUIDPipe) featureId: string,

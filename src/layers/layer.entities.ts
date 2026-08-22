@@ -19,6 +19,7 @@ export class LayerGroupEntity {
   @Column({ type: 'text', nullable: true }) description: string | null;
   @Column({ name: 'display_order', type: 'integer', default: 0 }) displayOrder: number;
   @Column({ name: 'default_visible', type: 'boolean', default: true }) defaultVisible: boolean;
+  @Column({ name: 'lock_version', type: 'integer', default: 1 }) lockVersion: number;
   @Column({ name: 'archived_at', type: 'timestamptz', nullable: true }) archivedAt: Date | null;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;
@@ -32,6 +33,7 @@ export class LayerEntity {
   @Column({ name: 'group_id', type: 'uuid', nullable: true }) groupId: string | null;
   @Column({ name: 'display_order', type: 'integer', default: 0 }) displayOrder: number;
   @Column({ name: 'default_visible', type: 'boolean', default: true }) defaultVisible: boolean;
+  @Column({ name: 'lock_version', type: 'integer', default: 1 }) lockVersion: number;
   @Column({ name: 'created_by', type: 'uuid' }) createdBy: string;
   @Column({ name: 'archived_at', type: 'timestamptz', nullable: true }) archivedAt: Date | null;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
@@ -40,6 +42,10 @@ export class LayerEntity {
 
 @Entity({ name: 'layer_revisions' })
 @Index('uq_layer_revision_number', ['layerId', 'revisionNo'], { unique: true })
+@Index('uq_layer_open_editorial_chain', ['layerId'], {
+  unique: true,
+  where: "status IN ('draft','in_review','approved','publishing')",
+})
 export class LayerRevisionEntity {
   @PrimaryGeneratedColumn('uuid') id: string;
   @Column({ name: 'layer_id', type: 'uuid' }) layerId: string;

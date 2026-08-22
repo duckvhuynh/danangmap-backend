@@ -81,16 +81,16 @@ kho bảo vệ với retention ngắn; không dùng production credential.
 ## CI và blocker ngoài code
 
 Cross-repository job chỉ dùng `pull_request`, checkout exact SHA với `persist-credentials=false` và
-fail rõ nếu thiếu `CROSS_REPO_READ_TOKEN`. Không dùng `pull_request_target`. Secret này phải được chủ
-repo cấu hình trước khi remote gate có thể xanh; local exact-SHA gate không phụ thuộc secret GitHub.
+fail rõ nếu thiếu `CROSS_REPO_READ_TOKEN`. Không dùng `pull_request_target`. Secret đã được chủ repo
+cấu hình và chỉ cấp quyền đọc private frontend; local exact-SHA gate không phụ thuộc secret GitHub.
 Workflow activation pin frontend reviewed SHA `6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8` từ một
 job-level environment source dùng chung cho checkout và harness; job đặt activation mode và cả hai
 API/worker `NODE_ENV` thành `production`.
 
-Remote run `32547244858` có job `verify` pass nhưng cross-stack job fail đúng fail-closed guard vì
-repository chưa cấp `CROSS_REPO_READ_TOKEN`; harness không chạy trên GitHub và không có remote
-artifact để thay local exact-SHA evidence. Remote gate tiếp tục NO-GO cho tới khi secret được cấu hình
-và job exact-SHA pass.
+Failed-closed run lịch sử `32547244858` đã được thay thế bởi exact-SHA cross-stack run
+`32561792134`: hai fresh-volume journey đều pass sau khi secret được cấu hình, artifact
+`9473176426`. Canonical backend stack đã merge vào `main` tại
+`059e240b87869bb4b1d87da66b7698c859a34e5e`; final main CI `32562513173` xanh.
 
 ## Guard-intact pretrial đã chấp nhận
 

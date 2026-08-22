@@ -179,16 +179,9 @@ export class PasswordSecurityService {
   ): Promise<ResetRequestResponse> {
     const startedAt = Date.now();
     const normalizedEmail = dto.email.trim().toLowerCase();
-    await this.rateLimits.enforcePasswordResetRequest(metadata.ip, normalizedEmail);
     const requestDigest = this.secretCommandDigest('password.reset.request', {
       email: normalizedEmail,
     });
-    const resetTokenId = randomUUID();
-    const rawToken = this.crypto.randomToken();
-    const tokenHash = this.crypto.digest(rawToken);
-    const encryptedPayload = this.crypto.encrypt(
-      JSON.stringify({ passwordResetTokenId: resetTokenId, token: rawToken }),
-    );
     try {
       return await this.dataSource.transaction(async (manager) => {
         const claim = await this.claimPublicReceipt<ResetRequestResponse>(
@@ -199,6 +192,16 @@ export class PasswordSecurityService {
         );
         if (!claim.owner) return this.replayed(claim.response);
 
+        // A completed idempotent replay must survive process restarts and must not
+        // consume another abuse-limit slot. The first owner is still rate limited
+        // before any account lookup, token generation or outbox mutation.
+        await this.rateLimits.enforcePasswordResetRequest(metadata.ip, normalizedEmail);
+        const resetTokenId = randomUUID();
+        const rawToken = this.crypto.randomToken();
+        const tokenHash = this.crypto.digest(rawToken);
+        const encryptedPayload = this.crypto.encrypt(
+          JSON.stringify({ passwordResetTokenId: resetTokenId, token: rawToken }),
+        );
         const user = await manager.findOne(UserEntity, {
           where: { emailNormalized: normalizedEmail },
           lock: { mode: 'pessimistic_write' },

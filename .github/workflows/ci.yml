@@ -36,6 +36,12 @@ jobs:
           node scripts/assert-mail-readiness.mjs degraded 30000
           docker compose -f compose.e2e.yml start mailpit
           node scripts/assert-mail-readiness.mjs up 30000
+      - name: Verify password-reset receipt survives API restart
+        run: |
+          node scripts/verify-password-reset-restart.mjs before
+          docker compose -f compose.e2e.yml restart api
+          curl --fail --retry 30 --retry-delay 2 --retry-all-errors --retry-max-time 90 http://localhost:4000/health/ready
+          node scripts/verify-password-reset-restart.mjs after
       - run: docker compose -f compose.e2e.yml run --rm --build test
       - run: docker compose -f compose.e2e.yml run --rm test npm run test:e2e
       - name: Verify isolated flag-on durable publication worker checkpoint

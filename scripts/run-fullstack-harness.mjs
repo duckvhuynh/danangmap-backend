@@ -34,6 +34,7 @@ const mailpitCommand = Object.freeze([
 ]);
 const remainingSpecs = [
   'account-import-invite.spec.ts',
+  'identity-recovery.spec.ts',
   'layer-configuration-create.spec.ts',
   'layer-configuration-lifecycle.spec.ts',
   'publication-history-rollback.spec.ts',

@@ -68,7 +68,7 @@ jobs:
     env:
       DANANGMAP_BACKEND_SHA: ${{ github.event.pull_request.head.sha }}
       DANANGMAP_FRONTEND_CONTEXT: ${{ github.workspace }}/.crossstack/danangmap-frontend
-      DANANGMAP_FRONTEND_SHA: c87a6331ccbe2b0a60b20fbb7ca73a29a6031f89
+      DANANGMAP_FRONTEND_SHA: b2bcd5c8b69d8dd5ea996973493c233bc33a21f7
       DANANGMAP_FULLSTACK_RUNS: '2'
       DANANGMAP_ACTIVATION_MODE: production
       DANANGMAP_ASYNC_API_NODE_ENV: production

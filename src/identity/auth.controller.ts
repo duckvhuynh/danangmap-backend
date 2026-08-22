@@ -351,7 +351,11 @@ export class AuthController {
   private clearAuthCookies(response: Response): void {
     response.clearCookie(SESSION_COOKIE, this.cookieOptions(0));
     response.clearCookie(PREAUTH_COOKIE, this.cookieOptions(0));
-    response.clearCookie(CSRF_COOKIE, { path: '/' });
+    response.clearCookie(CSRF_COOKIE, {
+      secure: this.secure,
+      sameSite: 'lax',
+      path: '/',
+    });
   }
 
   private metadata(request: RequestWithContext) {

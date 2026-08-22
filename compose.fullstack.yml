@@ -20,6 +20,7 @@ services:
     environment:
       COOKIE_SECURE: 'true'
       FRONTEND_ORIGINS: https://gateway
+      TRUST_PROXY_HOPS: '1'
 
   worker:
     labels:

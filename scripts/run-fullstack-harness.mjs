@@ -147,8 +147,6 @@ async function runFreshStack(run) {
       [
         ...composeArgs,
         'build',
-        'migrate',
-        'seed',
         'test',
         'fullstack-smoke',
         'fullstack-browser',

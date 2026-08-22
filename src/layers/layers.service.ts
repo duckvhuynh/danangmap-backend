@@ -139,9 +139,9 @@ export class LayersService {
       dto.geometryMode,
       dto.allowedGeometryKinds,
       dto.fields,
-      dto.popupConfig,
-      dto.style,
-      dto.renderConfig,
+      dto.popupConfig ?? {},
+      dto.style ?? {},
+      dto.renderConfig ?? {},
     );
     const requestDigest = this.idempotency.digest({ dto });
     try {
@@ -178,9 +178,9 @@ export class LayersService {
           description: dto.description ?? null,
           geometryMode: dto.geometryMode,
           allowedGeometryKinds: dto.allowedGeometryKinds,
-          style: this.sanitizeStyle(dto.style),
-          renderConfig: this.sanitizeRenderConfig(dto.renderConfig),
-          popupConfig: structuredClone(dto.popupConfig) as Record<string, unknown>,
+          style: this.sanitizeStyle(dto.style ?? {}),
+          renderConfig: this.sanitizeRenderConfig(dto.renderConfig ?? {}),
+          popupConfig: structuredClone(dto.popupConfig ?? {}) as Record<string, unknown>,
           schemaVersion: 1,
           lockVersion: 1,
           cursorSeq: '0',

@@ -17,6 +17,7 @@ import {
   Matches,
   Max,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import {
@@ -299,10 +300,10 @@ export class LayerFieldDto {
   defaultValue?: unknown;
 
   @ApiProperty({ required: false, type: () => LayerFieldValidationDto, default: {} })
-  @IsOptional()
+  @ValidateIf((o, value) => value !== undefined)
   @ValidateNested()
   @Type(() => LayerFieldValidationDto)
-  validation: LayerFieldValidationDto = {};
+  validation?: LayerFieldValidationDto;
 
   @ApiProperty({
     required: false,
@@ -311,13 +312,13 @@ export class LayerFieldDto {
     maxItems: 100,
     default: [],
   })
-  @IsOptional()
+  @ValidateIf((o, value) => value !== undefined)
   @IsArray()
   @ArrayMaxSize(100)
   @ArrayUnique()
   @IsString({ each: true })
   @Length(1, 200, { each: true })
-  options: string[] = [];
+  options?: string[];
 
   @ApiProperty({ required: false, type: 'integer', default: 0 })
   @IsOptional()
@@ -402,22 +403,22 @@ export class CreateLayerDto {
   fields: LayerFieldDto[];
 
   @ApiProperty({ required: false, type: () => LayerStyleDto, default: {} })
-  @IsOptional()
+  @ValidateIf((o, value) => value !== undefined)
   @ValidateNested()
   @Type(() => LayerStyleDto)
-  style: LayerStyleDto = {};
+  style?: LayerStyleDto;
 
   @ApiProperty({ required: false, type: () => LayerRenderConfigDto, default: {} })
-  @IsOptional()
+  @ValidateIf((o, value) => value !== undefined)
   @ValidateNested()
   @Type(() => LayerRenderConfigDto)
-  renderConfig: LayerRenderConfigDto = {};
+  renderConfig?: LayerRenderConfigDto;
 
   @ApiProperty({ required: false, type: () => LayerPopupConfigDto, default: {} })
-  @IsOptional()
+  @ValidateIf((o, value) => value !== undefined)
   @ValidateNested()
   @Type(() => LayerPopupConfigDto)
-  popupConfig: LayerPopupConfigDto = {};
+  popupConfig?: LayerPopupConfigDto;
 }
 
 export class FeatureMutationDto {

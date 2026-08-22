@@ -163,10 +163,11 @@ export class LayerSchemaService {
       );
     }
     const enumType = field.type === 'enum' || field.type === 'multi_enum';
-    if (enumType && field.options.length === 0) {
+    const options = field.options ?? [];
+    if (enumType && options.length === 0) {
       throw new AppException(422, 'SCHEMA_VIOLATION', `Field enum ${field.key} phải có options.`);
     }
-    if (!enumType && field.options.length > 0) {
+    if (!enumType && options.length > 0) {
       throw new AppException(
         422,
         'SCHEMA_VIOLATION',
@@ -203,12 +204,13 @@ export class LayerSchemaService {
         throw new AppException(422, 'SCHEMA_VIOLATION', `Giá trị quá lớn: ${field.key}`);
       }
     }
-    if (field.type === 'enum' && !field.options.includes(value as string)) {
+    const options = field.options ?? [];
+    if (field.type === 'enum' && !options.includes(value as string)) {
       throw new AppException(422, 'SCHEMA_VIOLATION', `Giá trị ngoài options: ${field.key}`);
     }
     if (
       field.type === 'multi_enum' &&
-      (!(value instanceof Array) || value.some((item) => !field.options.includes(item as string)))
+      (!(value instanceof Array) || value.some((item) => !options.includes(item as string)))
     ) {
       throw new AppException(422, 'SCHEMA_VIOLATION', `Giá trị ngoài options: ${field.key}`);
     }

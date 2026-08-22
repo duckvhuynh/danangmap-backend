@@ -235,10 +235,13 @@ describe('password reset, change and session-revocation HTTP lifecycle', () => {
 
     const firstResetKey = randomUUID();
     publicKeys.push(firstResetKey);
-    const firstReset = await requestReset(login, firstResetKey);
-    expect(firstReset.response.status).toBe(202);
-    expect(firstReset.elapsedMs).toBeGreaterThanOrEqual(130);
-    expect(Math.abs(firstReset.elapsedMs - unknown.elapsedMs)).toBeLessThan(800);
+    const concurrentFirstResets = await Promise.all([
+      requestReset(login, firstResetKey),
+      requestReset(login, firstResetKey),
+    ]);
+    expect(concurrentFirstResets.map(({ response }) => response.status)).toEqual([202, 202]);
+    expect(concurrentFirstResets.every(({ elapsedMs }) => elapsedMs >= 130)).toBe(true);
+    expect(Math.abs(concurrentFirstResets[0]!.elapsedMs - unknown.elapsedMs)).toBeLessThan(800);
     const firstDelivery = await waitForMailpitMessage(login, 1);
     expect(firstDelivery.subject).toContain('đặt lại mật khẩu');
     expect(firstDelivery.text).toContain('sao chép và dán');
@@ -300,6 +303,17 @@ describe('password reset, change and session-revocation HTTP lifecycle', () => {
       'wrong-token',
     );
     await expectProblem(wrongCsrfConfirm, 403, 'CSRF_INVALID');
+
+    await AppDataSource.query("UPDATE users SET status='disabled',disabled_at=now() WHERE id=$1", [
+      userId,
+    ]);
+    const disabledAccountConfirm = await confirmReset(publicJar, secondToken.token, resetPassword);
+    await expectGenericResetFailure(disabledAccountConfirm);
+    expect(await disabledAccountConfirm.clone().text()).not.toContain(secondToken.token);
+    expect(await disabledAccountConfirm.clone().text()).not.toContain(resetPassword);
+    await AppDataSource.query("UPDATE users SET status='active',disabled_at=NULL WHERE id=$1", [
+      userId,
+    ]);
 
     const pendingPreauth = await loginWithPassword(login, changedPassword);
     const resetResults = await Promise.all([

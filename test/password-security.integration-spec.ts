@@ -16,6 +16,7 @@ describe('Password and session security transactions', () => {
   const userId = randomUUID();
   const changeKey = randomUUID();
   const revokeKey = randomUUID();
+  const resetRequestKey = randomUUID();
   const initialSessionId = randomUUID();
   const suffix = userId.slice(0, 8);
   const currentPassword = 'Temporary-Password-2026!';
@@ -25,6 +26,7 @@ describe('Password and session security transactions', () => {
     SESSION_PEPPER: 'password-integration-session-pepper',
   });
   const crypto = new CryptoService(config);
+  const enforcePasswordResetRequest = jest.fn<Promise<void>, []>(() => Promise.resolve());
 
   beforeAll(async () => {
     if (!AppDataSource.isInitialized) await AppDataSource.initialize();
@@ -65,6 +67,10 @@ describe('Password and session security transactions', () => {
     await AppDataSource.transaction(async (manager) => {
       await manager.query('ALTER TABLE audit_logs DISABLE TRIGGER trg_audit_logs_immutable');
       await manager.query('DELETE FROM command_receipts WHERE actor_id=$1', [userId]);
+      await manager.query(
+        "DELETE FROM public_command_receipts WHERE operation='password.reset.request' AND idempotency_key=$1",
+        [resetRequestKey],
+      );
       await manager.query('DELETE FROM audit_logs WHERE actor_id=$1 OR resource_id=$1', [userId]);
       await manager.delete(AdminSessionEntity, { userId });
       await manager.delete(PasswordResetTokenEntity, { userId });
@@ -180,6 +186,28 @@ describe('Password and session security transactions', () => {
     ).rejects.toMatchObject({ code: '23514' });
   });
 
+  it('replays a reset-request receipt after service reconstruction without consuming another rate-limit slot', async () => {
+    const dto = { email: `missing-${suffix}@example.gov.vn` };
+    const first = await service().requestPasswordReset(dto, metadata(), resetRequestKey);
+    const replayAfterReconstruction = await service().requestPasswordReset(
+      dto,
+      metadata(),
+      resetRequestKey,
+    );
+
+    expect(first).toEqual({ status: 'accepted' });
+    expect(replayAfterReconstruction).toEqual(first);
+    expect(enforcePasswordResetRequest).toHaveBeenCalledTimes(1);
+    await expect(
+      service().requestPasswordReset(
+        { email: `changed-${suffix}@example.gov.vn` },
+        metadata(),
+        resetRequestKey,
+      ),
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' });
+    expect(enforcePasswordResetRequest).toHaveBeenCalledTimes(1);
+  });
+
   function service(): PasswordSecurityService {
     return new PasswordSecurityService(
       AppDataSource.getRepository(PasswordResetTokenEntity),
@@ -187,7 +215,7 @@ describe('Password and session security transactions', () => {
       crypto,
       new IdempotencyService(),
       {
-        enforcePasswordResetRequest: () => Promise.resolve(),
+        enforcePasswordResetRequest,
         enforcePasswordResetConfirm: () => Promise.resolve(),
       } as unknown as IdentityRateLimitService,
     );

@@ -17,15 +17,15 @@ Slice đầu tiên chỉ cần fixture Point và Polygon để chứng minh ki�
 
 ## 2. Trạng thái cổng hiện tại
 
-| Gate | Trạng thái | Bằng chứng bắt buộc để chuyển trạng thái |
-| --- | --- | --- |
-| D0 — PO chọn visual | `APPROVED` | PO đã approve Direction 1 refined ngày 2026-08-21 |
-| D1 — Derived design artifacts | `COMPLETE` | Ba artifact commit tại frontend `2d35ec5`; badge/CTA visual QA follow-up hoàn tất tại `0899ebd` |
-| D2 — Design source of truth | `COMPLETE` | `DESIGN.md` đã ghi decision/date/artifact, Tabler Icons, blue tokens, Google Maps-like radius/shadow và trạng thái `SELECTED_READY_TO_SCAFFOLD` |
-| D3 — UI scaffold unlocked | `UNLOCKED` | Selection/source-of-truth gate đạt tại `2d35ec5`; visual QA hoàn tất tại `0899ebd`; commit design phải là ancestor của commit UI đầu tiên |
-| V1 — Published read slice | `IN_PROGRESS` | Backend typed public API/query policy (`7ec3bc7`, `efc1a29`) và frontend pin/consume (`aa0380b`, `3fd3e027`) riêng lẻ xanh; issue #9 đã đóng, còn cross-stack issue #11 chưa đạt |
+| Gate                              | Trạng thái    | Bằng chứng bắt buộc để chuyển trạng thái                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D0 — PO chọn visual               | `APPROVED`    | PO đã approve Direction 1 refined ngày 2026-08-21                                                                                                                                                                                                                                                                                                                                                                                             |
+| D1 — Derived design artifacts     | `COMPLETE`    | Ba artifact commit tại frontend `2d35ec5`; badge/CTA visual QA follow-up hoàn tất tại `0899ebd`                                                                                                                                                                                                                                                                                                                                               |
+| D2 — Design source of truth       | `COMPLETE`    | `DESIGN.md` đã ghi decision/date/artifact, Tabler Icons, blue tokens, Google Maps-like radius/shadow và trạng thái `SELECTED_READY_TO_SCAFFOLD`                                                                                                                                                                                                                                                                                               |
+| D3 — UI scaffold unlocked         | `UNLOCKED`    | Selection/source-of-truth gate đạt tại `2d35ec5`; visual QA hoàn tất tại `0899ebd`; commit design phải là ancestor của commit UI đầu tiên                                                                                                                                                                                                                                                                                                     |
+| V1 — Published read slice         | `IN_PROGRESS` | Backend typed public API/query policy (`7ec3bc7`, `efc1a29`) và frontend pin/consume (`aa0380b`, `3fd3e027`) riêng lẻ xanh; issue #9 đã đóng, còn cross-stack issue #11 chưa đạt                                                                                                                                                                                                                                                              |
 | V2 — Controlled publication slice | `IN_PROGRESS` | Synchronous history/diff/rollback/audit checkpoint đã được chấp nhận tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040`; durable BullMQ production activation đã GO ở local gate và exact-SHA remote cross-stack run `32558288440`. Backend #30/frontend #19 vẫn Open và slice còn attachment diff, regression keyboard/screen-reader, Mapbox visual QA, deploy/no-backup blockers. |
-| V3 — Four-format import slice | `COMPLETE` | Backend `bd5013b` chứng minh equivalence CSV/XLSX/GeoJSON/KML; frontend typed wizard `ab806d6`; real browser imported-feature submit/approve/publish/public pass hai lần tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040`. |
+| V3 — Four-format import slice     | `COMPLETE`    | Backend `bd5013b` chứng minh equivalence CSV/XLSX/GeoJSON/KML; frontend typed wizard `ab806d6`; real browser imported-feature submit/approve/publish/public pass hai lần tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040`.                                                                                                                                                        |
 
 Frontend gate issue `#1` có đủ evidence để đóng tại `2d35ec5` + `0899ebd`. Backend M0 issue `#1` vẫn mở cho tới khi các exit criteria M0 còn lại trong `PLANS.md` có bằng chứng.
 
@@ -35,14 +35,14 @@ Frontend gate issue `#1` có đủ evidence để đóng tại `2d35ec5` + `0899
 
 Kiểm tra tự động trên bảng §5 của `PLANS.md` ngày 2026-08-21:
 
-| Nhóm | Số ID |
-| --- | ---: |
-| Cross-product `C-*` | 17 |
-| Backend `B-*` | 68 |
-| Frontend `F-*` | 47 |
-| Data migration `D-*` | 10 |
-| Quality/release `Q-*` | 27 |
-| **Tổng** | **169** |
+| Nhóm                  |   Số ID |
+| --------------------- | ------: |
+| Cross-product `C-*`   |      17 |
+| Backend `B-*`         |      68 |
+| Frontend `F-*`        |      47 |
+| Data migration `D-*`  |      10 |
+| Quality/release `Q-*` |      27 |
+| **Tổng**              | **169** |
 
 Kết quả: `0` ID trùng, `0` dependency tham chiếu thiếu, `0` cycle, toàn bộ `169/169` node topological-sort được. Kiểm tra lại sau mọi thay đổi backlog bằng một script CI hoặc review tương đương; không sửa dependency chỉ để làm graph xanh nếu quan hệ nghiệp vụ chưa đúng.
 
@@ -119,13 +119,13 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 - [ ] **VS-029 — Backend:** User/role/session migration và deterministic Editor/Reviewer/Publisher/System Admin seed. Mapping: `B-008`, `B-056`.
   - Acceptance: một primary role; session revoke fields; seed idempotent.
-- [ ] **VS-030 — Backend:** RBAC guard và separation policy predicates. Mapping: `B-016`, `B-017`. Partial evidence: draft PR backend `#13`/`6800ff6` có real HTTP role/SoD deny matrix, CI `32449796541` xanh; chưa có main-branch merge/browser evidence.
+- [x] **VS-030 — Backend:** RBAC guard và separation policy predicates. Mapping: `B-016`, `B-017`. Evidence: canonical stack đã merge vào `main` tại `059e240`; real HTTP role/SoD deny matrix và hai fresh-volume exact-SHA browser journey xanh trong run `32561792134`.
   - Acceptance: allow/deny tests gồm self-review, prior participant publish và System Admin bypass.
 - [x] **VS-031 — Backend:** Draft create, feature mutation và optimistic ETag. Mapping: `B-026`, `B-027`. Evidence: spatial core + real domain replay tests through backend `e62c478`; create layer/feature one effect, original ETag/result survives service restart.
   - Acceptance: server UUID; stale write fail; audit participant recorded; cùng idempotency key/hash trả nguyên status/body/ETag cũ, khác hash trả `IDEMPOTENCY_KEY_REUSED`.
-- [ ] **VS-032 — Backend:** Validate/submit và approve commands. Mapping: `B-028`, `B-029`, `B-030`. Partial evidence: draft PR backend `#13`/`6800ff6` chạy submit/replay/approve và self/participant deny qua HTTP thật; PR chưa merge.
+- [x] **VS-032 — Backend:** Validate/submit và approve commands. Mapping: `B-028`, `B-029`, `B-030`. Evidence: canonical `main` `059e240` chạy submit/replay/approve và self/participant deny qua HTTP thật; final main CI `32562513173` và exact-SHA browser run `32561792134` xanh.
   - Acceptance: submitted revision immutable; invalid/self-review bị chặn; retry tuần tự/đồng thời chỉ tạo một transition/audit qua durable DB receipt.
-- [ ] **VS-033 — Backend:** Snapshot builder và atomic pointer switch. Mapping: `B-031`, `B-032`. Partial evidence: draft PR backend `#13`/`6800ff6` chứng minh one generation, private redaction và injected pointer failure giữ snapshot/generation cũ; PR chưa merge.
+- [x] **VS-033 — Backend:** Snapshot builder và atomic pointer switch. Mapping: `B-031`, `B-032`. Evidence: canonical `main` `059e240` chứng minh one generation, private redaction, injected pointer failure giữ snapshot/generation cũ và durable crash recovery; PR #38 đã merge, run `32561792134` xanh hai fresh-volume journey.
   - Acceptance: private field stripped; build failure giữ snapshot cũ; success tăng generation và invalidate cache sau commit; concurrent publish duplicate chỉ tạo một snapshot/generation và trả lại original result.
 - [ ] **VS-034 — Frontend:** Minimal desktop editor for seeded properties/geometry save and submit. Mapping: `F-020`, `F-027`, `F-029`, `F-032`.
   - Acceptance: server/local state được phân biệt; mobile capability gate không render mutation tools.
@@ -134,7 +134,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 - [x] **VS-035A — Backend:** Canonical synchronous history/diff/rollback/audit checkpoint. Mapping: `B-033`, `B-064`, `Q-005`, `Q-027`; tracking backend `#30`.
   - Evidence: backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7`; OpenAPI 73 operations; unit 67, integration 40, E2E 41. Chín endpoint canonical, bounded feature-level diff, pointer ETag riêng, role-scoped immutable audit và atomic rollback có test; hai run browser thật ở VS-041 đều pass.
-  - Boundary: attachment diff vẫn explicit `ATTACHMENT_CONTRACT_PENDING` tới khi canonical binding của backend #29 tồn tại; không dùng JSON properties/empty array thay thế. Backend #30 vẫn Open/In Progress cho capability deferred này và Draft PR closeout.
+  - Boundary: attachment diff vẫn explicit `ATTACHMENT_CONTRACT_PENDING` tới khi canonical binding của backend #29 tồn tại; không dùng JSON properties/empty array thay thế. Đây là blocker còn lại duy nhất của backend #30.
 - [x] **VS-035B — Backend/Worker:** Durable publication-job progress. Mapping: `B-031`, `B-032`; tracking backend `#30`.
   - Acceptance: committed job row trước work, BullMQ retry/crash recovery idempotent, observable queued/building/failed, measured monotonic progress và final pointer switch nguyên tử. Không đưa vào checkpoint synchronous bằng fake `50%`.
   - Evidence: independent review chấp nhận local production activation tại exact backend `2d4675ec2385abf55fa23ad26914e037456f14cd` + frontend `6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8`. Hai manifest `2026-08-22T02-48-36.875Z-2d4675ec2385-6e6fe83f7dbf-run-1` (`6497db82ebfd8b92206cdfabd9ffa4456d650198e3501e33485a32d2d3e9516e`) và `2026-08-22T02-53-38.466Z-2d4675ec2385-6e6fe83f7dbf-run-2` (`70a04b03205b6d58160bc22f50fd2abc10b00d4b6bec646f30d9d4dc1ca70c3a`) chứng minh 18/18 pass, zero failed/skipped/flaky, production trusted STARTTLS, attempt 2/recovered lease 1/generation 1→2 và cleanup 0/0/0.
@@ -193,19 +193,19 @@ Nếu tên service/script thực tế khác, cập nhật tài liệu và CI cù
 
 Không trộn hai repository trong một commit. Trước mỗi commit phải chạy `git status --short`, stage đúng path sở hữu và ghi test evidence trong commit/PR description.
 
-| Thứ tự | Repo | Commit intent | Gate tối thiểu |
-| ---: | --- | --- | --- |
-| 1 | Frontend | `docs: lock approved danangmap design direction` | VS-001..VS-005; D3 mở |
-| 2 | Backend | `docs: add executable delivery checklist` | Backlog audit 169/169 |
-| 3 | Backend | `chore: scaffold api worker and docker foundation` | VS-007..VS-012, lint/typecheck/unit/build |
-| 4 | Frontend | `chore: scaffold next tooling and selected ui foundation` | VS-013, VS-023..VS-024; design commit là ancestor |
-| 5 | Backend | `feat: expose published layer vertical slice` | VS-015..VS-022, PostGIS integration |
-| 6 | Frontend | `feat: render published layer map vertical slice` | VS-025..VS-028, component/Playwright targeted tests |
-| 7 | Backend | `feat: enforce controlled publication vertical slice` | VS-029..VS-033, RBAC deny + atomicity tests |
-| 8 | Frontend | `feat: add controlled publication workflow surfaces` | VS-034..VS-035, role/mobile gates |
-| 9 | Backend | `feat: validate and apply four-format spatial imports` | IMP-001..IMP-006, parser equivalence + atomicity tests |
-| 10 | Frontend | `feat: connect spatial import wizard` | IMP-007, generated-client contract/component tests |
-| 11 | Backend | `test: run cross-repo docker e2e vertical slices` | VS-036..VS-041 + IMP-008 pass twice from clean state |
+| Thứ tự | Repo     | Commit intent                                             | Gate tối thiểu                                         |
+| -----: | -------- | --------------------------------------------------------- | ------------------------------------------------------ |
+|      1 | Frontend | `docs: lock approved danangmap design direction`          | VS-001..VS-005; D3 mở                                  |
+|      2 | Backend  | `docs: add executable delivery checklist`                 | Backlog audit 169/169                                  |
+|      3 | Backend  | `chore: scaffold api worker and docker foundation`        | VS-007..VS-012, lint/typecheck/unit/build              |
+|      4 | Frontend | `chore: scaffold next tooling and selected ui foundation` | VS-013, VS-023..VS-024; design commit là ancestor      |
+|      5 | Backend  | `feat: expose published layer vertical slice`             | VS-015..VS-022, PostGIS integration                    |
+|      6 | Frontend | `feat: render published layer map vertical slice`         | VS-025..VS-028, component/Playwright targeted tests    |
+|      7 | Backend  | `feat: enforce controlled publication vertical slice`     | VS-029..VS-033, RBAC deny + atomicity tests            |
+|      8 | Frontend | `feat: add controlled publication workflow surfaces`      | VS-034..VS-035, role/mobile gates                      |
+|      9 | Backend  | `feat: validate and apply four-format spatial imports`    | IMP-001..IMP-006, parser equivalence + atomicity tests |
+|     10 | Frontend | `feat: connect spatial import wizard`                     | IMP-007, generated-client contract/component tests     |
+|     11 | Backend  | `test: run cross-repo docker e2e vertical slices`         | VS-036..VS-041 + IMP-008 pass twice from clean state   |
 
 Không đóng milestone issue chỉ từ commit tồn tại. Issue chỉ được chuyển `Done` khi toàn bộ exit criteria milestone ở `PLANS.md` đạt; vertical slice là evidence sớm, không thay thế phần backlog còn lại.
 
@@ -226,19 +226,19 @@ Không đóng milestone issue chỉ từ commit tồn tại. Issue chỉ đượ
 
 ## 7. Blocker và risk cần theo dõi
 
-| ID | Trạng thái | Ảnh hưởng | Owner/next action |
-| --- | --- | --- | --- |
-| BLK-01 | Closed at `0899ebd` | Badge `v2` và visible gradient trên mobile CTA đã được loại bỏ | Giữ visual regression review trong implementation; thay đổi hướng phải qua design review mới |
-| BLK-02 | Open trước production integration | Geo Service OpenAPI chỉ có generic response | Backend cần fixture response thật và versioned runtime schema; slice public map không được giả response như contract production |
-| BLK-03 | Open cho cutover | Manifest authoritative dữ liệu v1 chưa có | Product/Data hoàn tất D-001..D-002 trước migration rehearsal |
-| BLK-04 | Open cho final visual fidelity | Chưa có URL-restricted `NEXT_PUBLIC_MAPBOX_TOKEN`; live labels/marker/polygon/Terra Draw không thể so sánh trung thực với source rasters | Ops/Product cấp public token giới hạn domain; chạy lại bốn viewport + focused map crops và cập nhật frontend `design-qa.md` |
-| BLK-05 | Closed at backend `09c4c98` + frontend `3fd3e027`; issue #8 closed | Explicit admin spatial schemas, generic-only drift guard và generated-derived FE models đã có; runtime decoder chỉ còn là trust-boundary defense | Giữ stale-artifact/API checks trong CI; schema mới không quay lại generic-only body |
-| BLK-06 | Closed at backend `efc1a29` + frontend `3fd3e027`; issue #9 closed | Typed public queries, bbox+limit client và >1.000 feature MVT policy đã có test/CI | Paging/cursor chỉ mở lại nếu product chọn hybrid list vượt full-GeoJSON threshold |
-| BLK-07 | Open, backend issue #10 | Login có thể trả `mfaEnrollmentRequired=true` nhưng chưa có `/auth/mfa/enroll` và `/auth/mfa/enroll/confirm` | Backend hoàn tất pre-auth enrollment/recovery-code one-time và Docker HTTP lifecycle; frontend không giả luồng enrollment |
-| BLK-08 | Closed at backend `e62c478` + `d5ca105`; issue #12 closed | Durable DB receipt/request-hash/original-result semantics có domain tests thực: Docker integration 6 suites/18 pass; root verification OpenAPI/typecheck/unit pass; follow-up CI `32445758290` xanh toàn bộ | Giữ receipt replay/concurrency suite trong CI; issue #11 và M4 vẫn mở cho browser deny/public-read/failure paths còn lại, attachment và external integration; V3/IMP-008 đã complete riêng |
-| R-01 | Accepted, vẫn phải review M8 | Không có backup PostGIS/MinIO | Không chạy destructive production migration; release sign-off phải nêu giới hạn phục hồi |
-| R-06 | Critical | Draft/private leak | Central projection + automated fixture là gate merge |
-| R-07 | Critical | Workflow bypass | Backend deny matrix là gate merge; ẩn button frontend không đủ |
+| ID     | Trạng thái                                                         | Ảnh hưởng                                                                                                                                                                                                   | Owner/next action                                                                                                                                                                          |
+| ------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| BLK-01 | Closed at `0899ebd`                                                | Badge `v2` và visible gradient trên mobile CTA đã được loại bỏ                                                                                                                                              | Giữ visual regression review trong implementation; thay đổi hướng phải qua design review mới                                                                                               |
+| BLK-02 | Open trước production integration                                  | Geo Service OpenAPI chỉ có generic response                                                                                                                                                                 | Backend cần fixture response thật và versioned runtime schema; slice public map không được giả response như contract production                                                            |
+| BLK-03 | Open cho cutover                                                   | Manifest authoritative dữ liệu v1 chưa có                                                                                                                                                                   | Product/Data hoàn tất D-001..D-002 trước migration rehearsal                                                                                                                               |
+| BLK-04 | Open cho final visual fidelity                                     | Chưa có URL-restricted `NEXT_PUBLIC_MAPBOX_TOKEN`; live labels/marker/polygon/Terra Draw không thể so sánh trung thực với source rasters                                                                    | Ops/Product cấp public token giới hạn domain; chạy lại bốn viewport + focused map crops và cập nhật frontend `design-qa.md`                                                                |
+| BLK-05 | Closed at backend `09c4c98` + frontend `3fd3e027`; issue #8 closed | Explicit admin spatial schemas, generic-only drift guard và generated-derived FE models đã có; runtime decoder chỉ còn là trust-boundary defense                                                            | Giữ stale-artifact/API checks trong CI; schema mới không quay lại generic-only body                                                                                                        |
+| BLK-06 | Closed at backend `efc1a29` + frontend `3fd3e027`; issue #9 closed | Typed public queries, bbox+limit client và >1.000 feature MVT policy đã có test/CI                                                                                                                          | Paging/cursor chỉ mở lại nếu product chọn hybrid list vượt full-GeoJSON threshold                                                                                                          |
+| BLK-07 | Closed on canonical `main` `059e240`                               | Pre-auth enrollment, one-time recovery codes, forced password-change/session lifecycle và Docker HTTP coverage đã có; backend issue #10 đã đóng                                                             | Giữ MFA/password/session allow-deny, replay và redaction suites trong CI; browser recovery journey được pin theo exact backend SHA                                                         |
+| BLK-08 | Closed at backend `e62c478` + `d5ca105`; issue #12 closed          | Durable DB receipt/request-hash/original-result semantics có domain tests thực: Docker integration 6 suites/18 pass; root verification OpenAPI/typecheck/unit pass; follow-up CI `32445758290` xanh toàn bộ | Giữ receipt replay/concurrency suite trong CI; issue #11 và M4 vẫn mở cho browser deny/public-read/failure paths còn lại, attachment và external integration; V3/IMP-008 đã complete riêng |
+| R-01   | Accepted, vẫn phải review M8                                       | Không có backup PostGIS/MinIO                                                                                                                                                                               | Không chạy destructive production migration; release sign-off phải nêu giới hạn phục hồi                                                                                                   |
+| R-06   | Critical                                                           | Draft/private leak                                                                                                                                                                                          | Central projection + automated fixture là gate merge                                                                                                                                       |
+| R-07   | Critical                                                           | Workflow bypass                                                                                                                                                                                             | Backend deny matrix là gate merge; ẩn button frontend không đủ                                                                                                                             |
 
 ## 8. Báo cáo checkpoint
 

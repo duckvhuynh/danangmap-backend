@@ -61,13 +61,14 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       (github.head_ref == 'integration/v2-canonical-backend' ||
+       github.head_ref == 'integration/v2-identity-recovery' ||
        github.head_ref == 'test/durable-publication-activation')
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
       DANANGMAP_BACKEND_SHA: ${{ github.event.pull_request.head.sha }}
       DANANGMAP_FRONTEND_CONTEXT: ${{ github.workspace }}/.crossstack/danangmap-frontend
-      DANANGMAP_FRONTEND_SHA: 6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8
+      DANANGMAP_FRONTEND_SHA: c87a6331ccbe2b0a60b20fbb7ca73a29a6031f89
       DANANGMAP_FULLSTACK_RUNS: '2'
       DANANGMAP_ACTIVATION_MODE: production
       DANANGMAP_ASYNC_API_NODE_ENV: production

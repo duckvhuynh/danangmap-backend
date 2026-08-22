@@ -119,13 +119,13 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 - [ ] **VS-029 — Backend:** User/role/session migration và deterministic Editor/Reviewer/Publisher/System Admin seed. Mapping: `B-008`, `B-056`.
   - Acceptance: một primary role; session revoke fields; seed idempotent.
-- [ ] **VS-030 — Backend:** RBAC guard và separation policy predicates. Mapping: `B-016`, `B-017`. Partial evidence: draft PR backend `#13`/`6800ff6` có real HTTP role/SoD deny matrix, CI `32449796541` xanh; chưa có main-branch merge/browser evidence.
+- [x] **VS-030 — Backend:** RBAC guard và separation policy predicates. Mapping: `B-016`, `B-017`. Evidence: canonical stack đã merge vào `main` tại `059e240`; real HTTP role/SoD deny matrix và hai fresh-volume exact-SHA browser journey xanh trong run `32561792134`.
   - Acceptance: allow/deny tests gồm self-review, prior participant publish và System Admin bypass.
 - [x] **VS-031 — Backend:** Draft create, feature mutation và optimistic ETag. Mapping: `B-026`, `B-027`. Evidence: spatial core + real domain replay tests through backend `e62c478`; create layer/feature one effect, original ETag/result survives service restart.
   - Acceptance: server UUID; stale write fail; audit participant recorded; cùng idempotency key/hash trả nguyên status/body/ETag cũ, khác hash trả `IDEMPOTENCY_KEY_REUSED`.
-- [ ] **VS-032 — Backend:** Validate/submit và approve commands. Mapping: `B-028`, `B-029`, `B-030`. Partial evidence: draft PR backend `#13`/`6800ff6` chạy submit/replay/approve và self/participant deny qua HTTP thật; PR chưa merge.
+- [x] **VS-032 — Backend:** Validate/submit và approve commands. Mapping: `B-028`, `B-029`, `B-030`. Evidence: canonical `main` `059e240` chạy submit/replay/approve và self/participant deny qua HTTP thật; final main CI `32562513173` và exact-SHA browser run `32561792134` xanh.
   - Acceptance: submitted revision immutable; invalid/self-review bị chặn; retry tuần tự/đồng thời chỉ tạo một transition/audit qua durable DB receipt.
-- [ ] **VS-033 — Backend:** Snapshot builder và atomic pointer switch. Mapping: `B-031`, `B-032`. Partial evidence: draft PR backend `#13`/`6800ff6` chứng minh one generation, private redaction và injected pointer failure giữ snapshot/generation cũ; PR chưa merge.
+- [x] **VS-033 — Backend:** Snapshot builder và atomic pointer switch. Mapping: `B-031`, `B-032`. Evidence: canonical `main` `059e240` chứng minh one generation, private redaction, injected pointer failure giữ snapshot/generation cũ và durable crash recovery; PR #38 đã merge, run `32561792134` xanh hai fresh-volume journey.
   - Acceptance: private field stripped; build failure giữ snapshot cũ; success tăng generation và invalidate cache sau commit; concurrent publish duplicate chỉ tạo một snapshot/generation và trả lại original result.
 - [ ] **VS-034 — Frontend:** Minimal desktop editor for seeded properties/geometry save and submit. Mapping: `F-020`, `F-027`, `F-029`, `F-032`.
   - Acceptance: server/local state được phân biệt; mobile capability gate không render mutation tools.
@@ -134,7 +134,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 - [x] **VS-035A — Backend:** Canonical synchronous history/diff/rollback/audit checkpoint. Mapping: `B-033`, `B-064`, `Q-005`, `Q-027`; tracking backend `#30`.
   - Evidence: backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7`; OpenAPI 73 operations; unit 67, integration 40, E2E 41. Chín endpoint canonical, bounded feature-level diff, pointer ETag riêng, role-scoped immutable audit và atomic rollback có test; hai run browser thật ở VS-041 đều pass.
-  - Boundary: attachment diff vẫn explicit `ATTACHMENT_CONTRACT_PENDING` tới khi canonical binding của backend #29 tồn tại; không dùng JSON properties/empty array thay thế. Backend #30 vẫn Open/In Progress cho capability deferred này và Draft PR closeout.
+  - Boundary: attachment diff vẫn explicit `ATTACHMENT_CONTRACT_PENDING` tới khi canonical binding của backend #29 tồn tại; không dùng JSON properties/empty array thay thế. Đây là blocker còn lại duy nhất của backend #30.
 - [x] **VS-035B — Backend/Worker:** Durable publication-job progress. Mapping: `B-031`, `B-032`; tracking backend `#30`.
   - Acceptance: committed job row trước work, BullMQ retry/crash recovery idempotent, observable queued/building/failed, measured monotonic progress và final pointer switch nguyên tử. Không đưa vào checkpoint synchronous bằng fake `50%`.
   - Evidence: independent review chấp nhận local production activation tại exact backend `2d4675ec2385abf55fa23ad26914e037456f14cd` + frontend `6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8`. Hai manifest `2026-08-22T02-48-36.875Z-2d4675ec2385-6e6fe83f7dbf-run-1` (`6497db82ebfd8b92206cdfabd9ffa4456d650198e3501e33485a32d2d3e9516e`) và `2026-08-22T02-53-38.466Z-2d4675ec2385-6e6fe83f7dbf-run-2` (`70a04b03205b6d58160bc22f50fd2abc10b00d4b6bec646f30d9d4dc1ca70c3a`) chứng minh 18/18 pass, zero failed/skipped/flaky, production trusted STARTTLS, attempt 2/recovered lease 1/generation 1→2 và cleanup 0/0/0.

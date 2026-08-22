@@ -451,7 +451,7 @@ Tên project: **DanangMap v2 Delivery** trong tài khoản `duckvhuynh`, liên k
 
 ## 10. Commit và PR order
 
-Không trộn commit hai repository. Mỗi PR nhỏ, draft trước, rebase/pull latest trước review, squash merge khi required checks xanh.
+Không trộn commit hai repository. Mỗi PR nhỏ, draft trước, cập nhật latest base trước review và dùng merge commit khi required checks xanh; không squash/rebase lịch sử đã review trừ khi chủ repo yêu cầu rõ.
 
 1. **BACKEND-DOC-PR:** `docs: baseline danangmap v2 product and delivery specs` — PRD/SRS/API-CONTRACT/PLANS trong backend repo.
 2. **FRONTEND-DESIGN-ASSET-PR:** `docs: register three danangmap public visual directions` — DESIGN và đúng 3 PNG trong frontend repo; chưa scaffold UI.

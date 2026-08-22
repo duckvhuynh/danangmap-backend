@@ -56,12 +56,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Require private cross-repository read token
+        env:
+          CROSS_REPO_READ_TOKEN: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+        run: |
+          if [ -z "$CROSS_REPO_READ_TOKEN" ]; then
+            echo "CROSS_REPO_READ_TOKEN is required for the private exact-SHA frontend checkout." >&2
+            exit 1
+          fi
       - name: Checkout exact frontend revision
         uses: actions/checkout@v4
         with:
           repository: duckvhuynh/danangmap-frontend
           ref: 244538488ecb4fd26f910c33d4a499ef23a7d040
           path: .crossstack/danangmap-frontend
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:

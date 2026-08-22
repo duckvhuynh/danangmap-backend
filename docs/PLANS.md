@@ -136,23 +136,23 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 
 | ID | Công việc | Repo | Depends on | Acceptance criteria |
 | --- | --- | --- | --- | --- |
-| B-018 | Layer/group/revision schema migration | `danangmap-backend` | B-003, C-007 | Stable layer ID, immutable revision fields, status constraints và indexes |
+| B-018 | Layer/group/revision schema migration | `danangmap-backend` | B-003, C-007 | Stable layer ID, immutable revision fields; partial unique chỉ một open chain/layer qua `draft`, `in_review`, `approved`, `publishing`; migration up/down xanh |
 | B-019 | Layer-field schema migration | `danangmap-backend` | B-018, C-008 | Stable key, type/icon/order/validation/public/search/filter constraints |
 | B-020 | Feature/version/revision-link schema migration | `danangmap-backend` | B-018 | UUID feature, immutable versions, PostGIS geometry, JSONB properties, spatial index |
 | B-021 | Publication snapshot/pointer schema migration | `danangmap-backend` | B-020 | Snapshot immutable, one active pointer/layer, transactional constraints |
-| B-022 | Layer/group CRUD service | `danangmap-backend` | B-018, B-016 | Create/update/archive/list theo contract; unauthorized actions denied/audited |
-| B-023 | Field schema compiler/validator | `danangmap-backend` | B-019 | Reject invalid keys/types/defaults; public/private projection metadata được tạo |
+| B-022 | Layer/group CRUD service | `danangmap-backend` | B-018, B-016 | Group→layer lock order cho create/move/unarchive/archive; race không để layer tham chiếu group archived; collection ETag cover latest revision; bounded audit count/digest; unauthorized actions denied |
+| B-023 | Revision configuration compiler/validator | `danangmap-backend` | B-019 | Value-aware aggregate đếm actual constraint/type/enum violations; harmless expansion không block; output reason bounded/deterministic; một PUT atomically thay geometry/schema/style/render/popup |
 | B-024 | Geometry type/SRID/validity validator | `danangmap-backend` | B-020, C-007 | Fixture point/line/polygon/multi/mixed pass; wrong SRID/type/invalid polygon fail |
 | B-025 | Circle center/radius validator | `danangmap-backend` | B-024 | `radius_m > 0`, center EPSG:4326, render polygon không ghi làm canonical geometry |
-| B-026 | Draft revision creation/service | `danangmap-backend` | B-020, B-022, B-023 | Một active working draft/layer; base publication/version fingerprint được lưu |
+| B-026 | Draft revision creation/service | `danangmap-backend` | B-020, B-022, B-023 | Một open editorial chain/layer qua bốn status; successor copy config+feature links từ active publication, lưu supersedes lineage; cross-path create/request-changes race một winner; source immutable |
 | B-027 | Feature CRUD với optimistic locking | `danangmap-backend` | B-024, B-026 | Version/ETag required; stale write trả conflict; không silent overwrite |
 | B-028 | Draft validation report | `danangmap-backend` | B-023, B-024, B-027 | Trả lỗi theo feature/field/geometry; invalid draft không submit được |
 | B-029 | Submit immutable revision | `danangmap-backend` | B-028, B-017 | Submit đóng working version, ghi author/audit, trạng thái `in_review` |
-| B-030 | Review/changes-requested/approve service | `danangmap-backend` | B-029, B-017, B-026 | Reviewer khác author thao tác có comment/reason; request-changes tạo successor draft và giữ submitted revision immutable |
+| B-030 | Review/changes-requested/approve service | `danangmap-backend` | B-029, B-017, B-026 | Reviewer khác author thao tác có comment/reason; request-changes atomically terminalize original + tạo successor trong cùng lineage; open-chain conflict zero partial mutation và submitted revision immutable |
 | B-031 | Publication snapshot builder | `danangmap-backend` | B-021, B-030 | Chỉ approved input; strip private fields; deterministic count/hash; synchronous checkpoint không giả queued/progress, durable BullMQ build là follow-up |
-| B-032 | Atomic publish + cache invalidation | `danangmap-backend` | B-031, B-004 | Request hiện trả terminal sau transaction; pointer switch nguyên tử; public ETag/generation chỉ revalidate sau commit; no fake 50% |
-| B-033 | Rollback publication service | `danangmap-backend` | B-032 | Chỉ snapshot `published` từng active; reason + publication-pointer If-Match; SoD; pointer/audit/cache/generation cập nhật nguyên tử |
-| B-034 | Public catalog/config projection | `danangmap-backend` | B-023, B-032, B-065, B-066 | Chỉ published group/layer/field/style/popup an toàn; ETag/cache headers đúng |
+| B-032 | Atomic publish + cache invalidation | `danangmap-backend` | B-031, B-004 | Lock layer + active pointer; active revision phải khớp nearest published ancestor; stale trả 409 `PUBLICATION_BASE_STALE` zero mutation; request trả terminal sau transaction; pointer switch nguyên tử và public ETag/generation chỉ revalidate sau commit |
+| B-033 | Rollback publication service | `danangmap-backend` | B-032 | Chỉ snapshot `published` từng active; reason + publication-pointer If-Match; SoD; pointer/audit/cache/generation cập nhật nguyên tử; approved candidate từ base cũ bị publish guard chặn |
+| B-034 | Public catalog/config projection | `danangmap-backend` | B-023, B-032, B-065, B-066 | Chỉ current published group/layer/field/style/popup an toàn; draft và archived layer vắng mặt; ETag/cache headers đúng |
 | B-035 | Public bbox GeoJSON endpoint | `danangmap-backend` | B-032, B-024 | bbox/zoom/pagination limits; spatial index plan; không trả draft/private data |
 | B-036 | MVT SQL/cache strategy spike | `danangmap-backend` | B-035, C-014 | Benchmark dataset profile; khóa source layer, generalization và rule dùng GeoJSON/MVT |
 | B-037 | MVT endpoint theo snapshot generation | `danangmap-backend` | B-036 | ST_AsMVT payload/source layer ổn định, cache immutable theo generation; leak tests xanh |
@@ -178,7 +178,7 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | B-052 | Job progress/cancel/idempotency | `danangmap-backend` | B-048, B-050, B-051 | Monotonic progress; cancel trước commit; repeated command không duplicate mutation |
 | B-053 | Attachment quarantine upload service | `danangmap-backend` | B-005, B-026, C-008 | MIME/size/checksum/key policy; object mặc định quarantine; orphan cleanup policy |
 | B-054 | Public/private attachment delivery | `danangmap-backend` | B-061, B-032 | Chỉ clean+bound+published public attachment được delivery; private object không public URL |
-| B-055 | Generate/publish OpenAPI artifact | `danangmap-backend` | B-009, B-022, B-027, B-040, B-052 | Stable operation IDs; schemas/errors/examples đủ để sinh frontend client |
+| B-055 | Generate/publish OpenAPI artifact | `danangmap-backend` | B-009, B-022, B-027, B-040, B-052 | Stable operation IDs; mọi versioned lifecycle response khai báo ETag header giống runtime; schemas/errors/examples đủ sinh client |
 | B-056 | Deterministic development/E2E seed | `danangmap-backend` | B-020, B-008 | Seed users/roles/layers/geometries idempotent, không dùng production credential |
 | B-057 | CSRF endpoint/middleware + Origin/Referer guard | `danangmap-backend` | Public reuse sau khi cookie được thiết lập; pre-auth/auth GET nhiều tab trả cùng token và không mutation/rebind; chỉ rotate tại trust/new-session boundary; session active thiếu/sai token trả `403 CSRF_INVALID`; mọi cookie mutation deny khi token/origin thiếu hoặc sai |
 | B-058 | Password change/reset lifecycle | `danangmap-backend` | B-009, B-014, B-059 | Request không lộ account, token hashed/one-time/expiry; confirm revoke sessions và audit |
@@ -188,8 +188,8 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | B-062 | Public feature detail endpoint + ETag | `danangmap-backend` | B-034, B-035 | Published feature detail/schema projection, 304 support, private/draft field vắng mặt |
 | B-063 | Public normalized place-detail endpoint | `danangmap-backend` | B-039, B-040 | Allowlisted fields, normalized DTO, timeout/circuit partial behavior, không proxy raw upstream |
 | B-064 | Audit/workflow/revision/publication history query endpoints | `danangmap-backend` | B-014, B-016 | Chín canonical endpoints; bounded feature-level diff cursor + circle radius/redaction; history/pointer ETag riêng; global audit System Admin-only, content role scope immutable; attachment diff explicit unavailable tới #29 |
-| B-065 | Layer-group CRUD/order/default visibility | `danangmap-backend` | B-022 | Editor quản lý group/order; slug/order constraints; System Admin read-only; audit đầy đủ |
-| B-066 | Popup-config schema/compiler | `danangmap-backend` | B-022, B-023 | Chỉ field hợp lệ; strip private field; cấm raw HTML/arbitrary expression; versioned cùng revision |
+| B-065 | Layer-group CRUD/order/default visibility | `danangmap-backend` | B-022 | Archive bắt buộc `{orphanLayerPolicy:'ungroup'}`; lock group trước layer; reorder lock ID order + collection ETag; audit chỉ count/order/ID digest; System Admin read-only |
+| B-066 | Popup-config schema/compiler | `danangmap-backend` | B-022, B-023 | Chỉ field hợp lệ; strip private field; cấm raw HTML/arbitrary expression; versioned trong cùng atomic revision-config replacement |
 | B-067 | Public catalog capability projection | `danangmap-backend` | B-034 | Group/order/default visibility/zoom/source/filter/search/detail/popup/generation DTO có ETag |
 | B-068 | Import hard-limit policy/enforcer | `danangmap-backend` | B-042, C-014 | Enforce 100.000 record, 100.000 vertex/feature, 2.000.000 vertex/job, 250 MiB expanded, 64 KiB properties và XLSX limits |
 
@@ -224,9 +224,9 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | F-020 | Role-aware admin shell | `danangmap-frontend` | F-003, F-004, F-047, B-016 | Nav/action visibility hỗ trợ UX; backend deny vẫn được xử lý rõ |
 | F-021 | Account manual/invite/import UI | `danangmap-frontend` | F-020, B-012, B-013, B-015 | Create/invite/import/disable/role flows có confirmation và report |
 | F-022 | Layer/group list, order và archive UI | `danangmap-frontend` | F-020, B-022, B-065 | Search/filter/status/count/order/default visibility; System Admin read-only; archive confirm |
-| F-023 | Layer create/edit form | `danangmap-frontend` | F-022, B-022 | Geometry policy/mixed allow-list/name/group validate theo contract |
-| F-024 | Dynamic field schema builder | `danangmap-frontend` | F-023, B-023 | Add/reorder/type/icon/validation/public/search/filter; invalid schema bị chặn |
-| F-025 | Style/popup configuration UI | `danangmap-frontend` | F-023, F-024, B-066 | Chỉ schema style/popup được phép; preview fixture; không raw HTML/arbitrary expression |
+| F-023 | Layer create/edit form | `danangmap-frontend` | F-022, B-022 | Geometry policy/mixed allow-list/name/group validate theo contract; reload giữ stable IDs/ETag; chỉ desktop Editor mutation |
+| F-024 | Dynamic field schema builder | `danangmap-frontend` | F-023, B-023 | Add/reorder/type/icon/validation/public/search/filter; preview impact trước thay đổi blocking; save config bằng một full replacement PUT |
+| F-025 | Style/popup configuration UI | `danangmap-frontend` | F-023, F-024, B-066 | Chỉ schema style/popup được phép; preview fixture; không raw HTML/arbitrary expression; geometry/schema/style/popup gửi chung một atomic config payload |
 | F-026 | Terra Draw technical spike | `danangmap-frontend` | C-007, F-005 | Round-trip point/line/polygon/circle/multi, select/edit/delete, touch/keyboard report |
 | F-027 | Desktop mutation gate + mobile review mode | `danangmap-frontend` | F-020, C-016 | Mobile chỉ view/comment/approve/request-changes; publish/rollback/import/schema/draw/edit desktop-only |
 | F-028 | Terra Draw toolbar và modes | `danangmap-frontend` | F-026, F-027, B-027 | Select/point/line/polygon/circle/delete modes tuân layer allow-list |
@@ -273,14 +273,14 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | Q-002 | Geometry fixture suite | `danangmap-backend` | C-007 | Valid/invalid point/circle/line/polygon/multi/mixed fixtures versioned |
 | Q-003 | Import fixture/guardrail suite 4 format | `danangmap-backend` | B-043, B-044, B-045, B-046, B-068 | Boundary 25 MiB/100.000 record/100.000+2.000.000 vertices/250 MiB/64 KiB/10 sheets/256 cols/20.000 issues cùng malicious fixtures |
 | Q-004 | Auth/MFA/session/CSRF/reset integration suite | `danangmap-backend` | B-011, B-013, B-057, B-058, B-059 | Login/MFA/recovery/reset/mail/revoke/lockout/CSRF allow+deny xanh; public reuse sau khi cookie thiết lập; GET CSRF tuần tự/song song giữa nhiều tab trong cùng pre-auth/auth session trả cùng token và giữ nguyên DB hash; trust/new-session transition trả token khác |
-| Q-005 | RBAC/workflow deny matrix | `danangmap-backend` | B-017, B-033 | Self-review, edit/import participant đổi role rồi publish/rollback, unapproved publish và admin-bypass đều bị từ chối với zero mutation |
+| Q-005 | RBAC/workflow deny matrix | `danangmap-backend` | B-017, B-033 | Self-review, edit/import participant đổi role rồi publish/rollback, unapproved publish và admin-bypass đều bị từ chối với zero mutation; stale-base publish giữ approved + pointer/snapshot/audit không đổi |
 | Q-006 | Public private/draft leakage suite | `danangmap-backend` | B-041, B-054, B-060, B-061 | Catalog/detail/GeoJSON/MVT/search/place/cache/attachment kiểm tra 0 leak |
-| Q-007 | API contract/breaking-change test | `danangmap-backend` | B-055, C-010 | OpenAPI lint/snapshot/diff; breaking change không có version plan làm CI fail |
+| Q-007 | API contract/breaking-change test | `danangmap-backend` | B-055, C-010 | OpenAPI lint/snapshot/diff; assert ETag response header cho mọi versioned lifecycle operation; breaking change không có version plan làm CI fail |
 | Q-008 | Docker Compose E2E topology | `danangmap-backend` | B-002, B-003, B-004, B-005, F-001 | Frontend/API/worker/PostGIS/Redis/MinIO/Mail/scanner/mock services chạy isolated |
 | Q-009 | Fresh DB migrate/seed smoke | `danangmap-backend` | Q-008, B-056 | Empty volume migrate+seed+health; no manual command ngoài documented entrypoint |
 | Q-010 | Upgrade migration smoke | `danangmap-backend` | Q-009 | Previous release snapshot nâng lên current và app read/write được |
 | Q-011 | Public map Playwright | `danangmap-frontend` | F-007, F-009, F-010, F-011, F-012, F-013, F-014, F-015, F-016, F-017, F-018, Q-008 | Catalog/render/style/search/detail/place/list/degraded desktop+mobile; không URL state |
-| Q-012 | Admin authoring Playwright | `danangmap-frontend` | F-035, Q-002, Q-008 | Draw/edit/circle/multi/properties/undo/autosave/conflict pass trên desktop |
+| Q-012 | Admin authoring Playwright | `danangmap-frontend` | F-035, Q-002, Q-008 | Real-stack create/reload mixed draft với group/order, Point/Polygon/circle, public/private schema, style/popup; public absent; 409/422 có requestId; role/mobile deny; draw/edit/multi/autosave/conflict pass trên desktop |
 | Q-013 | Dexie crash/reload E2E | `danangmap-frontend` | F-035, Q-008 | Reload/crash restore/discard/conflict/cleanup pass; no credential persisted |
 | Q-014 | Import Playwright | `danangmap-frontend` | F-039, Q-003, Q-008 | 4 formats, mọi hard guardrail, atomic/skip-invalid, 3 modes, full report/progress/cancel pass |
 | Q-015 | Review/publish/rollback E2E | `danangmap-frontend` | F-043, Q-005, Q-008 | Successor draft, feature-level diff, 3 actors, mobile no publish/rollback, synchronous indeterminate→terminal publish và pointer-ETag rollback/public revalidation pass |
@@ -292,10 +292,12 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | Q-021 | Import worker soak/resource test | `danangmap-backend` | B-052, B-068, Q-003 | Jobs sát mọi limit không OOM; 100.000 record/2.000.000 vertices/expanded/report guard, retry/cancel/idempotency evidence |
 | Q-022 | Security smoke/DAST/dependency scan | `danangmap-backend` | C-009, Q-008 | Auth/upload/admin/public endpoints scanned; critical/high triaged trước release |
 | Q-023 | Coolify staging deployment smoke | `danangmap-backend` | Q-009, Q-010, Q-011, Q-015, Q-025, Q-026 | Health/readiness/migration/API/worker/MinIO/mail/scanner/public/admin smoke xanh |
-| Q-024 | Release/rollback rehearsal | `danangmap-backend` | Q-006, Q-014, Q-016, Q-018, Q-020, Q-021, Q-022, Q-023, Q-025, Q-026, Q-027, D-010, C-015, C-016, C-017 | Tất cả go/no-go gates xanh; backend-first deploy, app/publication rollback và abort diễn tập |
+| Q-024 | Release/rollback rehearsal | `danangmap-backend` | Q-006, Q-014, Q-016, Q-018, Q-020, Q-021, Q-022, Q-023, Q-025..Q-029, D-010, C-015, C-016, C-017 | Tất cả go/no-go gates xanh; backend-first deploy, app/publication rollback và abort diễn tập |
 | Q-025 | Auth lifecycle Docker E2E | `danangmap-frontend` | F-019, F-021, F-046, F-047, Q-004, Q-008 | Invite/reset mail, CSRF, MFA, expiry/replay, revoke/disable và generic responses pass |
 | Q-026 | Attachment quarantine/binding/publication E2E | `danangmap-frontend` | F-045, B-060, B-061, Q-008 | Clean/infected/scan-fail, bind/unbind, private deny và published public delivery pass |
 | Q-027 | Audit/history scope-redaction integration test | `danangmap-backend` | B-064 | Nine path/OpenAPI assertions; stable diff/audit cursor; System Admin global, content-role scoped, immutable redacted metadata; 25k/2m bound; attachment unavailable marker; 73-operation artifact |
+| Q-028 | Catalog lock/race + audit-digest suite | `danangmap-backend` | B-022, B-065, Q-008 | Real Postgres archive-group song song create/move/unarchive; final 0 archived-group reference; reorder deterministic; metadata không raw ID arrays, chỉ bounded count/digest |
+| Q-029 | Lifecycle config/workflow guard suite | `danangmap-backend` | B-023, B-026, B-032, B-055, Q-008 | 250+ value harmless/tightening impact; cross-path one-open-chain race; stale-base 409 zero mutation; role/CSRF/428/idempotency-mismatch table; OpenAPI ETag assertions |
 
 ### 5.9 Ma trận truy vết requirement → backlog → kiểm thử
 
@@ -304,16 +306,18 @@ Ma trận này là nguồn gán requirement cho các backlog row ở §5.1-5.8. 
 | Requirement group | Backlog implementation | Verification gates |
 | --- | --- | --- |
 | `FR-PUB-001..010`, `FR-EXT-001..003` | `B-034..B-041`, `B-062..B-063`, `B-065..B-067`, `F-005..F-018` | `Q-006`, `Q-011`, `Q-017`, `Q-020` |
-| `FR-LYR-001..007` | `B-018..B-028`, `B-065..B-067`, `F-022..F-025`, `F-029..F-030` | `Q-002`, `Q-006`, `Q-012` |
+| `FR-LYR-001..007` | `B-018..B-028`, `B-065..B-067`, `F-022..F-025`, `F-029..F-030` | `Q-002`, `Q-006`, `Q-012`, `Q-028..Q-029` |
 | `FR-EDT-001..006` | `B-024..B-030`, `F-026..F-035` | `Q-002`, `Q-012`, `Q-013`, `Q-019` |
 | `FR-IMP-001..008` | `B-042..B-052`, `B-068`, `F-036..F-039` | `Q-003`, `Q-014`, `Q-021` |
 | `FR-AUT-001..006` | `B-008..B-016`, `B-057..B-059`, `F-019..F-021`, `F-046..F-047` | `Q-004`, `Q-016`, `Q-022`, `Q-025` |
-| `FR-WFL-001..007` | `B-017`, `B-029..B-033`, `B-064`, `F-040..F-044` | `Q-005`, `Q-015`, `Q-027` |
+| `FR-WFL-001..007` | `B-017`, `B-029..B-033`, `B-064`, `F-040..F-044` | `Q-005`, `Q-015`, `Q-027`, `Q-029` |
 | `FR-ATT-001..004` | `B-005`, `B-053..B-054`, `B-060..B-061`, `F-045` | `Q-006`, `Q-022`, `Q-026` |
-| `NFR-SEC-*`, `NFR-PRV-001` | `C-008..C-009`, `B-007`, `B-016..B-017`, `B-041`, `B-057..B-061` | `Q-004..Q-006`, `Q-022`, `Q-025..Q-027` |
-| `NFR-DAT-*`, `NFR-PER-*`, `NFR-SCL-001`, `NFR-REL-*` | `C-013..C-014`, `B-003..B-006`, `B-020..B-041`, `B-068`, `D-001..D-010` | `Q-009..Q-010`, `Q-017`, `Q-020..Q-021`, `Q-024` |
+| `NFR-SEC-*`, `NFR-PRV-001` | `C-008..C-009`, `B-007`, `B-016..B-017`, `B-041`, `B-057..B-061` | `Q-004..Q-006`, `Q-022`, `Q-025..Q-029` |
+| `NFR-DAT-*`, `NFR-PER-*`, `NFR-SCL-001`, `NFR-REL-*` | `C-013..C-014`, `B-003..B-006`, `B-020..B-041`, `B-068`, `D-001..D-010` | `Q-009..Q-010`, `Q-017`, `Q-020..Q-021`, `Q-024`, `Q-028..Q-029` |
 | `NFR-A11Y-001`, `NFR-I18N-001`, GATE-DESIGN | `C-005..C-006`, `C-016`, `F-002..F-003`, `F-006..F-045` | `Q-011..Q-019` |
-| `NFR-OBS-001`, `NFR-OPS-*` | `C-004`, `C-013`, `C-015`, `C-017`, `B-002`, `B-006..B-007`, `Q-008` | `Q-009..Q-010`, `Q-022..Q-024` |
+| `NFR-OBS-001`, `NFR-OPS-*` | `C-004`, `C-013`, `C-015`, `C-017`, `B-002`, `B-006..B-007`, `Q-008` | `Q-009..Q-010`, `Q-022..Q-024`, `Q-028..Q-029` |
+
+`FR-LYR-001..007` khóa hai command cấu hình duy nhất cho draft: `POST /api/v1/admin/revisions/{revisionId}/config:impact` để preview không mutation và `PUT /api/v1/admin/revisions/{revisionId}/config` để full replacement nguyên tử. Split PATCH revision, PUT fields hoặc `/schema:impact` không phải contract hợp lệ.
 
 ## 6. Definition of Ready
 
@@ -489,6 +493,8 @@ Backend API phải deploy trước bằng thay đổi backward-compatible; front
 | R-17 | Admin mobile bị hiểu là có high-impact mutation | Medium | Product/Frontend | Mobile chỉ view/comment/approve/request-changes; publish/rollback/import/schema/draw/edit desktop-only |
 | R-18 | “Supported client only” bị hiểu nhầm là API access control | Medium | Product/Security | Ghi rõ CORS không phải auth; rate limit/WAF/abuse metrics; trigger: scraping hoặc consumer ngoài DanangMap |
 | R-19 | Attachment chưa scan hoặc scan lỗi bị publish | Critical | Backend/Security | Quarantine + clean-only binding/publish + Q-026; trigger: object pending/rejected xuất hiện snapshot |
+| R-20 | Catalog race để layer tham chiếu group đã archive | High | Backend/QA | Canonical group→layer lock order + Q-028; trigger: dangling-reference query khác 0 |
+| R-21 | Approved revision stale ghi đè publication pointer mới hơn | Critical | Backend/QA | One-open-chain DB invariant + publish-time lineage/pointer guard + Q-029; trigger: active pointer khác nearest published ancestor |
 
 ## 12. Release và rollback
 

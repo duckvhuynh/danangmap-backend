@@ -3,15 +3,15 @@
 ## Trạng thái an toàn hiện tại
 
 - `ASYNC_PUBLICATION_ENABLED=false` ở schema, `.env.example` và Compose mặc định.
-- Guard-removal WIP chỉ bỏ validation rejection khi production được đặt explicit
+- Guard-removal đã review chỉ bỏ validation rejection khi production được đặt explicit
   `ASYNC_PUBLICATION_ENABLED=true`; không có cấu hình nào tự bật cờ này và production activation vẫn
-  NO-GO cho đến khi review cùng hai run production-mode hoàn tất.
+  NO-GO cho đến khi hai run production-mode hoàn tất và được review.
 - Harness dùng API/worker runtime thật, PostGIS, Redis/BullMQ, MinIO, Next.js và Playwright qua
   `https://gateway`; không có route mock, service mock, test HTTP endpoint hoặc Docker socket trong
   browser.
-- Chỉ `crash-worker` chạy `NODE_ENV=test` để dùng advisory barrier. Canonical worker có
-  `DANANGMAP_CANONICAL_WORKER_NODE_ENV`, mặc định `development` trước activation và chỉ được đổi
-  thành `production` sau commit guard riêng đã review.
+- Chỉ `crash-worker` chạy `NODE_ENV=test` để dùng advisory barrier. Harness bắt buộc khai báo
+  activation mode cùng `NODE_ENV` đối xứng của API/canonical worker trước khi chạy Compose; Compose
+  mặc định dùng `development` ngoài harness.
 
 ## Exact-SHA inputs
 
@@ -20,12 +20,20 @@ $env:DANANGMAP_BACKEND_SHA = (git rev-parse HEAD)
 $env:DANANGMAP_FRONTEND_CONTEXT = "D:/path/to/danangmap-frontend"
 $env:DANANGMAP_FRONTEND_SHA = (git -C $env:DANANGMAP_FRONTEND_CONTEXT rev-parse HEAD)
 $env:DANANGMAP_FULLSTACK_RUNS = "2"
+$env:DANANGMAP_ACTIVATION_MODE = "pretrial"
+$env:DANANGMAP_ASYNC_API_NODE_ENV = "development"
+$env:DANANGMAP_CANONICAL_WORKER_NODE_ENV = "development"
 npm run test:fullstack:harness
 ```
 
 Hai worktree phải clean và SHA phải là full lowercase SHA. Frontend phải là descendant của
 `cbb31e6b7901cd30f2fca8ba81ebe2f24e7e9d7f`; harness vẫn pin exact SHA được truyền, không chạy
 floating branch/tag.
+
+Harness không có fallback mode: `pretrial` chỉ chấp nhận cả API/worker là `development`, còn
+`production` chỉ chấp nhận cả hai là `production`. Thiếu biến, giá trị sai hoặc cấu hình bất đối xứng
+đều bị từ chối trước khi Compose khởi động. Manifest ghi `activationMode` và allowlist runtime thực tế
+để một run development không thể được trình bày như production evidence.
 
 ## Phased protocol
 
@@ -76,7 +84,8 @@ Cross-repository job chỉ dùng `pull_request`, checkout exact SHA với `persi
 fail rõ nếu thiếu `CROSS_REPO_READ_TOKEN`. Không dùng `pull_request_target`. Secret này phải được chủ
 repo cấu hình trước khi remote gate có thể xanh; local exact-SHA gate không phụ thuộc secret GitHub.
 Workflow activation pin frontend reviewed SHA `6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8` từ một
-job-level environment source dùng chung cho checkout và harness.
+job-level environment source dùng chung cho checkout và harness; job đặt activation mode và cả hai
+API/worker `NODE_ENV` thành `production`.
 
 ## Guard-intact pretrial đã chấp nhận
 
@@ -90,17 +99,23 @@ Independent audit đã chấp nhận pretrial dùng backend
 - `artifacts/fullstack/2026-08-22T01-59-11.028Z-b3e12df3f7c7-6e6fe83f7dbf-run-2/evidence.json`
   — SHA-256 `a6f0f67894939e9bdae87440499c3b52e57c4bf4572ac259683e1771ad6397d7`.
 
-Guard-removal hiện là WIP riêng: chỉ bỏ production rejection, không đổi bất kỳ default nào sang
-`true`. Independent review của diff này và hai run fresh-volume production-mode vẫn pending;
+Guard-removal đã được review và commit riêng: chỉ bỏ production rejection, không đổi bất kỳ default
+nào sang `true`. Trusted-STARTTLS harness fix và hai run fresh-volume production-mode vẫn pending;
 VS-035B/backend #30 tiếp tục Open và chưa có production-ready claim.
 
 Sau commit guard-removal, lần chạy production-mode cuối và CI phải đặt đồng thời:
 
 ```text
+DANANGMAP_ACTIVATION_MODE=production
 DANANGMAP_ASYNC_API_NODE_ENV=production
 DANANGMAP_CANONICAL_WORKER_NODE_ENV=production
 ```
 
 Không đặt một phía production và phía còn lại development/test. Pretrial đã chấp nhận ở trên giữ cả
-hai mặc định `development` khi production guard còn hiệu lực; nó không thay thế hai run
-production-mode sau guard-removal.
+hai mặc định `development` khi production guard còn hiệu lực; harness hiện yêu cầu khai báo explicit
+`pretrial` cùng hai giá trị `development`. Pretrial không thay thế hai run production-mode sau
+guard-removal.
+
+Full-stack Compose tạo certificate một lần trong fresh volume và bắt Mailpit dùng STARTTLS. Canonical
+worker production mount certificate đó read-only qua `NODE_EXTRA_CA_CERTS`, giữ
+`SMTP_REJECT_UNAUTHORIZED=true`; certificate local và private key không được đưa vào repository.

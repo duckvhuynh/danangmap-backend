@@ -6,6 +6,32 @@ import { relative, resolve } from 'node:path';
 const minimumFrontendSha = 'cbb31e6b7901cd30f2fca8ba81ebe2f24e7e9d7f';
 const activationLayerSlug = 'durable-publication-activation';
 const durableSpec = 'durable-publication-progress.spec.ts';
+const mailpitTlsImage =
+  'alpine/openssl@sha256:47f40fac08a77cbdfb02444e543808aa36b9e31e21a261f4d94ffaf0c5c73832';
+const mailpitTlsCommand = Object.freeze([
+  'req',
+  '-x509',
+  '-newkey',
+  'rsa:2048',
+  '-nodes',
+  '-keyout',
+  '/certs/key.pem',
+  '-out',
+  '/certs/cert.pem',
+  '-days',
+  '1',
+  '-subj',
+  '/CN=mailpit',
+  '-addext',
+  'subjectAltName=DNS:mailpit',
+]);
+const mailpitCommand = Object.freeze([
+  '--smtp-tls-cert',
+  '/certs/cert.pem',
+  '--smtp-tls-key',
+  '/certs/key.pem',
+  '--smtp-require-starttls',
+]);
 const remainingSpecs = [
   'account-import-invite.spec.ts',
   'layer-configuration-create.spec.ts',
@@ -33,6 +59,14 @@ if (process.argv.includes('--self-check-source-policy')) {
   console.log('Full-stack exact-spec source policy self-check passed.');
   process.exit(0);
 }
+
+if (process.argv.includes('--self-check-activation-policy')) {
+  assertActivationPolicyGuard();
+  console.log('Full-stack activation environment policy self-check passed.');
+  process.exit(0);
+}
+
+const activationPolicy = resolveActivationPolicy(process.env);
 
 const frontendContext = resolve(
   process.env.DANANGMAP_FRONTEND_CONTEXT ?? '../danangmap-frontend-history',
@@ -127,9 +161,17 @@ async function runFreshStack(run) {
   let composeConfigSha256 = null;
   let services = [];
   let preQueueWorkers = null;
+  let mailpitTlsFixture = null;
+  const runtimeEnvironment = {
+    api: null,
+    canonicalWorker: null,
+    crashWorker: null,
+    mailpit: null,
+    certVolumeMatch: null,
+  };
 
   console.log(
-    `Activation run ${run}/${runCount}: backend=${backendSha} frontend=${frontendSha} project=${projectName}`,
+    `Activation run ${run}/${runCount}: mode=${activationPolicy.mode} backend=${backendSha} frontend=${frontendSha} project=${projectName}`,
   );
   activeCommandJournal = commandExecutions;
   try {
@@ -142,6 +184,16 @@ async function runFreshStack(run) {
       [...composeArgs, 'up', '--build', '--detach', '--wait', 'gateway', 'mailpit'],
       environment,
     );
+    mailpitTlsFixture = captureMailpitTlsFixture(composeArgs, environment);
+    await writeEvidenceFile(runRoot, 'mailpit-tls.json', mailpitTlsFixture);
+    runtimeEnvironment.api = captureSelectedRuntime(composeArgs, environment, 'api', {
+      NODE_ENV: activationPolicy.apiNodeEnv,
+      ASYNC_PUBLICATION_ENABLED: 'true',
+      PUBLICATION_TEST_BARRIER: null,
+      PUBLICATION_TEST_FAILPOINT: null,
+    });
+    runtimeEnvironment.mailpit = captureMailpitRuntime(composeArgs, environment);
+    await writeEvidenceFile(runRoot, 'runtime-environment.json', runtimeEnvironment);
     checked(
       'docker',
       [
@@ -272,6 +324,13 @@ async function runFreshStack(run) {
       'utf8',
     );
     const crashInspect = dockerInspect(crashWorkerId);
+    runtimeEnvironment.crashWorker = selectedRuntimeFromInspect('crash-worker', crashInspect, {
+      NODE_ENV: 'test',
+      ASYNC_PUBLICATION_ENABLED: 'true',
+      PUBLICATION_TEST_BARRIER: 'after_batch_commit',
+      PUBLICATION_TEST_FAILPOINT: null,
+    });
+    await writeEvidenceFile(runRoot, 'runtime-environment.json', runtimeEnvironment);
     const crashState = crashInspect.State ?? {};
     if (crashState.Status !== 'exited' || crashState.ExitCode !== 137 || crashState.OOMKilled) {
       throw new Error(
@@ -356,6 +415,33 @@ async function runFreshStack(run) {
     );
     await writeEvidenceFile(runRoot, 'db-lease-expired.json', phaseEvidence.leaseExpired);
     checked('docker', [...composeArgs, 'up', '--detach', '--no-deps', 'worker'], environment);
+    runtimeEnvironment.canonicalWorker = captureSelectedRuntime(
+      composeArgs,
+      environment,
+      'worker',
+      {
+        NODE_ENV: activationPolicy.canonicalWorkerNodeEnv,
+        ASYNC_PUBLICATION_ENABLED: 'true',
+        PUBLICATION_TEST_BARRIER: null,
+        PUBLICATION_TEST_FAILPOINT: null,
+        SMTP_TLS_MODE: 'starttls',
+        SMTP_REJECT_UNAUTHORIZED: 'true',
+        NODE_EXTRA_CA_CERTS: '/certs/cert.pem',
+      },
+      { certMount: true },
+    );
+    equal(
+      runtimeEnvironment.canonicalWorker.certMount.name,
+      runtimeEnvironment.mailpit.certMount.name,
+      'canonical worker and Mailpit certificate volume',
+    );
+    runtimeEnvironment.certVolumeMatch = {
+      mailpit: runtimeEnvironment.mailpit.certMount.name,
+      canonicalWorker: runtimeEnvironment.canonicalWorker.certMount.name,
+      readOnly: true,
+      passed: true,
+    };
+    await writeEvidenceFile(runRoot, 'runtime-environment.json', runtimeEnvironment);
 
     await runBrowserSpec({
       composeArgs,
@@ -409,6 +495,8 @@ async function runFreshStack(run) {
       environment,
     );
     services = await captureServiceInventory(composeArgs, environment);
+    assertMailpitTlsInventory(services, mailpitTlsFixture);
+    assertRuntimeInventory(services, runtimeEnvironment);
     revisionLabelAssertions.push(
       ...assertServiceRevision(services, 'migrate', 'danangmap.backend.revision', backendSha, {
         status: 'exited',
@@ -507,6 +595,7 @@ async function runFreshStack(run) {
     const manifest = {
       schemaVersion: 1,
       status: failure ? 'failed' : 'passed',
+      activationMode: activationPolicy.mode,
       run,
       projectName,
       transport: { origin: 'https://gateway', tls: 'Caddy internal CA' },
@@ -530,6 +619,8 @@ async function runFreshStack(run) {
       commands: commandExecutions,
       logCaptures,
       preQueueWorkers,
+      mailpitTlsFixture,
+      runtimeEnvironment,
       revisionLabelAssertions,
       invariants: summarizeInvariants(phaseEvidence),
       serviceCount: services.length,
@@ -735,6 +826,194 @@ function assertWorkerServicesAbsent(composeArgs, environment) {
   return evidence;
 }
 
+function captureMailpitTlsFixture(composeArgs, environment) {
+  const ids = checked(
+    'docker',
+    [...composeArgs, 'ps', '--all', '--quiet', 'mailpit-tls'],
+    environment,
+    { capture: true },
+  )
+    .stdout.trim()
+    .split(/\r?\n/u)
+    .filter(Boolean);
+  if (ids.length !== 1) {
+    throw new Error(`Expected one mailpit-tls container, received ${ids.length}.`);
+  }
+
+  const container = safeContainerInspect(dockerInspect(ids[0]));
+  equal(container.image, mailpitTlsImage, 'mailpit-tls pinned image');
+  equal(
+    JSON.stringify(container.command),
+    JSON.stringify(mailpitTlsCommand),
+    'mailpit-tls command',
+  );
+  equal(container.state.status, 'exited', 'mailpit-tls status');
+  equal(container.state.running, false, 'mailpit-tls running');
+  equal(container.state.exitCode, 0, 'mailpit-tls exit code');
+  equal(container.state.oomKilled, false, 'mailpit-tls OOM state');
+
+  const certVolume = container.mounts.find((mount) => mount.destination === '/certs');
+  if (!certVolume || certVolume.type !== 'volume' || !certVolume.rw) {
+    throw new Error('mailpit-tls must generate certificates into a writable named volume.');
+  }
+  const image = dockerInspect(container.imageId);
+  const imageRepoDigests = Array.isArray(image.RepoDigests) ? image.RepoDigests : [];
+  if (!imageRepoDigests.includes(mailpitTlsImage)) {
+    throw new Error(`mailpit-tls image does not expose pinned digest ${mailpitTlsImage}.`);
+  }
+
+  return {
+    capturedAt: new Date().toISOString(),
+    service: 'mailpit-tls',
+    containerId: container.id,
+    expectedImage: mailpitTlsImage,
+    actualImage: container.image,
+    imageId: container.imageId,
+    imageRepoDigests,
+    expectedCommand: mailpitTlsCommand,
+    actualCommand: container.command,
+    state: container.state,
+    certVolume,
+    passed: true,
+  };
+}
+
+function assertMailpitTlsInventory(services, fixture) {
+  if (!fixture?.passed) throw new Error('mailpit-tls fixture provenance was not captured.');
+  const container = services.find(
+    (candidate) => candidate.labels?.['com.docker.compose.service'] === 'mailpit-tls',
+  );
+  if (!container) throw new Error('mailpit-tls is absent from the final service inventory.');
+  equal(container.id, fixture.containerId, 'mailpit-tls inventory container');
+  equal(container.image, mailpitTlsImage, 'mailpit-tls inventory image');
+  equal(container.state.status, 'exited', 'mailpit-tls inventory status');
+  equal(container.state.running, false, 'mailpit-tls inventory running');
+  equal(container.state.exitCode, 0, 'mailpit-tls inventory exit code');
+}
+
+function captureSelectedRuntime(
+  composeArgs,
+  environment,
+  service,
+  expectedEnvironment,
+  options = {},
+) {
+  const ids = checked('docker', [...composeArgs, 'ps', '--all', '--quiet', service], environment, {
+    capture: true,
+  })
+    .stdout.trim()
+    .split(/\r?\n/u)
+    .filter(Boolean);
+  if (ids.length !== 1)
+    throw new Error(`Expected one ${service} container, received ${ids.length}.`);
+  return selectedRuntimeFromInspect(service, dockerInspect(ids[0]), expectedEnvironment, options);
+}
+
+function selectedRuntimeFromInspect(service, inspect, expectedEnvironment, options = {}) {
+  const source = new Map(
+    (Array.isArray(inspect.Config?.Env) ? inspect.Config.Env : []).map((entry) => {
+      const separator = entry.indexOf('=');
+      return separator === -1
+        ? [entry, '']
+        : [entry.slice(0, separator), entry.slice(separator + 1)];
+    }),
+  );
+  const selectedEnvironment = Object.fromEntries(
+    Object.keys(expectedEnvironment).map((key) => [key, source.get(key) ?? null]),
+  );
+  for (const [key, expected] of Object.entries(expectedEnvironment)) {
+    equal(selectedEnvironment[key], expected, `${service} ${key}`);
+  }
+
+  const state = {
+    status: inspect.State?.Status ?? null,
+    running: inspect.State?.Running ?? false,
+    exitCode: inspect.State?.ExitCode ?? null,
+    oomKilled: inspect.State?.OOMKilled ?? false,
+  };
+  if (service !== 'crash-worker') {
+    equal(state.status, 'running', `${service} runtime status`);
+    equal(state.running, true, `${service} runtime running`);
+    equal(state.oomKilled, false, `${service} runtime OOM state`);
+  }
+
+  const evidence = {
+    capturedAt: new Date().toISOString(),
+    service,
+    containerId: inspect.Id,
+    environment: selectedEnvironment,
+    state,
+    certMount: null,
+    passed: true,
+  };
+  if (options.certMount) evidence.certMount = assertReadOnlyCertMount(service, inspect);
+  return evidence;
+}
+
+function captureMailpitRuntime(composeArgs, environment) {
+  const ids = checked(
+    'docker',
+    [...composeArgs, 'ps', '--all', '--quiet', 'mailpit'],
+    environment,
+    { capture: true },
+  )
+    .stdout.trim()
+    .split(/\r?\n/u)
+    .filter(Boolean);
+  if (ids.length !== 1) throw new Error(`Expected one mailpit container, received ${ids.length}.`);
+  const inspect = dockerInspect(ids[0]);
+  const command = inspect.Config?.Cmd ?? [];
+  equal(JSON.stringify(command), JSON.stringify(mailpitCommand), 'Mailpit STARTTLS command');
+  equal(inspect.State?.Status, 'running', 'Mailpit runtime status');
+  equal(inspect.State?.Running, true, 'Mailpit runtime running');
+  return {
+    capturedAt: new Date().toISOString(),
+    service: 'mailpit',
+    containerId: inspect.Id,
+    command,
+    state: {
+      status: inspect.State?.Status ?? null,
+      running: inspect.State?.Running ?? false,
+      exitCode: inspect.State?.ExitCode ?? null,
+      oomKilled: inspect.State?.OOMKilled ?? false,
+    },
+    certMount: assertReadOnlyCertMount('mailpit', inspect),
+    passed: true,
+  };
+}
+
+function assertReadOnlyCertMount(service, inspect) {
+  const mount = (Array.isArray(inspect.Mounts) ? inspect.Mounts : []).find(
+    (candidate) => candidate.Destination === '/certs',
+  );
+  if (!mount || mount.Type !== 'volume' || mount.RW) {
+    throw new Error(`${service} must mount the generated certificate volume read-only.`);
+  }
+  return {
+    type: mount.Type,
+    name: mount.Name ?? null,
+    destination: mount.Destination,
+    rw: mount.RW,
+  };
+}
+
+function assertRuntimeInventory(services, runtimeEnvironment) {
+  for (const runtime of [
+    runtimeEnvironment.api,
+    runtimeEnvironment.canonicalWorker,
+    runtimeEnvironment.mailpit,
+  ]) {
+    if (!runtime?.passed) throw new Error('Runtime environment evidence is incomplete.');
+    const container = services.find((candidate) => candidate.id === runtime.containerId);
+    if (!container) throw new Error(`${runtime.service} is absent from final service inventory.`);
+    equal(container.state.status, 'running', `${runtime.service} inventory status`);
+    equal(container.state.running, true, `${runtime.service} inventory running`);
+  }
+  if (!runtimeEnvironment.crashWorker?.passed || !runtimeEnvironment.certVolumeMatch?.passed) {
+    throw new Error('Crash-worker or certificate-volume runtime evidence is incomplete.');
+  }
+}
+
 function assertServiceRevision(
   services,
   service,
@@ -870,7 +1149,16 @@ function safeContainerInspect(inspect) {
     name: String(inspect.Name ?? '').replace(/^\//u, ''),
     imageId: inspect.Image,
     image: inspect.Config?.Image ?? null,
+    command: inspect.Config?.Cmd ?? [],
     labels: inspect.Config?.Labels ?? {},
+    mounts: Array.isArray(inspect.Mounts)
+      ? inspect.Mounts.map((mount) => ({
+          type: mount.Type ?? null,
+          name: mount.Name ?? null,
+          destination: mount.Destination ?? null,
+          rw: mount.RW ?? false,
+        }))
+      : [],
     state: {
       status: inspect.State?.Status ?? null,
       running: inspect.State?.Running ?? false,
@@ -1193,6 +1481,85 @@ async function allFiles(directory) {
     else files.push(path);
   }
   return files;
+}
+
+function resolveActivationPolicy(environment) {
+  const mode = environment.DANANGMAP_ACTIVATION_MODE;
+  const expectedNodeEnv = { pretrial: 'development', production: 'production' }[mode];
+  if (!expectedNodeEnv) {
+    throw new Error('DANANGMAP_ACTIVATION_MODE must be explicitly set to pretrial or production.');
+  }
+
+  const apiNodeEnv = environment.DANANGMAP_ASYNC_API_NODE_ENV;
+  const canonicalWorkerNodeEnv = environment.DANANGMAP_CANONICAL_WORKER_NODE_ENV;
+  if (apiNodeEnv !== expectedNodeEnv || canonicalWorkerNodeEnv !== expectedNodeEnv) {
+    throw new Error(
+      `Activation mode ${mode} requires DANANGMAP_ASYNC_API_NODE_ENV=${expectedNodeEnv} and DANANGMAP_CANONICAL_WORKER_NODE_ENV=${expectedNodeEnv}; received API=${apiNodeEnv ?? '<missing>'}, worker=${canonicalWorkerNodeEnv ?? '<missing>'}.`,
+    );
+  }
+
+  return Object.freeze({ mode, expectedNodeEnv, apiNodeEnv, canonicalWorkerNodeEnv });
+}
+
+function assertActivationPolicyGuard() {
+  for (const [mode, nodeEnv] of [
+    ['pretrial', 'development'],
+    ['production', 'production'],
+  ]) {
+    const policy = resolveActivationPolicy({
+      DANANGMAP_ACTIVATION_MODE: mode,
+      DANANGMAP_ASYNC_API_NODE_ENV: nodeEnv,
+      DANANGMAP_CANONICAL_WORKER_NODE_ENV: nodeEnv,
+    });
+    equal(policy.mode, mode, `${mode} activation mode`);
+    equal(policy.apiNodeEnv, nodeEnv, `${mode} API NODE_ENV`);
+    equal(policy.canonicalWorkerNodeEnv, nodeEnv, `${mode} canonical worker NODE_ENV`);
+  }
+
+  const rejected = [
+    {},
+    {
+      DANANGMAP_ACTIVATION_MODE: 'staging',
+      DANANGMAP_ASYNC_API_NODE_ENV: 'production',
+      DANANGMAP_CANONICAL_WORKER_NODE_ENV: 'production',
+    },
+    {
+      DANANGMAP_ACTIVATION_MODE: 'pretrial',
+      DANANGMAP_CANONICAL_WORKER_NODE_ENV: 'development',
+    },
+    {
+      DANANGMAP_ACTIVATION_MODE: 'pretrial',
+      DANANGMAP_ASYNC_API_NODE_ENV: 'development',
+    },
+    {
+      DANANGMAP_ACTIVATION_MODE: 'pretrial',
+      DANANGMAP_ASYNC_API_NODE_ENV: 'production',
+      DANANGMAP_CANONICAL_WORKER_NODE_ENV: 'production',
+    },
+    {
+      DANANGMAP_ACTIVATION_MODE: 'production',
+      DANANGMAP_ASYNC_API_NODE_ENV: 'development',
+      DANANGMAP_CANONICAL_WORKER_NODE_ENV: 'development',
+    },
+    {
+      DANANGMAP_ACTIVATION_MODE: 'production',
+      DANANGMAP_ASYNC_API_NODE_ENV: 'production',
+      DANANGMAP_CANONICAL_WORKER_NODE_ENV: 'development',
+    },
+  ];
+  for (const environment of rejected) {
+    let rejectedAsExpected = false;
+    try {
+      resolveActivationPolicy(environment);
+    } catch {
+      rejectedAsExpected = true;
+    }
+    if (!rejectedAsExpected) {
+      throw new Error(
+        `Activation policy accepted forbidden input: ${JSON.stringify(environment)}.`,
+      );
+    }
+  }
 }
 
 function requiredSha(name) {

@@ -12,6 +12,44 @@ services:
 
   mailpit:
     ports: !reset []
+    command:
+      [
+        '--smtp-tls-cert',
+        '/certs/cert.pem',
+        '--smtp-tls-key',
+        '/certs/key.pem',
+        '--smtp-require-starttls',
+      ]
+    volumes:
+      - mailpit-tls:/certs:ro
+    depends_on:
+      mailpit-tls:
+        condition: service_completed_successfully
+
+  mailpit-tls:
+    image: alpine/openssl@sha256:47f40fac08a77cbdfb02444e543808aa36b9e31e21a261f4d94ffaf0c5c73832
+    profiles: ['fullstack']
+    command:
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-keyout',
+        '/certs/key.pem',
+        '-out',
+        '/certs/cert.pem',
+        '-days',
+        '1',
+        '-subj',
+        '/CN=mailpit',
+        '-addext',
+        'subjectAltName=DNS:mailpit',
+      ]
+    volumes:
+      - mailpit-tls:/certs
+    restart: 'no'
 
   migrate:
     build:
@@ -60,6 +98,11 @@ services:
       PUBLICATION_HEARTBEAT_INTERVAL_MS: 1000
       PUBLICATION_RECOVERY_INTERVAL_MS: 1000
       PUBLICATION_WORKER_STALE_SECONDS: 30
+      SMTP_TLS_MODE: starttls
+      SMTP_REJECT_UNAUTHORIZED: 'true'
+      NODE_EXTRA_CA_CERTS: /certs/cert.pem
+    volumes:
+      - mailpit-tls:/certs:ro
     restart: 'no'
 
   crash-worker:
@@ -223,3 +266,6 @@ services:
         source: ${DANANGMAP_PHASE_DIR:?DANANGMAP_PHASE_DIR is required}
         target: /phase
     restart: 'no'
+
+volumes:
+  mailpit-tls:

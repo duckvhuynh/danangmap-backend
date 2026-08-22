@@ -63,6 +63,9 @@ jobs:
       DANANGMAP_FRONTEND_CONTEXT: ${{ github.workspace }}/.crossstack/danangmap-frontend
       DANANGMAP_FRONTEND_SHA: 6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8
       DANANGMAP_FULLSTACK_RUNS: '2'
+      DANANGMAP_ACTIVATION_MODE: production
+      DANANGMAP_ASYNC_API_NODE_ENV: production
+      DANANGMAP_CANONICAL_WORKER_NODE_ENV: production
     steps:
       - name: Checkout exact backend revision
         uses: actions/checkout@v4

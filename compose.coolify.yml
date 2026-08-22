@@ -94,7 +94,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
     shm_size: 256mb
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U danangmap -d danangmap']
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U danangmap -d danangmap']
       interval: 10s
       timeout: 5s
       retries: 12
@@ -140,7 +140,22 @@ services:
 
   migrate:
     <<: *backend-service
-    command: ['npm', 'run', 'migration:run:prod']
+    command:
+      - sh
+      - -c
+      - |
+        attempt=1
+        max_attempts=12
+        until node -e 'const { Client } = require("pg"); (async () => { const client = new Client({ connectionString: process.env.DATABASE_URL }); try { await client.connect(); await client.end(); } catch (error) { console.error(`Database readiness check failed: $${error.code ?? error.message}`); process.exit(1); } })();'; do
+          if [ "$$attempt" -ge "$$max_attempts" ]; then
+            echo "Database was not reachable after $$attempt attempts."
+            exit 1
+          fi
+          echo "Database is not reachable yet; retrying in 5 seconds ($$attempt/$$max_attempts)."
+          attempt=$$((attempt + 1))
+          sleep 5
+        done
+        exec npm run migration:run:prod
     depends_on:
       postgres:
         condition: service_healthy

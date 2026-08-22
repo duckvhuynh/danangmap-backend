@@ -13,6 +13,7 @@ import { PublicApiModule } from './public-api/public-api.module';
 import { ImportsModule } from './imports/imports.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 import { UserImportsModule } from './user-imports/user-imports.module';
+import { HistoryModule } from './history/history.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { UserImportsModule } from './user-imports/user-imports.module';
     PublicApiModule,
     ImportsModule,
     UserImportsModule,
+    HistoryModule,
     HealthModule,
   ],
 })

@@ -6,7 +6,6 @@ import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import type {
   PublishRevisionDto,
   RequestChangesDto,
-  RollbackDto,
   SubmitRevisionDto,
   WorkflowCommentDto,
 } from '../layers/layer.dto';
@@ -365,6 +364,9 @@ export class WorkflowService {
         `,
         [revision.layer_id, snapshotId],
       );
+      await manager.query(`UPDATE publication_snapshots SET activated_at=now() WHERE id=$1`, [
+        snapshotId,
+      ]);
       await manager.query(
         `UPDATE layer_revisions SET status='published',published_at=now(),lock_version=lock_version+1,updated_at=now() WHERE id=$1`,
         [revisionId],
@@ -393,85 +395,6 @@ export class WorkflowService {
         idempotencyKey,
         response,
         202,
-      );
-      return response;
-    });
-  }
-
-  async rollback(
-    layerId: string,
-    dto: RollbackDto,
-    actor: Actor,
-    requestId: string,
-    idempotencyKey: string,
-  ) {
-    const requestDigest = this.idempotency.digest({ layerId, dto });
-    return this.dataSource.transaction(async (manager) => {
-      const receipt = await this.idempotency.claim<Record<string, unknown>>(
-        manager,
-        actor.id,
-        'layer.rollback',
-        idempotencyKey,
-        requestDigest,
-      );
-      if (!receipt.owner) return this.replayed(receipt.response);
-      await this.lockLayer(manager, layerId);
-      const targetRows = (await manager.query(
-        `SELECT * FROM publication_snapshots WHERE id=$1 AND layer_id=$2 AND status='published' FOR SHARE`,
-        [dto.targetSnapshotId, layerId],
-      )) as Array<{
-        revision_id: string;
-        feature_count: number;
-        bounds: number[] | null;
-        checksum: string;
-        manifest: Record<string, unknown>;
-      }>;
-      const target = targetRows[0];
-      if (!target) throw new AppException(404, 'NOT_FOUND', 'Snapshot rollback không hợp lệ.');
-      if (
-        await this.hasAnyParticipation(manager, target.revision_id, actor.id, ['edit', 'review'])
-      ) {
-        throw new AppException(403, 'SEPARATION_OF_DUTIES', 'Publisher đã tham gia revision đích.');
-      }
-      const generationRows = (await manager.query(
-        `SELECT COALESCE(max(generation),0)+1 AS generation FROM publication_snapshots WHERE layer_id=$1`,
-        [layerId],
-      )) as Array<{ generation: string }>;
-      const generation = generationRows[0]!.generation;
-      const snapshotRows = (await manager.query(
-        `
-          INSERT INTO publication_snapshots(layer_id,revision_id,status,generation,feature_count,bounds,checksum,manifest,published_by,published_at)
-          VALUES($1,$2,'published',$3,$4,$5,$6,$7::jsonb,$8,now()) RETURNING id
-        `,
-        [
-          layerId,
-          target.revision_id,
-          generation,
-          target.feature_count,
-          target.bounds,
-          target.checksum,
-          JSON.stringify({ ...target.manifest, rollbackOf: dto.targetSnapshotId }),
-          actor.id,
-        ],
-      )) as Array<{ id: string }>;
-      const snapshotId = snapshotRows[0]!.id;
-      await manager.query(
-        `UPDATE layer_publications SET previous_snapshot_id=active_snapshot_id,active_snapshot_id=$2,pointer_updated_at=now() WHERE layer_id=$1`,
-        [layerId, snapshotId],
-      );
-      await this.audit(manager, actor, requestId, 'publication.rolled_back', layerId, {
-        targetSnapshotId: dto.targetSnapshotId,
-        activeSnapshotId: snapshotId,
-        reason: dto.reason,
-      });
-      const response = { snapshotId, generation: Number(generation), status: 'completed' };
-      await this.idempotency.complete(
-        manager,
-        actor.id,
-        'layer.rollback',
-        idempotencyKey,
-        response,
-        201,
       );
       return response;
     });

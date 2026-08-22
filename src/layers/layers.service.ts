@@ -483,6 +483,13 @@ export class LayersService {
         changedPaths: Object.keys(dto),
         actorId: actor.id,
       });
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(RevisionParticipantEntity)
+        .values({ revisionId, userId: actor.id, participationType: 'edit' })
+        .orIgnore()
+        .execute();
       await this.insertAudit(manager, actor, requestId, 'feature.updated', 'feature', featureId, {
         revisionId,
         previousVersionId: current.version_id,
@@ -526,6 +533,13 @@ export class LayersService {
         changedPaths: [],
         actorId: actor.id,
       });
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(RevisionParticipantEntity)
+        .values({ revisionId, userId: actor.id, participationType: 'edit' })
+        .orIgnore()
+        .execute();
       await this.insertAudit(manager, actor, requestId, 'feature.deleted', 'feature', featureId, {
         revisionId,
       });

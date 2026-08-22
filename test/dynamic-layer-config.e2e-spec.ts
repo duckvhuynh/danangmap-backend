@@ -71,6 +71,13 @@ describe('Dynamic layer configuration HTTP E2E', () => {
          WHERE actor_id=ANY($1::uuid[]) AND created_at >= $2`,
         [Object.values(users).map((user) => user.id), startedAt],
       );
+      if (layerIds.length) {
+        await manager.query(
+          `DELETE FROM audit_logs
+           WHERE id IN (SELECT audit_id FROM audit_layer_scopes WHERE layer_id=ANY($1::uuid[]))`,
+          [layerIds],
+        );
+      }
       if (revisionIds.length) {
         await manager.query('DELETE FROM revision_participants WHERE revision_id=ANY($1::uuid[])', [
           revisionIds,

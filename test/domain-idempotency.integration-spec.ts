@@ -13,6 +13,8 @@ import {
   LayerRevisionEntity,
 } from '../src/layers/layer.entities';
 import { LayersService } from '../src/layers/layers.service';
+import { publicationPointerEtag } from '../src/layers/etag';
+import { PublicationRollbackService } from '../src/history/publication-rollback.service';
 import { WorkflowService } from '../src/workflow/workflow.service';
 
 describe('Domain command idempotency', () => {
@@ -103,8 +105,9 @@ describe('Domain command idempotency', () => {
         await manager.query(
           `DELETE FROM audit_logs
            WHERE resource_id=ANY($1::uuid[])
-              OR metadata->>'revisionId'=ANY($2::text[])`,
-          [layerIds.concat(revisionIds), revisionIds],
+              OR metadata->>'revisionId'=ANY($2::text[])
+              OR metadata->>'layerId'=ANY($3::text[])`,
+          [layerIds.concat(revisionIds), revisionIds, layerIds],
         );
         await manager.query('DELETE FROM layer_revisions WHERE layer_id=ANY($1::uuid[])', [
           layerIds,
@@ -296,17 +299,40 @@ describe('Domain command idempotency', () => {
     );
 
     const published = publications[0] as { snapshotId: string };
+    const replacementRows = (await AppDataSource.query(
+      `INSERT INTO publication_snapshots(
+         layer_id,revision_id,status,generation,feature_count,bounds,checksum,manifest,published_by,published_at
+       )
+       SELECT layer_id,revision_id,status,generation+1,feature_count,bounds,checksum,manifest,published_by,now()
+       FROM publication_snapshots WHERE id=$1 RETURNING id`,
+      [published.snapshotId],
+    )) as Array<{ id: string }>;
+    await AppDataSource.query(
+      `UPDATE layer_publications
+       SET previous_snapshot_id=active_snapshot_id,active_snapshot_id=$2,pointer_updated_at=now()
+       WHERE layer_id=$1`,
+      [workflowLayerId, replacementRows[0]!.id],
+    );
+    const rollback = createRollbackService();
+    const rollbackDto = {
+      targetSnapshotId: published.snapshotId,
+      reason: 'Receipt rollback',
+      clientIntent: 'desktop' as const,
+    };
+    const rollbackEtag = publicationPointerEtag(workflowLayerId, replacementRows[0]!.id, 2);
     const rollbacks = await Promise.all([
-      workflow.rollback(
+      rollback.rollback(
         workflowLayerId,
-        { targetSnapshotId: published.snapshotId, reason: 'Receipt rollback' },
+        rollbackDto,
+        rollbackEtag,
         publisher,
         randomUUID(),
         rollbackKey,
       ),
-      workflow.rollback(
+      rollback.rollback(
         workflowLayerId,
-        { targetSnapshotId: published.snapshotId, reason: 'Receipt rollback' },
+        rollbackDto,
+        rollbackEtag,
         publisher,
         randomUUID(),
         rollbackKey,
@@ -314,9 +340,10 @@ describe('Domain command idempotency', () => {
     ]);
     expect(rollbacks[1]).toEqual(rollbacks[0]);
     await expect(
-      createWorkflowService().rollback(
+      createRollbackService().rollback(
         workflowLayerId,
-        { targetSnapshotId: published.snapshotId, reason: 'Receipt rollback' },
+        rollbackDto,
+        rollbackEtag,
         publisher,
         randomUUID(),
         rollbackKey,
@@ -345,11 +372,11 @@ describe('Domain command idempotency', () => {
     }>;
     expect(rows[0]).toEqual({
       events: 3,
-      snapshots: 2,
+      snapshots: 3,
       pointers: 1,
-      generations: [1, 2],
-      activeSnapshotId: rollbacks[0].snapshotId,
-      activeGeneration: rollbacks[0].generation,
+      generations: [1, 2, 3],
+      activeSnapshotId: rollbacks[0].data.snapshotId,
+      activeGeneration: rollbacks[0].data.generation,
     });
   });
 
@@ -440,6 +467,10 @@ describe('Domain command idempotency', () => {
 
   function createWorkflowService() {
     return new WorkflowService(AppDataSource, crypto, new IdempotencyService());
+  }
+
+  function createRollbackService() {
+    return new PublicationRollbackService(AppDataSource, crypto, new IdempotencyService());
   }
 
   async function expectAppCode(promise: Promise<unknown>, code: string): Promise<void> {

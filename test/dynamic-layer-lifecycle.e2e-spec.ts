@@ -74,6 +74,13 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
          WHERE actor_id=ANY($1::uuid[]) AND created_at >= $2`,
         [Object.values(users).map((user) => user.id), startedAt],
       );
+      if (layerIds.length) {
+        await manager.query(
+          `DELETE FROM audit_logs
+           WHERE id IN (SELECT audit_id FROM audit_layer_scopes WHERE layer_id=ANY($1::uuid[]))`,
+          [layerIds],
+        );
+      }
       if (revisionIds.length) {
         await manager.query('DELETE FROM workflow_events WHERE revision_id=ANY($1::uuid[])', [
           revisionIds,
@@ -1174,11 +1181,22 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       ),
       201,
     );
+    const rollbackHistory = await adminGet(`/api/v1/admin/layers/${created.layer.id}/publications`);
+    const rollbackPointerEtag = (
+      await json<Envelope<{ activePointerEtag: string }>>(rollbackHistory)
+    ).data.activePointerEtag;
     const rollback = await mutate(
       publisher,
       `/api/v1/admin/layers/${created.layer.id}:rollback`,
-      { targetSnapshotId: initialSnapshotId, reason: 'Kiểm tra stale publication base' },
-      { idempotencyKey: randomUUID() },
+      {
+        targetSnapshotId: initialSnapshotId,
+        reason: 'Kiểm tra stale publication base',
+        clientIntent: 'desktop',
+      },
+      {
+        ifMatch: rollbackPointerEtag,
+        idempotencyKey: randomUUID(),
+      },
     );
     expect(rollback.status).toBe(201);
     const rollbackSnapshotId = (await json<Envelope<{ snapshotId: string }>>(rollback)).data

@@ -144,10 +144,23 @@ export class LayerCatalogService {
       });
       const etag = this.collectionEtag('layer-groups', refreshed);
       const data = { updatedCount: rows.length, items: rows };
-      await this.audit(manager, actor, requestId, 'layer_group.reordered', 'layer_group', null, {
-        before: this.catalogOrderAuditShape(groups),
-        after: this.catalogOrderAuditShape(refreshed),
-      });
+      const scopedLayers = (await manager.query(
+        `SELECT id FROM layers WHERE group_id=ANY($1::uuid[])`,
+        [dto.items.map((item) => item.id)],
+      )) as Array<{ id: string }>;
+      await this.audit(
+        manager,
+        actor,
+        requestId,
+        'layer_group.reordered',
+        'layer_group',
+        null,
+        {
+          before: this.catalogOrderAuditShape(groups),
+          after: this.catalogOrderAuditShape(refreshed),
+        },
+        scopedLayers.map((layer) => layer.id),
+      );
       const response = { data, etag };
       await this.idempotency.complete(
         manager,
@@ -193,25 +206,36 @@ export class LayerCatalogService {
            WHERE group_id=$1 RETURNING id
          )
          SELECT count(*)::integer AS count,
+           COALESCE(array_agg(id ORDER BY id),'{}'::uuid[]) AS ids,
            encode(digest(COALESCE(string_agg(id::text,'' ORDER BY id),''),'sha256'),'hex') AS digest
          FROM ungrouped`,
         [groupId],
-      )) as Array<{ count: number; digest: string }>;
+      )) as Array<{ count: number; ids: string[]; digest: string }>;
       const ungrouped = ungroupedRows[0] ?? {
         count: 0,
+        ids: [],
         digest: this.crypto.checksum(''),
       };
       group!.archivedAt = new Date();
       group!.lockVersion += 1;
       const saved = await manager.save(group!);
       const etag = resourceEtag('layer-group', saved.id, saved.lockVersion);
-      await this.audit(manager, actor, requestId, 'layer_group.archived', 'layer_group', saved.id, {
-        before,
-        after: this.groupAuditShape(saved),
-        orphanLayerPolicy: dto.orphanLayerPolicy,
-        ungroupedLayerCount: Number(ungrouped.count),
-        ungroupedLayerIdsDigest: ungrouped.digest,
-      });
+      await this.audit(
+        manager,
+        actor,
+        requestId,
+        'layer_group.archived',
+        'layer_group',
+        saved.id,
+        {
+          before,
+          after: this.groupAuditShape(saved),
+          orphanLayerPolicy: dto.orphanLayerPolicy,
+          ungroupedLayerCount: Number(ungrouped.count),
+          ungroupedLayerIdsDigest: ungrouped.digest,
+        },
+        ungrouped.ids,
+      );
       const response = { group: saved, etag };
       await this.idempotency.complete(
         manager,
@@ -326,10 +350,19 @@ export class LayerCatalogService {
       const refreshed = await this.layerList(manager, false);
       const etag = this.collectionEtag('layers', refreshed);
       const data = { updatedCount: rows.length, items: rows };
-      await this.audit(manager, actor, requestId, 'layer.reordered', 'layer', null, {
-        before: this.catalogOrderAuditShape(layers),
-        after: this.catalogOrderAuditShape(refreshed),
-      });
+      await this.audit(
+        manager,
+        actor,
+        requestId,
+        'layer.reordered',
+        'layer',
+        null,
+        {
+          before: this.catalogOrderAuditShape(layers),
+          after: this.catalogOrderAuditShape(refreshed),
+        },
+        dto.items.map((item) => item.id),
+      );
       const response = { data, etag };
       await this.idempotency.complete(
         manager,
@@ -592,14 +625,22 @@ export class LayerCatalogService {
     resourceType: string,
     resourceId: string | null,
     metadata: Record<string, unknown>,
+    scopeLayerIds: string[] = [],
   ): Promise<void> {
     const before = 'before' in metadata ? JSON.stringify(metadata.before) : null;
     const after = 'after' in metadata ? JSON.stringify(metadata.after) : null;
     await manager.query(
-      `INSERT INTO audit_logs(
-         actor_id,actor_role,action,resource_type,resource_id,request_id,
-         before_digest,after_digest,metadata
-       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
+      `WITH inserted AS (
+         INSERT INTO audit_logs(
+           actor_id,actor_role,action,resource_type,resource_id,request_id,
+           before_digest,after_digest,metadata
+         ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
+         RETURNING id,occurred_at
+       )
+       INSERT INTO audit_layer_scopes(audit_id,layer_id,occurred_at)
+       SELECT inserted.id,scope.layer_id,inserted.occurred_at
+       FROM inserted CROSS JOIN unnest($10::uuid[]) scope(layer_id)
+       ON CONFLICT DO NOTHING`,
       [
         actor.id,
         actor.role,
@@ -610,6 +651,7 @@ export class LayerCatalogService {
         before ? this.crypto.checksum(before) : null,
         after ? this.crypto.checksum(after) : null,
         JSON.stringify(metadata),
+        scopeLayerIds,
       ],
     );
   }

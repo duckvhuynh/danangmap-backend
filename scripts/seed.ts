@@ -1,13 +1,16 @@
 import 'dotenv/config';
 import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import argon2 from 'argon2';
+import type { EntityManager } from 'typeorm';
 import AppDataSource from '../src/database/data-source';
+import { assertE2eAuthResetAllowed } from './e2e-auth-reset-guard';
 
 const ids = {
   admin: '00000000-0000-4000-8000-000000000001',
   editor: '00000000-0000-4000-8000-000000000002',
   reviewer: '00000000-0000-4000-8000-000000000003',
   publisher: '00000000-0000-4000-8000-000000000004',
+  rollbackPublisher: '00000000-0000-4000-8000-000000000005',
   groupEducation: '10000000-0000-4000-8000-000000000001',
   groupAdmin: '10000000-0000-4000-8000-000000000002',
   schoolLayer: '20000000-0000-4000-8000-000000000001',
@@ -50,6 +53,49 @@ const boundaryGeometry = {
 };
 const workflowGeometry = { type: 'Point', coordinates: [108.215, 16.072] };
 
+const seedActors = [
+  [
+    ids.admin,
+    'admin',
+    'system-admin@danangmap.local',
+    'Quản trị hệ thống',
+    'system_admin',
+    'SEED_ADMIN_PASSWORD',
+  ],
+  [
+    ids.editor,
+    'editor',
+    'editor@danangmap.local',
+    'Biên tập viên',
+    'editor',
+    'SEED_EDITOR_PASSWORD',
+  ],
+  [
+    ids.reviewer,
+    'reviewer',
+    'reviewer@danangmap.local',
+    'Kiểm duyệt viên',
+    'reviewer',
+    'SEED_REVIEWER_PASSWORD',
+  ],
+  [
+    ids.publisher,
+    'publisher',
+    'publisher@danangmap.local',
+    'Xuất bản viên',
+    'publisher',
+    'SEED_PUBLISHER_PASSWORD',
+  ],
+  [
+    ids.rollbackPublisher,
+    'rollback-publisher',
+    'rollback-publisher@danangmap.local',
+    'Xuất bản viên rollback',
+    'publisher',
+    'SEED_ROLLBACK_PUBLISHER_PASSWORD',
+  ],
+] as const;
+
 function encrypted(value: string): string {
   const key = createHash('sha256')
     .update(process.env.FIELD_ENCRYPTION_KEY ?? '')
@@ -64,47 +110,18 @@ function checksum(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-async function seedUsers(): Promise<void> {
-  const secret = process.env.SEED_MFA_SECRET ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
-  const users = [
-    [
-      ids.admin,
-      'admin',
-      'system-admin@danangmap.local',
-      'Quản trị hệ thống',
-      'system_admin',
-      'SEED_ADMIN_PASSWORD',
-    ],
-    [
-      ids.editor,
-      'editor',
-      'editor@danangmap.local',
-      'Biên tập viên',
-      'editor',
-      'SEED_EDITOR_PASSWORD',
-    ],
-    [
-      ids.reviewer,
-      'reviewer',
-      'reviewer@danangmap.local',
-      'Kiểm duyệt viên',
-      'reviewer',
-      'SEED_REVIEWER_PASSWORD',
-    ],
-    [
-      ids.publisher,
-      'publisher',
-      'publisher@danangmap.local',
-      'Xuất bản viên',
-      'publisher',
-      'SEED_PUBLISHER_PASSWORD',
-    ],
-  ] as const;
-  for (const [id, username, email, displayName, role, passwordVariable] of users) {
-    const password = process.env[passwordVariable] ?? `ChangeMe-${username}-2026!`;
+async function seedUsers(
+  manager?: EntityManager,
+  resetSecurityState = false,
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  const queryRunner = manager ?? AppDataSource;
+  const secret = environment.SEED_MFA_SECRET ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+  for (const [id, username, email, displayName, role, passwordVariable] of seedActors) {
+    const password = environment[passwordVariable] ?? `ChangeMe-${username}-2026!`;
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
     const encryptedSecret = encrypted(secret);
-    await AppDataSource.query(
+    await queryRunner.query(
       `
         INSERT INTO users(
           id,email,email_normalized,username,username_normalized,display_name,role,status,
@@ -115,20 +132,66 @@ async function seedUsers(): Promise<void> {
           username=EXCLUDED.username,username_normalized=EXCLUDED.username_normalized,
           display_name=EXCLUDED.display_name,role=EXCLUDED.role,status='active',
           password_hash=EXCLUDED.password_hash,mfa_enabled=true,mfa_secret_encrypted=EXCLUDED.mfa_secret_encrypted,
+          must_change_password=CASE WHEN $8 THEN false ELSE users.must_change_password END,
+          failed_login_count=CASE WHEN $8 THEN 0 ELSE users.failed_login_count END,
+          locked_until=CASE WHEN $8 THEN NULL ELSE users.locked_until END,
+          disabled_at=CASE WHEN $8 THEN NULL ELSE users.disabled_at END,
           updated_at=now()
       `,
-      [id, email, username, displayName, role, passwordHash, encryptedSecret],
+      [id, email, username, displayName, role, passwordHash, encryptedSecret, resetSecurityState],
     );
-    await AppDataSource.query(
+    await queryRunner.query(
       `INSERT INTO user_mfa_methods(user_id,status,secret_encrypted,verified_at)
        VALUES($1,'verified',$2,now())
        ON CONFLICT(user_id) DO UPDATE SET
          status='verified',secret_encrypted=EXCLUDED.secret_encrypted,
+         last_used_time_step=CASE WHEN $3 THEN NULL ELSE user_mfa_methods.last_used_time_step END,
          enrollment_session_id=NULL,
          verified_at=COALESCE(user_mfa_methods.verified_at,now()),updated_at=now()`,
-      [id, encryptedSecret],
+      [id, encryptedSecret, resetSecurityState],
     );
   }
+}
+
+export async function resetE2eSeededAuth(
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  assertE2eAuthResetAllowed(environment);
+  const actorIds = seedActors.map(([id]) => id);
+  await AppDataSource.transaction(async (manager) => {
+    const identities = (await manager.query(
+      'SELECT id,username,email,role FROM users WHERE id=ANY($1::uuid[])',
+      [actorIds],
+    )) as Array<{ id: string; username: string; email: string; role: string }>;
+    const identitiesById = new Map(identities.map((identity) => [identity.id, identity]));
+    const identityMismatch = seedActors.some(([id, username, email, , role]) => {
+      const identity = identitiesById.get(id);
+      return (
+        !identity ||
+        identity.username !== username ||
+        identity.email !== email ||
+        identity.role !== role
+      );
+    });
+    if (identities.length !== seedActors.length || identityMismatch) {
+      throw new Error('E2E auth reset refused an unexpected seeded actor identity set');
+    }
+    await manager.query(
+      `UPDATE admin_sessions
+       SET revoked_at=COALESCE(revoked_at,now()),mfa_failed_attempts=0,mfa_locked_until=NULL
+       WHERE user_id=ANY($1::uuid[])`,
+      [actorIds],
+    );
+    await manager.query('DELETE FROM user_mfa_recovery_codes WHERE user_id=ANY($1::uuid[])', [
+      actorIds,
+    ]);
+    await manager.query(
+      `UPDATE password_reset_tokens SET revoked_at=COALESCE(revoked_at,now())
+       WHERE user_id=ANY($1::uuid[]) AND used_at IS NULL`,
+      [actorIds],
+    );
+    await seedUsers(manager, true, environment);
+  });
 }
 
 async function seedCatalog(): Promise<void> {
@@ -404,6 +467,10 @@ async function main(): Promise<void> {
   }
   await AppDataSource.initialize();
   try {
+    if (process.env.DANANGMAP_E2E_AUTH_RESET === 'true') {
+      await resetE2eSeededAuth();
+      return;
+    }
     await seedUsers();
     await seedCatalog();
   } finally {
@@ -411,4 +478,4 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+if (require.main === module) void main();

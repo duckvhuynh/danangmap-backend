@@ -37,7 +37,7 @@ ETag collection được tính từ toàn bộ state ảnh hưởng representati
 - `danangmap_csrf`: token CSRF không HttpOnly để frontend đọc và echo qua `X-CSRF-Token`; không phải credential.
 - Login trước MFA chỉ tạo pre-auth cookie hạn ngắn, không có quyền admin.
 - API không trả session/MFA secret trong JSON ngoài TOTP enrollment URI tại đúng bước enrollment; URI chỉ hiển thị một lần và không được log/lưu Dexie.
-- `GET /auth/csrf` hoạt động ở cả ba trạng thái public, pre-auth và authenticated: public nhận token để gọi login; pre-auth/authenticated rotate token bind với session hiện tại. Login thành công rotate/bind token sang pre-auth; verify/confirm thành công rotate/bind token sang authenticated session.
+- `GET /auth/csrf` hoạt động ở cả ba trạng thái public, pre-auth và authenticated, luôn trả `Cache-Control: private, no-store`. Khi public cookie đã được thiết lập, endpoint reuse token có cú pháp hợp lệ; các request public cold đồng thời chưa có cookie có thể nhận token khác nhau và cookie response cuối cùng của browser thắng, nhưng chưa token nào bind với protected session. Pre-auth/authenticated chỉ trả lại token hiện tại khi cookie có cú pháp hợp lệ và hash khớp session active; endpoint không update `csrf_hash`, nên nhiều tab dùng chung session không vô hiệu hóa lẫn nhau. Thiếu/sai token ở session active trả `403 CSRF_INVALID` và không rebind hay mutation DB. Token chỉ rotate/bind tại trust/session boundary: public → pre-auth, pre-auth → authenticated, hoặc khi tạo/rotate session mới do password/session-security transition.
 - Mọi POST dùng public/pre-auth/auth cookie phải gửi `Origin`/`Referer` thuộc allowlist và `X-CSRF-Token` khớp cookie. Thiếu/sai origin hoặc token trả `CSRF_INVALID`; cookie `SameSite` không thay thế kiểm tra này.
 
 ### 1.4 Success envelope
@@ -238,7 +238,7 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 
 | Method | Route | Auth/role | Mô tả |
 |---|---|---|---|
-| GET | `/auth/csrf` | public/pre-auth/auth | Cấp/rotate CSRF token |
+| GET | `/auth/csrf` | public/pre-auth/auth | Cấp hoặc lấy token CSRF hiện tại; không rotate trong cùng session |
 | POST | `/auth/login` | public + CSRF | Xác minh username/email + password |
 | POST | `/auth/mfa/verify` | pre-auth + CSRF | Xác minh TOTP/recovery code, tạo session |
 | POST | `/auth/mfa/enroll` | pre-auth + CSRF | Bắt đầu enroll TOTP; URI chỉ trả một lần cho pre-auth đó |
@@ -265,7 +265,7 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 
 ### 3.2 Login và MFA
 
-Trước `POST /auth/login`, client gọi `GET /auth/csrf`, giữ cookie `danangmap_csrf`, rồi echo token trong `X-CSRF-Token` và gửi `Origin` hợp lệ. Quy tắc tương tự áp dụng cho `mfa/verify`, `mfa/enroll` và `mfa/enroll/confirm`; sau mỗi chuyển trạng thái public → pre-auth → authenticated, client dùng CSRF token mới do server rotate.
+Trước `POST /auth/login`, client gọi `GET /auth/csrf`, giữ cookie `danangmap_csrf`, rồi echo giá trị cookie đã được browser chốt trong `X-CSRF-Token` và gửi `Origin` hợp lệ. Quy tắc tương tự áp dụng cho `mfa/verify`, `mfa/enroll` và `mfa/enroll/confirm`. Sau khi public cookie đã được thiết lập, các GET lặp lại reuse token đó; trong cùng pre-auth/authenticated session, các GET đồng thời hoặc lặp lại luôn trả cùng token. Client chỉ dùng token mới sau trust transition public → pre-auth → authenticated hoặc khi server tạo/rotate session mới tại password/session-security boundary.
 
 `POST /api/v1/auth/login`
 
@@ -957,11 +957,24 @@ Response `202`. Nếu `skipInvalid=false` và có error, trả 422 `IMPORT_HAS_E
 | POST | `/admin/revisions/{revisionId}:request-changes` | Reviewer | in_review |
 | POST | `/admin/revisions/{revisionId}:approve` | Reviewer | in_review |
 | POST | `/admin/revisions/{revisionId}:publish` | Publisher | approved |
-| GET | `/admin/publications/{publicationId}` | mọi admin | bất kỳ |
-| GET | `/admin/layers/{layerId}/publications` | mọi admin | lịch sử |
-| POST | `/admin/layers/{layerId}:rollback` | Publisher | layer có snapshot cũ |
 
 Mọi command yêu cầu `Idempotency-Key`, CSRF và separation-of-duties check.
+
+History/diff/rollback checkpoint có đúng chín endpoint canonical sau; alias cũ hoặc route tự suy đoán không thuộc contract:
+
+| Method | Route | Role | Mô tả |
+|---|---|---|---|
+| GET | `/admin/layers/{layerId}/history` | mọi admin | Revision history cursor page |
+| GET | `/admin/revisions/{revisionId}/history` | mọi admin | Revision, validation và bounded participant/event/publication summary |
+| GET | `/admin/revisions/{revisionId}/diff` | mọi admin | Feature-level diff với `compareTo=parent\|active` |
+| GET | `/admin/layers/{layerId}/publications` | mọi admin | Immutable publication history và rollback eligibility |
+| GET | `/admin/publications/{snapshotId}` | mọi admin | Chi tiết một publication snapshot |
+| GET | `/admin/audit-events` | System Admin | Audit toàn hệ thống |
+| GET | `/admin/layers/{layerId}/audit-events` | mọi admin | Audit content theo layer và role scope |
+| GET | `/admin/revisions/{revisionId}/workflow-events` | mọi admin | Workflow event cursor page |
+| POST | `/admin/layers/{layerId}:rollback` | Publisher | Tạo rollback publication từ snapshot từng active |
+
+Các GET history trả ETag của chính read model. `activePointerEtag` trong publication list/detail là token riêng cho active publication pointer; nó không phải layer ETag, revision ETag hoặc public catalog ETag.
 
 ### 8.2 Submit
 
@@ -1018,13 +1031,18 @@ Response `202`:
 {
   "data": {
     "publicationId": "0192a82e-5e77-7b13-a332-45229d9813bb",
-    "status": "queued",
-    "previousSnapshotId": "0192a810-1902-7891-8a56-61534d66dc92"
+    "snapshotId": "0192a82e-5e77-7b13-a332-45229d9813bb",
+    "generation": 8,
+    "status": "completed"
   }
 }
 ```
 
-Public pointer chỉ đổi sau build + validate thành công. `GET /admin/publications/{id}` trả progress/count/checksum/failure code, không trả stack trace.
+Checkpoint hiện tại publish **đồng bộ** trong một transaction: HTTP request chỉ trả sau khi snapshot, pointer, revision state, participant, workflow event, audit và idempotency receipt đã commit. Trong lúc POST còn chạy, client chỉ hiển thị trạng thái indeterminate; không có publication ID đã commit để polling và không được dựng phần trăm giả.
+
+Publication history/detail chỉ báo `progress=100` cho snapshot `published` đã commit. Nếu gặp row `building|failed` do dữ liệu tương thích tương lai mà chưa có durable measured progress thì `progress=null`; không suy diễn 50% hoặc 100% từ tên status. Publish đồng bộ thất bại trả Problem Details cùng `requestId` và không tạo success snapshot/pointer/audit. Durable `queued → building → validating → switching` qua BullMQ, failure record và monotonic measured progress là follow-up riêng; chưa phải capability của checkpoint này.
+
+Public pointer chỉ đổi sau build + validate thành công. Public cache/catalog được revalidate sau commit bằng public ETag/generation mới; frontend không dùng `activePointerEtag` để cache public response.
 
 Ngay trước khi đổi status/snapshot/pointer, publish phải lock layer và active publication pointer rồi tìm **published ancestor gần nhất** bằng chuỗi `supersedesRevisionId`. Active pointer phải trỏ đúng ancestor đó; với publication đầu tiên, cả active pointer và published ancestor đều phải vắng. Nếu không khớp, trả `409 PUBLICATION_BASE_STALE` với `details.activeRevisionId` và `details.baseRevisionId` (nullable), giữ revision ở `approved` và không tạo snapshot, không đổi pointer/status, không ghi workflow/audit success. Rollback hoặc publication khác xảy ra sau khi revision được tạo vì thế không thể bị một candidate stale ghi đè.
 
@@ -1035,11 +1053,28 @@ Ngay trước khi đổi status/snapshot/pointer, publish phải lock layer và 
 ```json
 {
   "targetSnapshotId": "0192a810-1902-7891-8a56-61534d66dc92",
-  "reason": "Phát hiện sai lệch dữ liệu sau xuất bản."
+  "reason": "Phát hiện sai lệch dữ liệu sau xuất bản.",
+  "clientIntent": "desktop"
 }
 ```
 
-Rollback tạo publication event mới, đổi pointer atomically và tăng generation; không thay đổi/xóa snapshot lịch sử.
+Rollback bắt buộc `If-Match: <activePointerEtag>`, `Idempotency-Key`, CSRF, reason và `clientIntent="desktop"`; thiếu hoặc gửi intent khác trả `400 BAD_REQUEST` trước mọi domain mutation. Target phải là snapshot `published` đã từng active (`activatedAt != null`), không phải snapshot hiện hành. Publisher đã từng `edit|review` revision đích bị `403 SEPARATION_OF_DUTIES`, kể cả sau khi đổi role; System Admin không bypass.
+
+Rollback tạo publication event mới, đổi pointer atomically, tăng generation, ghi bounded audit và trả publication-pointer ETag mới; không thay đổi/xóa snapshot lịch sử. Stale pointer trả `412 ETAG_MISMATCH` và không tạo snapshot/audit/receipt thành công. Sau commit, admin refetch publication history bằng history ETag và public client revalidate catalog/data bằng public ETag/generation, không dùng lẫn hai ETag domain.
+
+### 8.6 Bounded revision history và feature-level diff
+
+`GET /api/v1/admin/revisions/{revisionId}/diff` nhận `compareTo=parent|active`, `limit=1..25` (mặc định 25) và opaque cursor. Response gồm aggregate summary và `entries[]` theo feature ID ổn định:
+
+- `changeType=added|removed|modified`;
+- trước/sau geometry kind, circle `radiusM`, bounds và preview;
+- preview có `previewMode=exact` khi geometry tối đa 500 vertex, ngược lại chỉ là `bbox`; bbox không được trình bày như geometry exact;
+- trước/sau property public, non-sensitive cùng `changedKeys`; thay đổi chỉ thuộc private/sensitive được biểu diễn bằng `redactedChange=true`, không trả raw value;
+- cursor keyset ổn định theo feature ID, tối đa 25 entry/page.
+
+Synchronous diff bị giới hạn tối đa 25.000 feature mỗi phía và 2.000.000 vertex tổng. Vượt limit trả `422 DIFF_TOO_LARGE` cùng limit/count, không chạy query không giới hạn và không tự chuyển sang job giả.
+
+Attachment diff chưa khả dụng cho tới khi backend #29 cung cấp canonical `feature_version_attachments`. Cả summary và từng entry trả đúng `{ "available": false, "status": "unavailable", "reasonCode": "ATTACHMENT_CONTRACT_PENDING" }`; mảng rỗng không được dùng để ngụ ý “không thay đổi attachment”. Vì vậy backend #30 và frontend #19 vẫn Open/In Progress.
 
 ## 9. Public catalog và dữ liệu bản đồ
 
@@ -1319,6 +1354,10 @@ MVP public API chỉ gọi ba method đầu. Geocode/nearby/find-place/direction
 
 Filter audit: `actorId`, `action`, `resourceType`, `resourceId`, `from`, `to`, cursor. Response không trả secret/raw file cell. Audit append-only; không có DELETE/PATCH route.
 
+`GET /admin/audit-events` chỉ System Admin được gọi. Editor/Reviewer/Publisher chỉ đọc `/admin/layers/{layerId}/audit-events` và `/admin/revisions/{revisionId}/workflow-events`; scope này là content history theo contract, không tạo per-layer RBAC mới. Metadata đi qua action/resource allow-list theo role; password, token, secret, cookie, TOTP, recovery code, encrypted payload, private property value và object key không bao giờ được serialize. Cursor dùng cặp `(occurredAt,id)` để ổn định khi nhiều event trùng timestamp.
+
+Audit và workflow history là immutable read model. Mutation create/update/delete feature và import apply đều ghi participation `edit`; review/publish ghi participation tương ứng. Actor từng edit hoặc review không được publish/rollback revision đó sau khi đổi role, và System Admin không có workflow bypass. Deny/replay/stale path không được tạo success audit event thứ hai.
+
 Event có cardinality lớn chỉ lưu count và digest canonical SHA-256; không lưu raw ID arrays, feature/property values hoặc full catalog snapshots. Catalog update/reorder/archive và revision config replacement ghi `beforeDigest`/`afterDigest`; idempotent replay không tạo audit event thứ hai. Digest phục vụ integrity/reconciliation, không phải cơ chế khôi phục dữ liệu.
 
 Ví dụ event:
@@ -1387,20 +1426,20 @@ Con số là baseline cấu hình, phải load-test trước production. 429 lu�
 | MFA | Không vào `/admin/*` bằng pre-auth; TOTP/recovery replay bị chặn |
 | Account lifecycle | Invite inspect/accept/expiry/replay; `mustChangePassword` chặn route domain; password change rotate current/revoke others; reset request generic 202 và token body-only; confirm/revoke-all concurrency + old-cookie 401; recovery-code regenerate; admin MFA reset/re-enroll; user-import inspect/validate/apply/report |
 | RBAC | Mỗi admin route có allow test và deny test cho ba role còn lại |
-| Separation | Editor đổi thành Reviewer vẫn không self-review; Editor/Reviewer đổi thành Publisher vẫn không publish; System Admin không config/upload content hoặc bypass |
-| ETag | Runtime + OpenAPI đều có ETag cho mọi versioned lifecycle response; layer-list ETag đổi khi latest revision đổi; mutation thiếu `If-Match` → 428, stale → 412; GET conditional được hỗ trợ theo route contract |
+| Separation | Create/update/delete/import ghi edit participation; actor đổi role vẫn không self-review/publish/rollback revision đã tham gia; System Admin không config/upload content hoặc workflow bypass |
+| ETag | Runtime + OpenAPI có ETag cho mọi versioned lifecycle response; layer-list ETag đổi khi latest revision đổi; history resource, active publication pointer và public cache là ba domain riêng; mutation thiếu `If-Match` → 428, stale → 412; rollback success trả pointer ETag mới rồi public revalidate bằng public ETag/generation |
 | Idempotency | Retry cùng key/payload cùng response; khác payload → 409 |
 | Dexie batch | UUID mapping ổn định, partial conflict đúng mutation, cursor expiry có recovery URL |
 | Dexie recovery | `origin=recovery` được audit; conflict explicit; logout delete; expiry lock; không server lease; sensitive/offlineCache policy |
 | Geometry | Cả 6 GeoJSON type + Point-only circle/radiusM; cấm GeometryCollection/Z/M/invalid polygon; 100.000 vertex và 64 KiB property boundaries |
 | Layer config | Group→layer lock order và archive/create/move/unarchive race không để dangling archived-group reference; value-aware bounded impact + atomic full config replacement; strict ETag/idempotency/audit digest; published immutability; draft vắng mặt public |
 | Import | MIME spoof, exact 25 MiB, `.json` sniff, 100.000 record, 2.000.000 vertex, 250 MiB expanded, XLSX sheet/column, 20.000 DB issue, 3 mode, skip invalid, retry/cancel |
-| Workflow | DB chỉ cho một open chain qua `draft`, `in_review`, `approved`, `publishing`; cross-path successor race chỉ một winner; publish stale base trả 409 và zero mutation; participant history deny; build fail không đổi pointer; rollback tăng generation |
+| Workflow | DB chỉ cho một open chain qua `draft`, `in_review`, `approved`, `publishing`; cross-path successor race chỉ một winner; chín history endpoint đúng OpenAPI; bounded feature-level cursor diff + circle radius/redaction; publish stale base trả 409 và zero mutation; synchronous indeterminate→terminal không có % giả; participant history deny; build fail không đổi pointer; rollback target từng active và tăng generation |
 | Lifecycle guards | Table-driven deny cho Reviewer/Publisher/System Admin, CSRF 403, thiếu If-Match 428, idempotency mismatch 409; real Postgres race fixtures và OpenAPI ETag-header assertions xanh |
-| Audit | High-cardinality metadata chỉ count + canonical SHA-256 digest; before/after digest đủ; replay cùng key chỉ một event; không raw IDs/value/private data |
+| Audit/history | Global System Admin-only, layer content-role scope, immutable cursor page, action metadata allow-list; high-cardinality metadata chỉ count + canonical SHA-256 digest với before/after digest; replay/stale không tạo success event thứ hai; không raw IDs/value/private data |
 | Privacy | Field private vắng mặt trong catalog/detail/search/GeoJSON/MVT/attachment |
 | Combined search | Normalize fixtures, timeout/retry/breaker, partial 200, không leak raw provider |
-| Attachment | Upload/finalize, bind/unbind/reorder tạo feature version mới, orphan cleanup không xóa object snapshot tham chiếu |
+| Attachment | Upload/finalize, bind/unbind/reorder tạo feature version mới, orphan cleanup không xóa object snapshot tham chiếu; diff trả `ATTACHMENT_CONTRACT_PENDING` cho tới backend #29 |
 | MVT | Full catalog source descriptor, source layer `features`, generation URL immutable, unknown generation 404, empty tile HTTP 200 valid MVT, bbox/query SQL có spatial index |
 | Feature/search | Detail ETag/304; polygon/multipolygon search position dùng `ST_PointOnSurface` |
 | Error | Mọi lỗi theo envelope và có request ID; không stack trace/secret |

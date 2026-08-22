@@ -137,7 +137,7 @@ export class PublicApiService {
         'Kết quả vượt quá 10 MiB; hãy thu nhỏ bbox hoặc dùng MVT.',
       );
     }
-    return collection;
+    return { data: collection, etag: this.etag(collection) };
   }
 
   async feature(slug: string, featureId: string) {

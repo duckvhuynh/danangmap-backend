@@ -42,6 +42,7 @@ export class PublicationSnapshotEntity {
   @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) manifest: Record<string, unknown>;
   @Column({ name: 'published_by', type: 'uuid' }) publishedBy: string;
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true }) publishedAt: Date | null;
+  @Column({ name: 'activated_at', type: 'timestamptz', nullable: true }) activatedAt: Date | null;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }
 

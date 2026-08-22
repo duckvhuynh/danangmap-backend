@@ -37,7 +37,7 @@ const strictlyTypedResponseOperations = new Set([
   'requestPasswordReset',
   'confirmPasswordReset',
   'revokeAllSessions',
-  'rotateCsrf',
+  'getCsrfToken',
   'getCurrentUser',
   'listUsers',
   'createUser',
@@ -69,6 +69,14 @@ const strictlyTypedResponseOperations = new Set([
   'approveRevision',
   'requestRevisionChanges',
   'publishRevision',
+  'listLayerRevisionHistory',
+  'getRevisionHistory',
+  'getRevisionDiff',
+  'listLayerPublicationHistory',
+  'getPublicationHistory',
+  'listAuditEvents',
+  'listLayerAuditEvents',
+  'listRevisionWorkflowEvents',
   'rollbackLayer',
 ]);
 const parameterContracts = {
@@ -168,6 +176,7 @@ const parameterContracts = {
     ['header', 'X-CSRF-Token', true],
   ],
   rollbackLayer: [
+    ['header', 'If-Match', true],
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
@@ -299,7 +308,34 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     seen.set(operationId, `${method.toUpperCase()} ${path}`);
   }
 }
-if (seen.size === 0) throw new Error('OpenAPI document has no operations');
+if (seen.size !== 73) throw new Error(`Expected 73 OpenAPI operations, received ${seen.size}`);
+const csrfOperation = document.paths?.['/api/v1/auth/csrf']?.get;
+if (csrfOperation?.operationId !== 'getCsrfToken') {
+  throw new Error('CSRF GET must use the truthful getCsrfToken operation ID');
+}
+if (
+  JSON.stringify(csrfOperation?.responses?.['200']?.headers?.['Cache-Control']?.schema?.enum) !==
+  JSON.stringify(['private, no-store'])
+) {
+  throw new Error('CSRF GET must declare private, no-store cache policy');
+}
+const csrfData =
+  csrfOperation?.responses?.['200']?.content?.['application/json']?.schema?.properties?.data;
+if (
+  csrfData?.properties?.csrfToken?.minLength !== 32 ||
+  csrfData?.properties?.csrfToken?.maxLength !== 32 ||
+  csrfData?.properties?.csrfToken?.pattern !== '^[A-Za-z0-9_-]{32}$'
+) {
+  throw new Error('CSRF response token bounds are missing from the typed contract');
+}
+const csrfProblem =
+  csrfOperation?.responses?.['403']?.content?.['application/problem+json']?.schema;
+if (!csrfProblem?.properties?.code?.enum?.includes('CSRF_INVALID')) {
+  throw new Error('CSRF GET must declare the CSRF_INVALID problem branch');
+}
+if (!generatedTypes.includes('getCsrfToken: {') || generatedTypes.includes('rotateCsrf: {')) {
+  throw new Error('Generated client CSRF operation ID is stale');
+}
 requireWriteOnlyFields('InspectInviteDto', ['token']);
 requireWriteOnlyFields('AcceptInviteDto', ['token', 'password', 'passwordConfirmation']);
 requireWriteOnlyFields('ChangePasswordDto', [

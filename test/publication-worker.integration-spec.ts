@@ -551,6 +551,34 @@ describe('durable publication worker with real PostgreSQL and Redis', () => {
     await recovery.onApplicationShutdown();
   });
 
+  it('terminalizes an exhausted build after its database lease expires', async () => {
+    const fixture = await createFixture(1);
+    const stack = services();
+    const claim = await stack.repository.claim(fixture.jobId, 'exhausted-worker', 30);
+    expect(claim.kind).toBe('claimed');
+    await AppDataSource.query(
+      `UPDATE publication_jobs
+       SET attempts=max_attempts,lease_expires_at=now()-interval '1 second',
+           lock_version=lock_version+1 WHERE id=$1`,
+      [fixture.jobId],
+    );
+
+    await stack.processor.process(queueJob(fixture.jobId));
+
+    expect(await jobState(fixture.jobId)).toMatchObject({
+      status: 'failed',
+      phase: 'failed',
+      failure_code: 'PUBLICATION_RETRY_EXHAUSTED',
+      lease_token: null,
+      lease_expires_at: null,
+    });
+    const revisions = (await AppDataSource.query(`SELECT status FROM layer_revisions WHERE id=$1`, [
+      fixture.revisionId,
+    ])) as Array<{ status: string }>;
+    expect(revisions[0]?.status).toBe('approved');
+    expect(await activationCounts(fixture)).toMatchObject({ snapshots: 0, pointers: 0 });
+  });
+
   it('keeps the public pointer stable until the final transaction and then changes its ETag', async () => {
     const fixture = await createFixture(2, { basePointer: true });
     const publicApi = publicApiService();

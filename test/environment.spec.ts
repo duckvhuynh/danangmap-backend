@@ -94,23 +94,34 @@ describe('environment validation', () => {
         PUBLICATION_TEST_BARRIER: 'after_batch_commit',
       }),
     ).toThrow('publication test controls are allowed only when NODE_ENV=test');
-  });
-
-  it('refuses the admission-only async publication flag in production', () => {
     expect(() =>
       validateEnvironment({
         ...baseline,
         NODE_ENV: 'production',
-        ASYNC_PUBLICATION_ENABLED: 'true',
+        PUBLICATION_TEST_FAILPOINT: 'after_final_commit',
       }),
-    ).toThrow(
-      'ASYNC_PUBLICATION_ENABLED: must remain false in production until frontend and exact E2E activation pass',
-    );
+    ).toThrow('publication test controls are allowed only when NODE_ENV=test');
+  });
+
+  it('allows explicit async publication in production while keeping the default disabled', () => {
+    expect(
+      validateEnvironment({
+        ...baseline,
+        NODE_ENV: 'production',
+        ASYNC_PUBLICATION_ENABLED: 'true',
+      }).ASYNC_PUBLICATION_ENABLED,
+    ).toBe(true);
     expect(
       validateEnvironment({
         ...baseline,
         NODE_ENV: 'production',
         ASYNC_PUBLICATION_ENABLED: 'false',
+      }).ASYNC_PUBLICATION_ENABLED,
+    ).toBe(false);
+    expect(
+      validateEnvironment({
+        ...baseline,
+        NODE_ENV: 'production',
       }).ASYNC_PUBLICATION_ENABLED,
     ).toBe(false);
   });

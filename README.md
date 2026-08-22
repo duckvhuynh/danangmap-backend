@@ -21,6 +21,6 @@ NestJS API và background worker cho DanangMap v2 Spatial CMS.
 - Revision bất biến, publication snapshot nguyên tử và public GeoJSON/MVT.
 - Backup hiện ngoài phạm vi và được ghi nhận là accepted risk.
 
-`ASYNC_PUBLICATION_ENABLED` vẫn mặc định `false`. Nhánh activation chỉ chuẩn bị harness
-crash/recovery exact-SHA; validation production vẫn fail-closed cho tới commit kích hoạt được review
-riêng sau khi hai run fresh-volume pass.
+`ASYNC_PUBLICATION_ENABLED` vẫn mặc định `false` ở schema, `.env.example` và Compose; production chỉ
+bật khi được đặt explicit `true`. Guard-intact exact-SHA pretrial đã pass, nhưng release vẫn NO-GO cho
+đến khi guard-removal được review và hai run fresh-volume production-mode có evidence.

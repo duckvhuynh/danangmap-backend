@@ -3,7 +3,9 @@
 ## Trạng thái an toàn hiện tại
 
 - `ASYNC_PUBLICATION_ENABLED=false` ở schema, `.env.example` và Compose mặc định.
-- `NODE_ENV=production` vẫn từ chối `ASYNC_PUBLICATION_ENABLED=true` ở checkpoint này.
+- Guard-removal WIP chỉ bỏ validation rejection khi production được đặt explicit
+  `ASYNC_PUBLICATION_ENABLED=true`; không có cấu hình nào tự bật cờ này và production activation vẫn
+  NO-GO cho đến khi review cùng hai run production-mode hoàn tất.
 - Harness dùng API/worker runtime thật, PostGIS, Redis/BullMQ, MinIO, Next.js và Playwright qua
   `https://gateway`; không có route mock, service mock, test HTTP endpoint hoặc Docker socket trong
   browser.
@@ -76,9 +78,21 @@ repo cấu hình trước khi remote gate có thể xanh; local exact-SHA gate k
 Workflow activation pin frontend reviewed SHA `6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8` từ một
 job-level environment source dùng chung cho checkout và harness.
 
-Không gỡ production guard trong cùng commit chuẩn bị harness. Sau khi frontend activation SHA được
-pin, independent review GO và hai run pass, guard removal là commit riêng: chỉ bỏ production rejection,
-không đổi bất kỳ default nào sang `true`.
+## Guard-intact pretrial đã chấp nhận
+
+Independent audit đã chấp nhận pretrial dùng backend
+`b3e12df3f7c728bf2499fc7fb90ff3a65762f3c8`, frontend
+`6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8` và API/canonical worker mặc định
+`development`. Hai fresh-volume run đều pass:
+
+- `artifacts/fullstack/2026-08-22T01-54-15.498Z-b3e12df3f7c7-6e6fe83f7dbf-run-1/evidence.json`
+  — SHA-256 `9f66aa554a08634657b15fc4e003befcc2dbf1b06fb8bc7fedb1bd383e7d4de1`;
+- `artifacts/fullstack/2026-08-22T01-59-11.028Z-b3e12df3f7c7-6e6fe83f7dbf-run-2/evidence.json`
+  — SHA-256 `a6f0f67894939e9bdae87440499c3b52e57c4bf4572ac259683e1771ad6397d7`.
+
+Guard-removal hiện là WIP riêng: chỉ bỏ production rejection, không đổi bất kỳ default nào sang
+`true`. Independent review của diff này và hai run fresh-volume production-mode vẫn pending;
+VS-035B/backend #30 tiếp tục Open và chưa có production-ready claim.
 
 Sau commit guard-removal, lần chạy production-mode cuối và CI phải đặt đồng thời:
 
@@ -87,5 +101,6 @@ DANANGMAP_ASYNC_API_NODE_ENV=production
 DANANGMAP_CANONICAL_WORKER_NODE_ENV=production
 ```
 
-Không đặt một phía production và phía còn lại development/test. Pretrial của commit harness hiện tại
-giữ cả hai mặc định `development` vì production guard vẫn còn hiệu lực.
+Không đặt một phía production và phía còn lại development/test. Pretrial đã chấp nhận ở trên giữ cả
+hai mặc định `development` khi production guard còn hiệu lực; nó không thay thế hai run
+production-mode sau guard-removal.

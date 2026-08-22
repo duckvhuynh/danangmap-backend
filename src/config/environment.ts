@@ -118,13 +118,6 @@ const environmentSchema = z
         message: 'publication test controls are allowed only when NODE_ENV=test',
       });
     }
-    if (value.NODE_ENV === 'production' && value.ASYNC_PUBLICATION_ENABLED) {
-      context.addIssue({
-        code: 'custom',
-        path: ['ASYNC_PUBLICATION_ENABLED'],
-        message: 'must remain false in production until frontend and exact E2E activation pass',
-      });
-    }
     if (value.MAIL_DELIVERY_REQUIRED && !value.SMTP_ENABLED) {
       context.addIssue({
         code: 'custom',

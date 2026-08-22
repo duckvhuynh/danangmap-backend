@@ -67,7 +67,9 @@ async function atomicJson(name, value) {
   const temporary = `${target}.${process.pid}.tmp`;
   await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, {
     encoding: 'utf8',
-    mode: 0o600,
+    // The barrier runs as root in Docker, while the host CI runner inventories
+    // these non-secret phase markers after teardown. Keep them host-readable.
+    mode: 0o644,
   });
   await rename(temporary, target);
 }

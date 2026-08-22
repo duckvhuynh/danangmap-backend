@@ -4,8 +4,8 @@
 
 - `ASYNC_PUBLICATION_ENABLED=false` ở schema, `.env.example` và Compose mặc định.
 - Guard-removal đã review chỉ bỏ validation rejection khi production được đặt explicit
-  `ASYNC_PUBLICATION_ENABLED=true`; không có cấu hình nào tự bật cờ này và production activation vẫn
-  NO-GO cho đến khi hai run production-mode hoàn tất và được review.
+  `ASYNC_PUBLICATION_ENABLED=true`; không có cấu hình nào tự bật cờ này. Local production activation
+  gate đã GO ở exact SHA ghi bên dưới, nhưng release tổng thể vẫn NO-GO theo các boundary còn mở.
 - Harness dùng API/worker runtime thật, PostGIS, Redis/BullMQ, MinIO, Next.js và Playwright qua
   `https://gateway`; không có route mock, service mock, test HTTP endpoint hoặc Docker socket trong
   browser.
@@ -87,6 +87,11 @@ Workflow activation pin frontend reviewed SHA `6e6fe83f7dbf6d5a01c710bb35e670e08
 job-level environment source dùng chung cho checkout và harness; job đặt activation mode và cả hai
 API/worker `NODE_ENV` thành `production`.
 
+Remote run `32547244858` có job `verify` pass nhưng cross-stack job fail đúng fail-closed guard vì
+repository chưa cấp `CROSS_REPO_READ_TOKEN`; harness không chạy trên GitHub và không có remote
+artifact để thay local exact-SHA evidence. Remote gate tiếp tục NO-GO cho tới khi secret được cấu hình
+và job exact-SHA pass.
+
 ## Guard-intact pretrial đã chấp nhận
 
 Independent audit đã chấp nhận pretrial dùng backend
@@ -100,10 +105,9 @@ Independent audit đã chấp nhận pretrial dùng backend
   — SHA-256 `a6f0f67894939e9bdae87440499c3b52e57c4bf4572ac259683e1771ad6397d7`.
 
 Guard-removal đã được review và commit riêng: chỉ bỏ production rejection, không đổi bất kỳ default
-nào sang `true`. Trusted-STARTTLS harness fix và hai run fresh-volume production-mode vẫn pending;
-VS-035B/backend #30 tiếp tục Open và chưa có production-ready claim.
+nào sang `true`.
 
-Sau commit guard-removal, lần chạy production-mode cuối và CI phải đặt đồng thời:
+Mọi lần chạy production-mode và CI phải đặt đồng thời:
 
 ```text
 DANANGMAP_ACTIVATION_MODE=production
@@ -113,9 +117,34 @@ DANANGMAP_CANONICAL_WORKER_NODE_ENV=production
 
 Không đặt một phía production và phía còn lại development/test. Pretrial đã chấp nhận ở trên giữ cả
 hai mặc định `development` khi production guard còn hiệu lực; harness hiện yêu cầu khai báo explicit
-`pretrial` cùng hai giá trị `development`. Pretrial không thay thế hai run production-mode sau
-guard-removal.
+`pretrial` cùng hai giá trị `development`. Pretrial không được dùng thay production evidence ở phần
+sau.
 
 Full-stack Compose tạo certificate một lần trong fresh volume và bắt Mailpit dùng STARTTLS. Canonical
 worker production mount certificate đó read-only qua `NODE_EXTRA_CA_CERTS`, giữ
 `SMTP_REJECT_UNAUTHORIZED=true`; certificate local và private key không được đưa vào repository.
+
+## Production activation evidence đã chấp nhận
+
+Independent artifact review đã chấp nhận local production gate tại đúng backend
+`2d4675ec2385abf55fa23ad26914e037456f14cd` + frontend
+`6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8`:
+
+- `artifacts/fullstack/2026-08-22T02-48-36.875Z-2d4675ec2385-6e6fe83f7dbf-run-1/evidence.json`
+  — SHA-256 `6497db82ebfd8b92206cdfabd9ffa4456d650198e3501e33485a32d2d3e9516e`;
+- `artifacts/fullstack/2026-08-22T02-53-38.466Z-2d4675ec2385-6e6fe83f7dbf-run-2/evidence.json`
+  — SHA-256 `70a04b03205b6d58160bc22f50fd2abc10b00d4b6bec646f30d9d4dc1ca70c3a`.
+
+Hai fresh-volume run có tổng cộng **18/18** Playwright invocation pass, `failed=0`, `skipped=0`,
+`flaky=0`. API và canonical worker đều chạy `NODE_ENV=production`, async explicit true, không có test
+control; canonical worker dùng trusted STARTTLS với `SMTP_REJECT_UNAUTHORIZED=true` và
+`NODE_EXTRA_CA_CERTS`. Chỉ crash-worker chạy `NODE_ENV=test` với barrier dự kiến. Cả hai run chứng
+minh attempt `0` khi queue, progress đúng `1/3`, SIGKILL non-OOM, terminal attempt `2`, recovered lease
+`1`, generation `1→2`, đúng một snapshot/participant/workflow/audit mới và teardown residual
+container/network/volume `0/0/0`.
+
+VS-035B local activation gate là GO, nhưng đây không phải production release GO. Backend PR #38 vẫn
+Draft, backend #30/frontend #19 vẫn Open; attachment binding/diff, explicit keyboard/screen-reader
+regression, Mapbox visual QA với restricted token, Coolify deploy/cutover và accepted no-backup risk
+vẫn là blocker. Mọi docs-only commit sau `2d4675ec...` chỉ ghi nhận evidence và **không** được mô tả là
+SHA đã chạy harness.

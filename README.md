@@ -22,5 +22,8 @@ NestJS API và background worker cho DanangMap v2 Spatial CMS.
 - Backup hiện ngoài phạm vi và được ghi nhận là accepted risk.
 
 `ASYNC_PUBLICATION_ENABLED` vẫn mặc định `false` ở schema, `.env.example` và Compose; production chỉ
-bật khi được đặt explicit `true`. Guard-intact exact-SHA pretrial đã pass, nhưng release vẫn NO-GO cho
-đến khi guard-removal được review và hai run fresh-volume production-mode có evidence.
+bật khi được đặt explicit `true`. Local production activation gate đã được independent review chấp
+nhận tại đúng backend `2d4675ec2385abf55fa23ad26914e037456f14cd` + frontend
+`6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8`; evidence này không áp dụng cho docs-only descendant.
+Release tổng thể vẫn NO-GO vì remote cross-stack CI thiếu `CROSS_REPO_READ_TOKEN`, PR còn Draft/issues
+còn Open, attachment/a11y/Mapbox/deploy và accepted no-backup risk chưa đóng.

@@ -48,13 +48,16 @@ export class HealthController {
   @ApiOperation({ operationId: 'getReadiness' })
   @apiRawJsonResponse(200, readinessSchema)
   async ready() {
-    const checks: Record<string, 'up' | 'down' | 'degraded' | 'current'> = {
+    const checks: Record<string, 'up' | 'down' | 'degraded' | 'current' | 'disabled'> = {
       postgres: 'down',
       redis: 'down',
       migrations: 'down',
       minio: 'down',
       geoService: this.geoService.healthStatus,
       mail: 'degraded',
+      publication: this.config.getOrThrow<boolean>('publication.asyncEnabled')
+        ? 'degraded'
+        : 'disabled',
     };
 
     await this.dataSource.query('SELECT 1');
@@ -78,6 +81,39 @@ export class HealthController {
       checks.mail = rows[0]?.status === 'up' && rows[0].fresh ? 'up' : 'degraded';
     } catch {
       checks.mail = 'degraded';
+    }
+
+    if (this.config.getOrThrow<boolean>('publication.asyncEnabled')) {
+      try {
+        const rows = (await this.dataSource.query(
+          `SELECT worker_heartbeat_at >
+                    now()-($1::text || ' seconds')::interval AS "workerFresh",
+                  last_recovery_sweep_at >
+                    now()-($1::text || ' seconds')::interval AS "recoveryFresh",
+                  last_dispatch_sweep_at >
+                    now()-($1::text || ' seconds')::interval AS "dispatchFresh",
+                  worker_error_code AS "workerErrorCode",
+                  dispatch_error_code AS "dispatchErrorCode"
+           FROM publication_worker_state WHERE id=1`,
+          [this.config.getOrThrow<number>('publication.workerStaleSeconds')],
+        )) as Array<{
+          workerFresh: boolean;
+          recoveryFresh: boolean;
+          dispatchFresh: boolean;
+          workerErrorCode: string | null;
+          dispatchErrorCode: string | null;
+        }>;
+        checks.publication =
+          rows[0]?.workerFresh &&
+          rows[0].recoveryFresh &&
+          rows[0].dispatchFresh &&
+          !rows[0].workerErrorCode &&
+          !rows[0].dispatchErrorCode
+            ? 'up'
+            : 'degraded';
+      } catch {
+        checks.publication = 'degraded';
+      }
     }
 
     return {

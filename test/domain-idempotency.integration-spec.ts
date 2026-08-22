@@ -15,6 +15,9 @@ import {
 import { LayersService } from '../src/layers/layers.service';
 import { publicationPointerEtag } from '../src/layers/etag';
 import { PublicationRollbackService } from '../src/history/publication-rollback.service';
+import { PublicationAdmissionService } from '../src/publications/publication-admission.service';
+import { PublicationFingerprintService } from '../src/publications/publication-fingerprint.service';
+import { PublicationJobRepository } from '../src/publications/publication-job.repository';
 import { WorkflowService } from '../src/workflow/workflow.service';
 
 describe('Domain command idempotency', () => {
@@ -29,12 +32,18 @@ describe('Domain command idempotency', () => {
   const workflowRevisionId = randomUUID();
   const changesLayerId = randomUUID();
   const changesRevisionId = randomUUID();
+  const crossSyncLayerId = randomUUID();
+  const crossSyncRevisionId = randomUUID();
+  const crossAsyncLayerId = randomUUID();
+  const crossAsyncRevisionId = randomUUID();
   const submitKey = randomUUID();
   const approveKey = randomUUID();
   const publishKey = randomUUID();
   const rollbackKey = randomUUID();
   const changesSubmitKey = randomUUID();
   const requestChangesKey = randomUUID();
+  const crossSyncKey = randomUUID();
+  const crossAsyncKey = randomUUID();
   let createdLayerId: string | undefined;
   let createdRevisionId: string | undefined;
   const crypto = new CryptoService(
@@ -49,17 +58,26 @@ describe('Domain command idempotency', () => {
     await createDraft(featureLayerId, featureRevisionId, 'receipt-feature');
     await createDraft(workflowLayerId, workflowRevisionId, 'receipt-workflow');
     await createDraft(changesLayerId, changesRevisionId, 'receipt-changes');
+    await createApproved(crossSyncLayerId, crossSyncRevisionId, 'receipt-cross-sync');
+    await createApproved(crossAsyncLayerId, crossAsyncRevisionId, 'receipt-cross-async');
   });
 
   afterAll(async () => {
     if (AppDataSource.isInitialized) {
-      const layerIds = [featureLayerId, workflowLayerId, changesLayerId, createdLayerId].filter(
-        (id): id is string => Boolean(id),
-      );
+      const layerIds = [
+        featureLayerId,
+        workflowLayerId,
+        changesLayerId,
+        crossSyncLayerId,
+        crossAsyncLayerId,
+        createdLayerId,
+      ].filter((id): id is string => Boolean(id));
       const revisionIds = [
         featureRevisionId,
         workflowRevisionId,
         changesRevisionId,
+        crossSyncRevisionId,
+        crossAsyncRevisionId,
         createdRevisionId,
       ].filter((id): id is string => Boolean(id));
       await AppDataSource.transaction(async (manager) => {
@@ -77,7 +95,12 @@ describe('Domain command idempotency', () => {
             rollbackKey,
             changesSubmitKey,
             requestChangesKey,
+            crossSyncKey,
+            crossAsyncKey,
           ],
+        ]);
+        await manager.query('DELETE FROM publication_jobs WHERE layer_id=ANY($1::uuid[])', [
+          layerIds,
         ]);
         await manager.query('DELETE FROM layer_publications WHERE layer_id=ANY($1::uuid[])', [
           layerIds,
@@ -298,7 +321,7 @@ describe('Domain command idempotency', () => {
       'IDEMPOTENCY_KEY_REUSED',
     );
 
-    const published = publications[0] as { snapshotId: string };
+    const published = publications[0].data as { snapshotId: string };
     const replacementRows = (await AppDataSource.query(
       `INSERT INTO publication_snapshots(
          layer_id,revision_id,status,generation,feature_count,bounds,checksum,manifest,published_by,published_at
@@ -426,6 +449,106 @@ describe('Domain command idempotency', () => {
     expect(rows[0]).toEqual({ successors: 1, drafts: 1 });
   });
 
+  it('replays the original publication representation and headers across feature-flag modes', async () => {
+    const publisher = { id: publisherId, role: 'publisher' };
+    const dto = { releaseNote: 'Cross-mode receipt', clientIntent: 'desktop' as const };
+
+    const synchronous = await createWorkflowService().publish(
+      crossSyncRevisionId,
+      dto,
+      publisher,
+      randomUUID(),
+      crossSyncKey,
+    );
+    const synchronousThroughAsync = await createAdmissionService().admit(
+      crossSyncRevisionId,
+      dto,
+      publisher,
+      randomUUID(),
+      crossSyncKey,
+    );
+    expect(synchronousThroughAsync).toEqual(synchronous);
+    expect(synchronousThroughAsync).toMatchObject({
+      variant: 'legacy-sync',
+      etag: null,
+      location: null,
+      retryAfter: null,
+      cacheControl: null,
+    });
+    await AppDataSource.query(
+      `UPDATE command_receipts SET response_metadata=NULL
+       WHERE actor_id=$1 AND operation='revision.publish' AND idempotency_key=$2`,
+      [publisherId, crossSyncKey],
+    );
+    await expect(
+      createAdmissionService().admit(
+        crossSyncRevisionId,
+        dto,
+        publisher,
+        randomUUID(),
+        crossSyncKey,
+      ),
+    ).resolves.toEqual(synchronous);
+    await AppDataSource.query(
+      `UPDATE command_receipts SET response_metadata=$3::jsonb
+       WHERE actor_id=$1 AND operation='revision.publish' AND idempotency_key=$2`,
+      [publisherId, crossSyncKey, JSON.stringify({ variant: 'legacy-sync' })],
+    );
+
+    const asynchronous = await createAdmissionService().admit(
+      crossAsyncRevisionId,
+      dto,
+      publisher,
+      randomUUID(),
+      crossAsyncKey,
+    );
+    const asynchronousThroughSync = await createWorkflowService().publish(
+      crossAsyncRevisionId,
+      dto,
+      publisher,
+      randomUUID(),
+      crossAsyncKey,
+    );
+    expect(asynchronousThroughSync).toEqual(asynchronous);
+    expect(asynchronousThroughSync.variant).toBe('durable-async');
+    expect(asynchronousThroughSync.etag).toMatch(/^"publication-job-/);
+    expect(asynchronousThroughSync.location).toBe(
+      `/api/v1/admin/publication-jobs/${(asynchronous.data as { id: string }).id}`,
+    );
+    expect(asynchronousThroughSync.retryAfter).toBe(2);
+    expect(asynchronousThroughSync.cacheControl).toBe('private, no-store');
+
+    const rows = (await AppDataSource.query(
+      `SELECT idempotency_key,response_etag,response_metadata
+       FROM command_receipts WHERE idempotency_key=ANY($1::uuid[]) ORDER BY idempotency_key`,
+      [[crossSyncKey, crossAsyncKey]],
+    )) as Array<{
+      idempotency_key: string;
+      response_etag: string | null;
+      response_metadata: Record<string, unknown>;
+    }>;
+    expect(rows).toHaveLength(2);
+    expect(rows.find((row) => row.idempotency_key === crossSyncKey)).toMatchObject({
+      response_etag: null,
+      response_metadata: { variant: 'legacy-sync' },
+    });
+    const asyncReceipt = rows.find((row) => row.idempotency_key === crossAsyncKey);
+    expect(asyncReceipt?.response_etag).toMatch(/^"publication-job-/);
+    expect(asyncReceipt?.response_metadata).toEqual({
+      variant: 'durable-async',
+      retryAfter: 2,
+    });
+    const effects = (await AppDataSource.query(
+      `SELECT
+         (SELECT count(*)::integer FROM publication_snapshots WHERE layer_id=$1) AS sync_snapshots,
+         (SELECT count(*)::integer FROM publication_jobs WHERE layer_id=$2) AS async_jobs,
+         (SELECT count(*)::integer FROM publication_job_outbox outbox
+          JOIN publication_jobs job ON job.id=outbox.publication_job_id WHERE job.layer_id=$2) AS outboxes`,
+      [crossSyncLayerId, crossAsyncLayerId],
+    )) as Array<Record<string, unknown>>;
+    expect(effects[0]).toEqual({ sync_snapshots: 1, async_jobs: 1, outboxes: 1 });
+  });
+
   async function createDraft(layerId: string, revisionId: string, prefix: string) {
     await AppDataSource.query(`INSERT INTO layers(id,slug,created_by) VALUES($1,$2,$3)`, [
       layerId,
@@ -451,6 +574,21 @@ describe('Domain command idempotency', () => {
     );
   }
 
+  async function createApproved(layerId: string, revisionId: string, prefix: string) {
+    await AppDataSource.query(`INSERT INTO layers(id,slug,created_by) VALUES($1,$2,$3)`, [
+      layerId,
+      `${prefix}-${layerId.slice(0, 8)}`,
+      editorId,
+    ]);
+    await AppDataSource.query(
+      `INSERT INTO layer_revisions(
+         id,layer_id,revision_no,status,title,geometry_mode,allowed_geometry_kinds,
+         style,render_config,popup_config,created_by
+       ) VALUES($1,$2,1,'approved',$3,'point',ARRAY['point'],'{}','{}','{}',$4)`,
+      [revisionId, layerId, prefix, editorId],
+    );
+  }
+
   function createLayersService() {
     return new LayersService(
       AppDataSource,
@@ -467,6 +605,18 @@ describe('Domain command idempotency', () => {
 
   function createWorkflowService() {
     return new WorkflowService(AppDataSource, crypto, new IdempotencyService());
+  }
+
+  function createAdmissionService() {
+    return new PublicationAdmissionService(
+      AppDataSource,
+      new PublicationFingerprintService(crypto),
+      new IdempotencyService(),
+      new PublicationJobRepository(AppDataSource),
+      new ConfigService({
+        publication: { dispatchIntervalMs: 2_000, maxAttempts: 5 },
+      }),
+    );
   }
 
   function createRollbackService() {

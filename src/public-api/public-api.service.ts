@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { AppException } from '../common/http/app.exception';
+import { canonicalPublicFieldSql } from '../common/public-field.policy';
 import { GeoServiceAdapter, type GeoBias } from './geo-service.adapter';
 
 interface PublishedLayerRow {
@@ -59,8 +60,8 @@ export class PublicApiService {
     const fields = (await this.dataSource.query(
       `SELECT id,key,label,description,type,icon,required,searchable,filterable,sortable,
               default_value AS "defaultValue",validation,options,display_order AS "displayOrder"
-       FROM layer_fields
-       WHERE revision_id=$1 AND public=true AND sensitive=false
+       FROM layer_fields field
+       WHERE revision_id=$1 AND ${canonicalPublicFieldSql('field')}
        ORDER BY display_order,id`,
       [row.revisionId],
     )) as Record<string, unknown>[];
@@ -87,8 +88,9 @@ export class PublicApiService {
     if (filter) {
       const parsed = this.parseFilter(filter);
       const field = (await this.dataSource.query(
-        `SELECT 1 FROM layer_fields
-         WHERE revision_id=$1 AND key=$2 AND public=true AND sensitive=false AND filterable=true`,
+        `SELECT 1 FROM layer_fields field
+         WHERE revision_id=$1 AND key=$2 AND ${canonicalPublicFieldSql('field')}
+           AND filterable=true`,
         [layer.revisionId, parsed.key],
       )) as unknown[];
       if (!field.length)
@@ -103,7 +105,7 @@ export class PublicApiService {
               COALESCE((SELECT jsonb_object_agg(entry.key,entry.value)
                 FROM jsonb_each(fv.properties) entry
                 JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key
-                  AND lf.public=true AND lf.sensitive=false),'{}'::jsonb) AS properties
+                  AND ${canonicalPublicFieldSql('lf')}),'{}'::jsonb) AS properties
        FROM revision_features rf
        JOIN features f ON f.id=rf.feature_id
        JOIN feature_versions fv ON fv.id=rf.feature_version_id
@@ -148,7 +150,7 @@ export class PublicApiService {
               COALESCE((SELECT jsonb_object_agg(entry.key,entry.value)
                 FROM jsonb_each(fv.properties) entry
                 JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key
-                  AND lf.public=true AND lf.sensitive=false),'{}'::jsonb) AS properties
+                  AND ${canonicalPublicFieldSql('lf')}),'{}'::jsonb) AS properties
        FROM revision_features rf
        JOIN features f ON f.id=rf.feature_id AND f.deleted_at IS NULL
        JOIN feature_versions fv ON fv.id=rf.feature_version_id
@@ -179,11 +181,11 @@ export class PublicApiService {
       throw new AppException(400, 'INVALID_TILE', 'Tọa độ tile không hợp lệ.');
     }
     const snapshot = (await this.dataSource.query(
-      `SELECT s.id,s.revision_id AS "revisionId",s.checksum
+      `SELECT s.id,s.revision_id AS "revisionId"
        FROM publication_snapshots s JOIN layers l ON l.id=s.layer_id
        WHERE l.slug=$1 AND s.generation=$2 AND s.status='published' AND l.archived_at IS NULL`,
       [slug, generationValue],
-    )) as Array<{ id: string; revisionId: string; checksum: string }>;
+    )) as Array<{ id: string; revisionId: string }>;
     if (!snapshot[0]) throw new AppException(404, 'TILESET_NOT_FOUND', 'Không tìm thấy tileset.');
     const result = (await this.dataSource.query(
       `WITH bounds AS (SELECT ST_TileEnvelope($2,$3,$4) AS geom), tile_rows AS (
@@ -191,7 +193,7 @@ export class PublicApiService {
            COALESCE((SELECT jsonb_object_agg(entry.key,entry.value)
              FROM jsonb_each(fv.properties) entry
              JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key
-               AND lf.public=true AND lf.sensitive=false),'{}'::jsonb) AS properties,
+               AND ${canonicalPublicFieldSql('lf')}),'{}'::jsonb) AS properties,
            ST_AsMVTGeom(ST_Transform(rendered.geometry,3857),bounds.geom,4096,64,true) AS geom
          FROM bounds,revision_features rf
          JOIN features f ON f.id=rf.feature_id AND f.deleted_at IS NULL
@@ -210,7 +212,7 @@ export class PublicApiService {
     )) as Array<{ tile: Buffer | null }>;
     return {
       tile: result[0]?.tile ?? Buffer.alloc(0),
-      etag: `"tile-${snapshot[0].checksum}-${z}-${x}-${y}"`,
+      etag: `"tile-${snapshot[0].id}-${generationValue}-${z}-${x}-${y}"`,
     };
   }
 
@@ -322,10 +324,13 @@ export class PublicApiService {
     return (await this.dataSource.query(
       `WITH candidates AS (
          SELECT f.id AS "featureId",l.id AS "layerId",l.slug,r.title AS "layerTitle",
-           COALESCE(fv.properties->>'name',fv.properties->>'title',f.id::text) AS title,
-           COALESCE(fv.properties->>'address','') AS subtitle,
+           COALESCE(title_property.value,f.id::text) AS title,
+           COALESCE(subtitle_property.value,'') AS subtitle,
            ST_PointOnSurface(fv.geometry) AS focus,
-           similarity(unaccent(lower(COALESCE(fv.properties->>'name',fv.properties->>'title',''))),unaccent(lower($1))) AS score
+           similarity(
+             unaccent(lower(COALESCE(title_property.value,''))),
+             unaccent(lower($1))
+           ) AS score
          FROM layer_publications lp
          JOIN publication_snapshots s ON s.id=lp.active_snapshot_id AND s.status='published'
          JOIN layers l ON l.id=lp.layer_id AND l.archived_at IS NULL
@@ -333,10 +338,27 @@ export class PublicApiService {
          JOIN revision_features rf ON rf.revision_id=r.id
          JOIN features f ON f.id=rf.feature_id AND f.deleted_at IS NULL
          JOIN feature_versions fv ON fv.id=rf.feature_version_id
+         LEFT JOIN LATERAL (
+           SELECT property.value
+           FROM jsonb_each_text(fv.properties) property
+           JOIN layer_fields field ON field.revision_id=r.id AND field.key=property.key
+             AND ${canonicalPublicFieldSql('field')}
+           WHERE property.key=ANY('{name,title}'::text[])
+           ORDER BY CASE property.key WHEN 'name' THEN 0 ELSE 1 END
+           LIMIT 1
+         ) title_property ON true
+         LEFT JOIN LATERAL (
+           SELECT property.value
+           FROM jsonb_each_text(fv.properties) property
+           JOIN layer_fields field ON field.revision_id=r.id AND field.key=property.key
+             AND ${canonicalPublicFieldSql('field')}
+           WHERE property.key='address'
+           LIMIT 1
+         ) subtitle_property ON true
          WHERE ($3::uuid[] IS NULL OR l.id=ANY($3::uuid[]))
-           AND EXISTS (SELECT 1 FROM layer_fields lf, jsonb_each_text(fv.properties) prop
-             WHERE lf.revision_id=r.id AND lf.key=prop.key AND lf.public=true
-               AND lf.sensitive=false AND lf.searchable=true
+           AND EXISTS (SELECT 1 FROM layer_fields field, jsonb_each_text(fv.properties) prop
+             WHERE field.revision_id=r.id AND field.key=prop.key
+               AND ${canonicalPublicFieldSql('field')} AND field.searchable=true
                AND unaccent(prop.value) ILIKE '%'||unaccent($1)||'%')
        ) SELECT 'feature:'||"featureId" AS id,'internal' AS source,'feature' AS kind,title,
            NULLIF(subtitle,'') AS subtitle,
@@ -359,9 +381,15 @@ export class PublicApiService {
           r.style,r.render_config AS "renderConfig",r.popup_config AS "popupConfig",
           s.id AS "snapshotId",s.revision_id AS "revisionId",s.generation,s.feature_count AS "featureCount",
           s.bounds,s.manifest,lp.pointer_updated_at AS "updatedAt",
-          ARRAY(SELECT key FROM layer_fields WHERE revision_id=r.id AND public=true AND sensitive=false AND filterable=true ORDER BY display_order) AS "filterFields",
-          ARRAY(SELECT key FROM layer_fields WHERE revision_id=r.id AND public=true AND sensitive=false AND searchable=true ORDER BY display_order) AS "searchFields",
-          ARRAY(SELECT key FROM layer_fields WHERE revision_id=r.id AND public=true AND sensitive=false ORDER BY display_order) AS "publicFields"
+          ARRAY(SELECT field.key FROM layer_fields field
+            WHERE field.revision_id=r.id AND ${canonicalPublicFieldSql('field')}
+              AND field.filterable=true ORDER BY field.display_order,field.id) AS "filterFields",
+          ARRAY(SELECT field.key FROM layer_fields field
+            WHERE field.revision_id=r.id AND ${canonicalPublicFieldSql('field')}
+              AND field.searchable=true ORDER BY field.display_order,field.id) AS "searchFields",
+          ARRAY(SELECT field.key FROM layer_fields field
+            WHERE field.revision_id=r.id AND ${canonicalPublicFieldSql('field')}
+            ORDER BY field.display_order,field.id) AS "publicFields"
        FROM layer_publications lp
        JOIN layers l ON l.id=lp.layer_id AND l.archived_at IS NULL
        LEFT JOIN layer_groups g ON g.id=l.group_id AND g.archived_at IS NULL

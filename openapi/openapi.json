@@ -9149,170 +9149,6 @@
         ]
       }
     },
-    "/api/v1/admin/revisions/{revisionId}:publish": {
-      "post": {
-        "operationId": "publishRevision",
-        "parameters": [
-          {
-            "name": "revisionId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-CSRF-Token",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PublishRevisionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data",
-                    "meta"
-                  ],
-                  "properties": {
-                    "data": {
-                      "oneOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "required": [
-                            "revisionId",
-                            "status"
-                          ],
-                          "properties": {
-                            "revisionId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "status": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "required": [
-                            "originalRevisionId",
-                            "draftRevisionId",
-                            "supersedesRevisionId",
-                            "originalStatus",
-                            "draftStatus",
-                            "draftEtag"
-                          ],
-                          "properties": {
-                            "originalRevisionId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "draftRevisionId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "supersedesRevisionId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "originalStatus": {
-                              "type": "string"
-                            },
-                            "draftStatus": {
-                              "type": "string"
-                            },
-                            "draftEtag": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "required": [
-                            "snapshotId",
-                            "generation",
-                            "status"
-                          ],
-                          "properties": {
-                            "publicationId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "snapshotId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "generation": {
-                              "type": "integer"
-                            },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "completed"
-                              ]
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    "meta": {
-                      "type": "object",
-                      "required": [
-                        "requestId"
-                      ],
-                      "properties": {
-                        "requestId": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "adminSession": []
-          }
-        ],
-        "summary": "",
-        "tags": [
-          "workflow"
-        ]
-      }
-    },
     "/api/v1/public/layers": {
       "get": {
         "operationId": "listPublicLayers",
@@ -18331,6 +18167,1588 @@
         ]
       }
     },
+    "/api/v1/admin/revisions/{revisionId}:publish": {
+      "post": {
+        "description": "Uses the legacy atomic synchronous path while ASYNC_PUBLICATION_ENABLED=false. When enabled, clientIntent=desktop is required and the committed queued job is returned.",
+        "operationId": "publishRevision",
+        "parameters": [
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRevisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Suggested polling delay in seconds for a nonterminal job.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "Location": {
+                "description": "Durable publication job URL when async publication is enabled.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "snapshotId",
+                            "generation",
+                            "status"
+                          ],
+                          "properties": {
+                            "publicationId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "snapshotId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "generation": {
+                              "type": "integer",
+                              "minimum": 1
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "completed"
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "id",
+                            "layerId",
+                            "revisionId",
+                            "status",
+                            "phase",
+                            "progress",
+                            "attempt",
+                            "result",
+                            "failure",
+                            "createdAt",
+                            "startedAt",
+                            "finishedAt",
+                            "updatedAt"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "layerId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "revisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "queued",
+                                "building",
+                                "succeeded",
+                                "failed"
+                              ]
+                            },
+                            "phase": {
+                              "type": "string",
+                              "enum": [
+                                "queued",
+                                "preparing",
+                                "scanning_features",
+                                "switching",
+                                "completed",
+                                "failed"
+                              ]
+                            },
+                            "progress": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "completedUnits",
+                                "totalUnits",
+                                "unit",
+                                "percent"
+                              ],
+                              "properties": {
+                                "completedUnits": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "totalUnits": {
+                                  "type": "integer",
+                                  "nullable": true,
+                                  "minimum": 0
+                                },
+                                "unit": {
+                                  "type": "string",
+                                  "enum": [
+                                    "features"
+                                  ]
+                                },
+                                "percent": {
+                                  "type": "integer",
+                                  "nullable": true,
+                                  "minimum": 0,
+                                  "maximum": 100
+                                }
+                              }
+                            },
+                            "attempt": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "result": {
+                              "type": "object",
+                              "nullable": true,
+                              "additionalProperties": false,
+                              "required": [
+                                "snapshotId",
+                                "generation"
+                              ],
+                              "properties": {
+                                "snapshotId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "generation": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                }
+                              }
+                            },
+                            "failure": {
+                              "type": "object",
+                              "nullable": true,
+                              "additionalProperties": false,
+                              "required": [
+                                "code",
+                                "userMessage",
+                                "requestId",
+                                "retryable"
+                              ],
+                              "properties": {
+                                "code": {
+                                  "type": "string",
+                                  "pattern": "^[A-Z][A-Z0-9_]{2,99}$"
+                                },
+                                "userMessage": {
+                                  "type": "string"
+                                },
+                                "requestId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "nullable": true
+                                },
+                                "retryable": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "startedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "finishedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "VALIDATION_FAILED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_SESSION_EXPIRED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "ROLE_FORBIDDEN",
+                        "PASSWORD_CHANGE_REQUIRED",
+                        "CSRF_INVALID",
+                        "SEPARATION_OF_DUTIES"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FOUND"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "IDEMPOTENCY_IN_PROGRESS",
+                        "IDEMPOTENCY_KEY_REUSED",
+                        "IDEMPOTENCY_RESPONSE_INCOMPATIBLE",
+                        "PUBLICATION_BASE_STALE",
+                        "PUBLICATION_JOB_ACTIVE",
+                        "WORKFLOW_TRANSITION_INVALID"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "428": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "IDEMPOTENCY_KEY_REQUIRED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "publications"
+        ]
+      }
+    },
+    "/api/v1/admin/publication-jobs/{jobId}": {
+      "get": {
+        "operationId": "getPublicationJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Suggested polling delay in seconds for a nonterminal job.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "layerId",
+                        "revisionId",
+                        "status",
+                        "phase",
+                        "progress",
+                        "attempt",
+                        "result",
+                        "failure",
+                        "createdAt",
+                        "startedAt",
+                        "finishedAt",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "layerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "revisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "queued",
+                            "building",
+                            "succeeded",
+                            "failed"
+                          ]
+                        },
+                        "phase": {
+                          "type": "string",
+                          "enum": [
+                            "queued",
+                            "preparing",
+                            "scanning_features",
+                            "switching",
+                            "completed",
+                            "failed"
+                          ]
+                        },
+                        "progress": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "completedUnits",
+                            "totalUnits",
+                            "unit",
+                            "percent"
+                          ],
+                          "properties": {
+                            "completedUnits": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "totalUnits": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 0
+                            },
+                            "unit": {
+                              "type": "string",
+                              "enum": [
+                                "features"
+                              ]
+                            },
+                            "percent": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          }
+                        },
+                        "attempt": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "result": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": false,
+                          "required": [
+                            "snapshotId",
+                            "generation"
+                          ],
+                          "properties": {
+                            "snapshotId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "generation": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          }
+                        },
+                        "failure": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": false,
+                          "required": [
+                            "code",
+                            "userMessage",
+                            "requestId",
+                            "retryable"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{2,99}$"
+                            },
+                            "userMessage": {
+                              "type": "string"
+                            },
+                            "requestId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            },
+                            "retryable": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "finishedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The publication job representation is unchanged."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_SESSION_EXPIRED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "ROLE_FORBIDDEN",
+                        "PASSWORD_CHANGE_REQUIRED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FOUND"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "publications"
+        ]
+      }
+    },
+    "/api/v1/admin/layers/{layerId}/publication-jobs": {
+      "get": {
+        "operationId": "listLayerPublicationJobs",
+        "parameters": [
+          {
+            "name": "layerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "building",
+                "succeeded",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "revisionId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Suggested polling delay in seconds for a nonterminal job.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "items",
+                        "nextCursor",
+                        "hasMore",
+                        "limit"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "layerId",
+                              "revisionId",
+                              "status",
+                              "phase",
+                              "progress",
+                              "attempt",
+                              "result",
+                              "failure",
+                              "createdAt",
+                              "startedAt",
+                              "finishedAt",
+                              "updatedAt"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "layerId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "revisionId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "queued",
+                                  "building",
+                                  "succeeded",
+                                  "failed"
+                                ]
+                              },
+                              "phase": {
+                                "type": "string",
+                                "enum": [
+                                  "queued",
+                                  "preparing",
+                                  "scanning_features",
+                                  "switching",
+                                  "completed",
+                                  "failed"
+                                ]
+                              },
+                              "progress": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "completedUnits",
+                                  "totalUnits",
+                                  "unit",
+                                  "percent"
+                                ],
+                                "properties": {
+                                  "completedUnits": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "totalUnits": {
+                                    "type": "integer",
+                                    "nullable": true,
+                                    "minimum": 0
+                                  },
+                                  "unit": {
+                                    "type": "string",
+                                    "enum": [
+                                      "features"
+                                    ]
+                                  },
+                                  "percent": {
+                                    "type": "integer",
+                                    "nullable": true,
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  }
+                                }
+                              },
+                              "attempt": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "result": {
+                                "type": "object",
+                                "nullable": true,
+                                "additionalProperties": false,
+                                "required": [
+                                  "snapshotId",
+                                  "generation"
+                                ],
+                                "properties": {
+                                  "snapshotId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "generation": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                  }
+                                }
+                              },
+                              "failure": {
+                                "type": "object",
+                                "nullable": true,
+                                "additionalProperties": false,
+                                "required": [
+                                  "code",
+                                  "userMessage",
+                                  "requestId",
+                                  "retryable"
+                                ],
+                                "properties": {
+                                  "code": {
+                                    "type": "string",
+                                    "pattern": "^[A-Z][A-Z0-9_]{2,99}$"
+                                  },
+                                  "userMessage": {
+                                    "type": "string"
+                                  },
+                                  "requestId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "nullable": true
+                                  },
+                                  "retryable": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "startedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              },
+                              "finishedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        },
+                        "nextCursor": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The publication job representation is unchanged."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "VALIDATION_FAILED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_SESSION_EXPIRED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "ROLE_FORBIDDEN",
+                        "PASSWORD_CHANGE_REQUIRED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FOUND"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "publications"
+        ]
+      }
+    },
     "/health/live": {
       "get": {
         "operationId": "getLiveness",
@@ -18402,7 +19820,8 @@
                         "migrations",
                         "minio",
                         "geoService",
-                        "mail"
+                        "mail",
+                        "publication"
                       ],
                       "properties": {
                         "postgres": {
@@ -18445,6 +19864,14 @@
                           "enum": [
                             "up",
                             "degraded"
+                          ]
+                        },
+                        "publication": {
+                          "type": "string",
+                          "enum": [
+                            "up",
+                            "degraded",
+                            "disabled"
                           ]
                         }
                       }
@@ -19422,18 +20849,6 @@
           "comment"
         ]
       },
-      "PublishRevisionDto": {
-        "type": "object",
-        "properties": {
-          "releaseNote": {
-            "type": "string",
-            "maxLength": 4000
-          }
-        },
-        "required": [
-          "releaseNote"
-        ]
-      },
       "ImportGeometryMappingDto": {
         "type": "object",
         "properties": {
@@ -19601,6 +21016,26 @@
           "targetSnapshotId",
           "reason",
           "clientIntent"
+        ]
+      },
+      "PublishRevisionDto": {
+        "type": "object",
+        "properties": {
+          "releaseNote": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "clientIntent": {
+            "type": "string",
+            "enum": [
+              "desktop"
+            ],
+            "example": "desktop",
+            "description": "Required only when ASYNC_PUBLICATION_ENABLED=true."
+          }
+        },
+        "required": [
+          "releaseNote"
         ]
       }
     }

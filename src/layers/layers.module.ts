@@ -55,6 +55,6 @@ import { RevisionConfigurationService } from './revision-configuration.service';
     LayerSchemaService,
     WorkflowService,
   ],
-  exports: [LayersService, GeometryService, LayerSchemaService],
+  exports: [LayersService, GeometryService, LayerSchemaService, WorkflowService],
 })
 export class LayersModule {}

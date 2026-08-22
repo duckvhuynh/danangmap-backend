@@ -20,26 +20,26 @@ SRS này quy định backend, API và các ràng buộc tích hợp frontend. Ch
 
 ## 2. Quyết định đã chốt
 
-| Chủ đề | Quyết định |
-|---|---|
-| Kiến trúc | NestJS modular monolith; `apps/api` phục vụ HTTP, `apps/worker` xử lý job |
-| Cơ sở dữ liệu | PostgreSQL + PostGIS là source of truth duy nhất |
-| ORM | TypeORM; chỉ dùng migration, `synchronize=false` ở mọi môi trường |
-| Queue/cache | Redis + BullMQ |
-| Object storage | MinIO tương thích S3 |
-| MongoDB | Không dùng |
-| Public client | Chỉ frontend DanangMap trong MVP |
-| Auth admin | Tài khoản nội bộ; session opaque trong cookie HttpOnly; MFA bắt buộc |
-| Tạo tài khoản | System Admin tạo thủ công, gửi invite hoặc import danh sách |
-| Workflow | Editor, Reviewer, Publisher tách biệt nghiêm ngặt |
-| Geometry editor | Frontend dùng Terra Draw |
-| Circle | Tâm là đúng một Point; MultiPoint bị cấm; lưu `radius_m` theo mét |
-| Import | Tối đa chính xác 25 MiB/file (26.214.400 byte); append/replace/upsert; tùy chọn bỏ qua record lỗi |
-| ID feature | UUID do server tạo cho mọi feature mới |
-| Attachment | Có image và attachment |
-| Phân quyền theo layer | Không thuộc phạm vi MVP |
-| Chia sẻ state map qua URL | Không làm |
-| Backup | Chưa thuộc phạm vi; được ghi nhận là rủi ro được chấp nhận, xem §15.4 |
+| Chủ đề                    | Quyết định                                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| Kiến trúc                 | NestJS modular monolith; `apps/api` phục vụ HTTP, `apps/worker` xử lý job                         |
+| Cơ sở dữ liệu             | PostgreSQL + PostGIS là source of truth duy nhất                                                  |
+| ORM                       | TypeORM; chỉ dùng migration, `synchronize=false` ở mọi môi trường                                 |
+| Queue/cache               | Redis + BullMQ                                                                                    |
+| Object storage            | MinIO tương thích S3                                                                              |
+| MongoDB                   | Không dùng                                                                                        |
+| Public client             | Chỉ frontend DanangMap trong MVP                                                                  |
+| Auth admin                | Tài khoản nội bộ; session opaque trong cookie HttpOnly; MFA bắt buộc                              |
+| Tạo tài khoản             | System Admin tạo thủ công, gửi invite hoặc import danh sách                                       |
+| Workflow                  | Editor, Reviewer, Publisher tách biệt nghiêm ngặt                                                 |
+| Geometry editor           | Frontend dùng Terra Draw                                                                          |
+| Circle                    | Tâm là đúng một Point; MultiPoint bị cấm; lưu `radius_m` theo mét                                 |
+| Import                    | Tối đa chính xác 25 MiB/file (26.214.400 byte); append/replace/upsert; tùy chọn bỏ qua record lỗi |
+| ID feature                | UUID do server tạo cho mọi feature mới                                                            |
+| Attachment                | Có image và attachment                                                                            |
+| Phân quyền theo layer     | Không thuộc phạm vi MVP                                                                           |
+| Chia sẻ state map qua URL | Không làm                                                                                         |
+| Backup                    | Chưa thuộc phạm vi; được ghi nhận là rủi ro được chấp nhận, xem §15.4                             |
 
 ## 3. Thuật ngữ miền
 
@@ -62,16 +62,16 @@ SRS này quy định backend, API và các ràng buộc tích hợp frontend. Ch
 
 Mỗi tài khoản admin chỉ có **một** vai trò chính tại một thời điểm.
 
-| Năng lực | System Admin | Editor | Reviewer | Publisher |
-|---|:---:|:---:|:---:|:---:|
-| Quản lý user/invite/import user | ✓ |  |  |  |
-| Xem layer/draft/revision | ✓ | ✓ | ✓ | ✓ |
-| Tạo layer/draft, sửa schema/style/feature |  | ✓ |  |  |
-| Import dữ liệu vào draft |  | ✓ |  |  |
-| Submit để review |  | ✓ |  |  |
-| Request changes / approve |  |  | ✓ |  |
-| Publish / rollback publication |  |  |  | ✓ |
-| Xem audit | ✓ | phạm vi thao tác | phạm vi workflow | phạm vi workflow |
+| Năng lực                                  | System Admin |      Editor      |     Reviewer     |    Publisher     |
+| ----------------------------------------- | :----------: | :--------------: | :--------------: | :--------------: |
+| Quản lý user/invite/import user           |      ✓       |                  |                  |                  |
+| Xem layer/draft/revision                  |      ✓       |        ✓         |        ✓         |        ✓         |
+| Tạo layer/draft, sửa schema/style/feature |              |        ✓         |                  |                  |
+| Import dữ liệu vào draft                  |              |        ✓         |                  |                  |
+| Submit để review                          |              |        ✓         |                  |                  |
+| Request changes / approve                 |              |                  |        ✓         |                  |
+| Publish / rollback publication            |              |                  |                  |        ✓         |
+| Xem audit                                 |      ✓       | phạm vi thao tác | phạm vi workflow | phạm vi workflow |
 
 System Admin **không kế thừa** quyền Editor/Reviewer/Publisher và không được bypass workflow. Việc đổi vai trò phải thu hồi toàn bộ session đang hoạt động và được audit.
 
@@ -127,32 +127,32 @@ Module trao đổi qua interface/injection token và domain event; không phụ 
 
 ### 6.1 Thực thể chính
 
-| Bảng | Thuộc tính tối thiểu |
-|---|---|
-| `users` | `id uuid`, email chuẩn hóa, username, display name, password hash, role, status, MFA status, timestamps |
-| `user_mfa_methods` | TOTP secret đã mã hóa, verified time; recovery code chỉ lưu hash |
-| `admin_sessions` | opaque token hash, user id, CSRF binding, expiry, revoked time, IP/UA metadata |
-| `invites` | token hash, role, email, expiry, used/revoked time |
-| `password_reset_tokens` | token hash, user id, expiry, used/revoked time, request metadata |
-| `user_import_jobs` | object key, status/counts, mapping, actor, timestamps; không chứa password/MFA secret |
-| `mail_outbox` | template key, recipient reference, encrypted/minimized payload, status/attempts/next attempt, correlation ID; không lưu raw auth token lâu hơn cần thiết |
-| `layer_groups` | `id uuid`, unique slug, title, description, display order, archived time |
-| `layers` | `id uuid`, unique slug, nullable group id, display order, created by, archived time |
-| `layer_revisions` | `id uuid`, layer id, integer revision no., status, title, description, geometry mode, style/render config JSONB, popup config JSONB, schema version, lock version, creator, optional supersedes revision id, timestamps |
-| `layer_fields` | revision id, stable field id, key, label, type, icon, flags, order, validation JSONB, display config JSONB |
-| `features` | `id uuid`, layer id, optional normalized `external_source` + `external_id`, created time, soft-delete time; unique `(layer_id, external_source, external_id)` khi có |
-| `feature_versions` | `id uuid`, feature id, revision id, geometry `geometry(Geometry,4326)`, `properties jsonb`, `radius_m`, checksum, actor, timestamps |
-| `revision_features` | revision id, feature id, feature version id, ordinal; unique `(revision_id, feature_id)` |
-| `publication_snapshots` | id, layer id, revision id, status, published by/time, generation, manifest/checksum, feature count, materialized public source descriptor |
-| `layer_publications` | layer id, active snapshot id, previous snapshot id, atomic pointer timestamp |
-| `workflow_events` | revision id, from/to state, actor, reason/comment, immutable timestamp |
-| `revision_participants` | revision id, user id, participation type: edit/review/publish |
-| `import_jobs` | id, revision id, object key, format, mode, mapping JSONB, status/progress/counts, actor, timestamps |
-| `import_issues` | job id, row/feature reference, severity, code, field, message, raw excerpt đã lọc |
-| `attachments` | id, object key, MIME, bytes, checksum, scan status, owner, timestamps |
-| `feature_version_attachments` | feature version id, attachment id, field key, display order; immutable cùng feature version |
-| `audit_logs` | id, actor, action, resource type/id, request id, before/after digest, metadata, immutable timestamp |
-| `client_mutations` | revision id, client id, mutation id, applied server cursor, response digest; unique idempotency key |
+| Bảng                          | Thuộc tính tối thiểu                                                                                                                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                       | `id uuid`, email chuẩn hóa, username, display name, password hash, role, status, MFA status, timestamps                                                                                                                 |
+| `user_mfa_methods`            | TOTP secret đã mã hóa, verified time; recovery code chỉ lưu hash                                                                                                                                                        |
+| `admin_sessions`              | opaque token hash, user id, CSRF binding, expiry, revoked time, IP/UA metadata                                                                                                                                          |
+| `invites`                     | token hash, role, email, expiry, used/revoked time                                                                                                                                                                      |
+| `password_reset_tokens`       | token hash, user id, expiry, used/revoked time, request metadata                                                                                                                                                        |
+| `user_import_jobs`            | object key, status/counts, mapping, actor, timestamps; không chứa password/MFA secret                                                                                                                                   |
+| `mail_outbox`                 | template key, recipient reference, encrypted/minimized payload, status/attempts/next attempt, correlation ID; không lưu raw auth token lâu hơn cần thiết                                                                |
+| `layer_groups`                | `id uuid`, unique slug, title, description, display order, archived time                                                                                                                                                |
+| `layers`                      | `id uuid`, unique slug, nullable group id, display order, created by, archived time                                                                                                                                     |
+| `layer_revisions`             | `id uuid`, layer id, integer revision no., status, title, description, geometry mode, style/render config JSONB, popup config JSONB, schema version, lock version, creator, optional supersedes revision id, timestamps |
+| `layer_fields`                | revision id, stable field id, key, label, type, icon, flags, order, validation JSONB, display config JSONB                                                                                                              |
+| `features`                    | `id uuid`, layer id, optional normalized `external_source` + `external_id`, created time, soft-delete time; unique `(layer_id, external_source, external_id)` khi có                                                    |
+| `feature_versions`            | `id uuid`, feature id, revision id, geometry `geometry(Geometry,4326)`, `properties jsonb`, `radius_m`, checksum, actor, timestamps                                                                                     |
+| `revision_features`           | revision id, feature id, feature version id, ordinal; unique `(revision_id, feature_id)`                                                                                                                                |
+| `publication_snapshots`       | id, layer id, revision id, status, published by/time, generation, manifest/checksum, feature count, materialized public source descriptor                                                                               |
+| `layer_publications`          | layer id, active snapshot id, previous snapshot id, atomic pointer timestamp                                                                                                                                            |
+| `workflow_events`             | revision id, from/to state, actor, reason/comment, immutable timestamp                                                                                                                                                  |
+| `revision_participants`       | revision id, user id, participation type: edit/review/publish                                                                                                                                                           |
+| `import_jobs`                 | id, revision id, object key, format, mode, mapping JSONB, status/progress/counts, actor, timestamps                                                                                                                     |
+| `import_issues`               | job id, row/feature reference, severity, code, field, message, raw excerpt đã lọc                                                                                                                                       |
+| `attachments`                 | id, object key, MIME, bytes, checksum, scan status, owner, timestamps                                                                                                                                                   |
+| `feature_version_attachments` | feature version id, attachment id, field key, display order; immutable cùng feature version                                                                                                                             |
+| `audit_logs`                  | id, actor, action, resource type/id, request id, before/after digest, metadata, immutable timestamp                                                                                                                     |
+| `client_mutations`            | revision id, client id, mutation id, applied server cursor, response digest; unique idempotency key                                                                                                                     |
 
 Mọi thời gian dùng `timestamptz`; ID public dùng UUID; chuỗi dùng `text` kèm CHECK domain-specific thay vì `varchar(n)` tùy tiện.
 
@@ -187,106 +187,106 @@ Mỗi field có:
 
 ### 7.1 Identity và session
 
-| ID | Yêu cầu |
-|---|---|
-| AUTH-001 | System Admin tạo user thủ công, tạo invite có hạn dùng hoặc import danh sách user. |
-| AUTH-002 | Không có public registration. Email và username không phân biệt hoa thường và phải unique. |
-| AUTH-003 | Password lưu bằng Argon2id với tham số được benchmark; không log hoặc trả password. |
-| AUTH-004 | MFA TOTP là bắt buộc. User mới chỉ có pre-auth session cho đến khi enroll và xác minh MFA. |
-| AUTH-005 | Session dùng random opaque token tối thiểu 256-bit; DB chỉ lưu hash; cookie HttpOnly, Secure, SameSite=Lax, Path=/, ưu tiên prefix `__Host-`. |
+| ID       | Yêu cầu                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AUTH-001 | System Admin tạo user thủ công, tạo invite có hạn dùng hoặc import danh sách user.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| AUTH-002 | Không có public registration. Email và username không phân biệt hoa thường và phải unique.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| AUTH-003 | Password lưu bằng Argon2id với tham số được benchmark; không log hoặc trả password.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| AUTH-004 | MFA TOTP là bắt buộc. User mới chỉ có pre-auth session cho đến khi enroll và xác minh MFA.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| AUTH-005 | Session dùng random opaque token tối thiểu 256-bit; DB chỉ lưu hash; cookie HttpOnly, Secure, SameSite=Lax, Path=/, ưu tiên prefix `__Host-`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | AUTH-006 | Mọi mutation dùng cookie PHẢI kiểm tra CSRF token và Origin/Referer allowlist. Sau khi public cookie được thiết lập, `GET /auth/csrf` PHẢI reuse token đó; hai public request cold chưa có cookie có thể cấp token khác nhau và cookie response cuối thắng. Trong cùng pre-auth/authenticated session, endpoint PHẢI non-mutating/idempotent và trả cùng token kể cả khi nhiều tab gọi đồng thời; session active chỉ trả token cookie đã bind nếu hash khớp và fail closed `403 CSRF_INVALID` khi thiếu/sai mà không rebind hay update DB. Token chỉ rotate tại trust/session boundary public → pre-auth → authenticated hoặc khi tạo/rotate session mới do password/session-security transition. |
-| AUTH-007 | Hỗ trợ logout phiên hiện tại, revoke-all gồm cả session đang gọi, reset password và recovery code một lần; revoke-all xóa cookie, buộc login lại và retry tuần tự bằng cookie cũ trả `401`. |
-| AUTH-008 | Login/MFA/reset bị rate limit, lockout tăng dần và audit; thông báo không được tiết lộ user tồn tại. |
-| AUTH-009 | Đổi password PHẢI rotate session hiện tại và revoke mọi session còn lại; đổi role, trạng thái hoặc MFA PHẢI revoke toàn bộ session liên quan. Các command password/revoke-all có receipt idempotent và concurrent duplicate chỉ tạo một effect. |
-| AUTH-010 | Invite có endpoint inspect an toàn và accept một lần; accept đặt password, sau đó bắt buộc enroll MFA trước khi có admin session. |
-| AUTH-011 | Password reset request PHẢI trả generic `202` với timing tương đương cho account có/không tồn tại, có idempotency/rate limit. Token random một lần chỉ lưu hash, được copy/paste và chỉ nhận trong body (không URL/browser storage/log); confirm nguyên tử revoke mọi authenticated/pre-auth session, pending challenge và reset token, rồi yêu cầu login + MFA lại. |
-| AUTH-012 | User tự regenerate recovery codes sau khi xác minh password + MFA; System Admin chỉ được reset MFA để buộc re-enroll, không xem/generate code thay user. |
-| AUTH-013 | Import user đi qua inspect → validate/dry-run → apply → report; account hợp lệ được tạo ở trạng thái invite/inactive, không import password/MFA secret. |
-| AUTH-014 | User được tạo thủ công với `mustChangePassword=true`; guard backend trung tâm chặn mọi route admin/domain bằng `PASSWORD_CHANGE_REQUIRED` cho đến khi đổi password, chỉ cho phép tập route auth tối thiểu cần hoàn tất flow. |
+| AUTH-007 | Hỗ trợ logout phiên hiện tại, revoke-all gồm cả session đang gọi, reset password và recovery code một lần; revoke-all xóa cookie, buộc login lại và retry tuần tự bằng cookie cũ trả `401`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| AUTH-008 | Login/MFA/reset bị rate limit, lockout tăng dần và audit; thông báo không được tiết lộ user tồn tại.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| AUTH-009 | Đổi password PHẢI rotate session hiện tại và revoke mọi session còn lại; đổi role, trạng thái hoặc MFA PHẢI revoke toàn bộ session liên quan. Các command password/revoke-all có receipt idempotent và concurrent duplicate chỉ tạo một effect.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| AUTH-010 | Invite có endpoint inspect an toàn và accept một lần; accept đặt password, sau đó bắt buộc enroll MFA trước khi có admin session.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| AUTH-011 | Password reset request PHẢI trả generic `202` với timing tương đương cho account có/không tồn tại, có idempotency/rate limit. Token random một lần chỉ lưu hash, được copy/paste và chỉ nhận trong body (không URL/browser storage/log); confirm nguyên tử revoke mọi authenticated/pre-auth session, pending challenge và reset token, rồi yêu cầu login + MFA lại.                                                                                                                                                                                                                                                                                                                              |
+| AUTH-012 | User tự regenerate recovery codes sau khi xác minh password + MFA; System Admin chỉ được reset MFA để buộc re-enroll, không xem/generate code thay user.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| AUTH-013 | Import user đi qua inspect → validate/dry-run → apply → report; account hợp lệ được tạo ở trạng thái invite/inactive, không import password/MFA secret.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| AUTH-014 | User được tạo thủ công với `mustChangePassword=true`; guard backend trung tâm chặn mọi route admin/domain bằng `PASSWORD_CHANGE_REQUIRED` cho đến khi đổi password, chỉ cho phép tập route auth tối thiểu cần hoàn tất flow.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ### 7.2 Layer, revision và feature
 
-| ID | Yêu cầu |
-|---|---|
-| LYR-001 | Editor tạo layer với slug unique, loại geometry, schema và style. |
-| LYR-002 | Mỗi layer chỉ có tối đa một active draft trong MVP. |
-| LYR-003 | Draft khởi tạo từ published snapshot gần nhất hoặc rỗng; không copy blob geometry không cần thiết. |
-| LYR-004 | Editor thêm/sửa/xóa mềm feature và properties theo schema. |
-| LYR-005 | Server luôn tạo UUID cho feature mới; client không quyết định canonical ID. |
-| LYR-006 | Mutation dùng `ETag`/`If-Match` hoặc batch cursor; conflict trả 409/412, không last-write-wins âm thầm. |
-| LYR-007 | API batch mutation idempotent theo `(revisionId, clientId, clientMutationId)`. |
-| LYR-008 | Circle chỉ nhận Point tâm và `radius_m` > 0; các unit khác được frontend chuyển sang mét. |
-| LYR-009 | Mixed layer cho phép geometry kinds đã cấu hình; cấm GeometryCollection. |
-| LYR-010 | Attachment/image chỉ bind sau khi upload finalize và qua kiểm tra MIME/checksum/scan policy. |
-| LYR-011 | Archive layer là soft delete, không xóa snapshot đang được tham chiếu. |
-| LYR-012 | Editor quản lý layer group, `groupId` và display order; group chỉ phục vụ catalog/UI, không thay RBAC. |
+| ID      | Yêu cầu                                                                                                                                |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| LYR-001 | Editor tạo layer với slug unique, loại geometry, schema và style.                                                                      |
+| LYR-002 | Mỗi layer chỉ có tối đa một active draft trong MVP.                                                                                    |
+| LYR-003 | Draft khởi tạo từ published snapshot gần nhất hoặc rỗng; không copy blob geometry không cần thiết.                                     |
+| LYR-004 | Editor thêm/sửa/xóa mềm feature và properties theo schema.                                                                             |
+| LYR-005 | Server luôn tạo UUID cho feature mới; client không quyết định canonical ID.                                                            |
+| LYR-006 | Mutation dùng `ETag`/`If-Match` hoặc batch cursor; conflict trả 409/412, không last-write-wins âm thầm.                                |
+| LYR-007 | API batch mutation idempotent theo `(revisionId, clientId, clientMutationId)`.                                                         |
+| LYR-008 | Circle chỉ nhận Point tâm và `radius_m` > 0; các unit khác được frontend chuyển sang mét.                                              |
+| LYR-009 | Mixed layer cho phép geometry kinds đã cấu hình; cấm GeometryCollection.                                                               |
+| LYR-010 | Attachment/image chỉ bind sau khi upload finalize và qua kiểm tra MIME/checksum/scan policy.                                           |
+| LYR-011 | Archive layer là soft delete, không xóa snapshot đang được tham chiếu.                                                                 |
+| LYR-012 | Editor quản lý layer group, `groupId` và display order; group chỉ phục vụ catalog/UI, không thay RBAC.                                 |
 | LYR-013 | `popupConfig` được validate bằng allowlist, version hóa trong layer revision và chỉ tham chiếu field public khi tạo public projection. |
-| LYR-014 | Giá trị field `image|attachment` là danh sách attachment ID có thứ tự được materialize từ `feature_version_attachments`; bind/unbind/reorder luôn tạo feature version mới, không sửa version cũ. |
+| LYR-014 | Giá trị field `image                                                                                                                   | attachment`là danh sách attachment ID có thứ tự được materialize từ`feature_version_attachments`; bind/unbind/reorder luôn tạo feature version mới, không sửa version cũ. |
 
 ### 7.3 Dexie autosave và recovery
 
-| ID | Yêu cầu |
-|---|---|
-| SYNC-001 | IndexedDB/Dexie là bộ đệm khôi phục trên thiết bị, không phải source of truth và không thay thế Save lên server. |
-| SYNC-002 | Frontend lưu local snapshot, `serverCursor`, ETag và hàng đợi mutation chưa ack theo user/layer/revision/client. |
-| SYNC-003 | Backend cung cấp workspace snapshot, change feed theo cursor và batch mutation idempotent. |
-| SYNC-004 | Sau reload, client pull thay đổi server, rebase mutation chưa ack, hiển thị conflict để user chọn; không tự ghi đè. |
-| SYNC-005 | Server trả mapping `clientMutationId → status/canonicalFeatureId/serverCursor`. |
-| SYNC-006 | Cursor có hạn lưu. Nếu cursor quá cũ, server trả `SYNC_CURSOR_EXPIRED` cùng chỉ dẫn fetch full workspace. |
+| ID       | Yêu cầu                                                                                                                                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SYNC-001 | IndexedDB/Dexie là bộ đệm khôi phục trên thiết bị, không phải source of truth và không thay thế Save lên server.                                                                                                                                              |
+| SYNC-002 | Frontend lưu local snapshot, `serverCursor`, ETag và hàng đợi mutation chưa ack theo user/layer/revision/client.                                                                                                                                              |
+| SYNC-003 | Backend cung cấp workspace snapshot, change feed theo cursor và batch mutation idempotent.                                                                                                                                                                    |
+| SYNC-004 | Sau reload, client pull thay đổi server, rebase mutation chưa ack, hiển thị conflict để user chọn; không tự ghi đè.                                                                                                                                           |
+| SYNC-005 | Server trả mapping `clientMutationId → status/canonicalFeatureId/serverCursor`.                                                                                                                                                                               |
+| SYNC-006 | Cursor có hạn lưu. Nếu cursor quá cũ, server trả `SYNC_CURSOR_EXPIRED` cùng chỉ dẫn fetch full workspace.                                                                                                                                                     |
 | SYNC-007 | Logout chủ động/xóa user PHẢI yêu cầu frontend xóa database Dexie của principal. Session hết hạn chỉ khóa recovery cho tới khi cùng principal re-auth; user khác không được thấy metadata. Không lưu session token, MFA secret hay URL presigned trong Dexie. |
-| SYNC-008 | Draft local phải có quota guard; attachment binary không lưu lâu trong IndexedDB, chỉ lưu metadata/trạng thái upload. |
-| SYNC-009 | Backend không cấp editor lease. Concurrency dùng optimistic ETag/version và idempotent mutation; Web Locks/Dexie lease chỉ phối hợp tab cục bộ. |
-| SYNC-010 | Batch có `origin=editor|recovery`; mutation recovery được audit. Conflict resolve phải nêu explicit strategy và base/current version, không merge geometry tự động. |
+| SYNC-008 | Draft local phải có quota guard; attachment binary không lưu lâu trong IndexedDB, chỉ lưu metadata/trạng thái upload.                                                                                                                                         |
+| SYNC-009 | Backend không cấp editor lease. Concurrency dùng optimistic ETag/version và idempotent mutation; Web Locks/Dexie lease chỉ phối hợp tab cục bộ.                                                                                                               |
+| SYNC-010 | Batch có `origin=editor                                                                                                                                                                                                                                       | recovery`; mutation recovery được audit. Conflict resolve phải nêu explicit strategy và base/current version, không merge geometry tự động. |
 
 ### 7.4 Import
 
-| ID | Yêu cầu |
-|---|---|
-| IMP-001 | Chấp nhận CSV, XLSX, GeoJSON, JSON được sniff/validate như GeoJSON và KML, tối đa chính xác 25 MiB/file (26.214.400 byte). Kiểm tra kích thước cả trước và trong stream. |
-| IMP-002 | Pipeline bắt buộc: upload → inspect → map → validate/dry-run → apply. |
-| IMP-003 | Job chạy ở worker; API trả 202 và progress; trạng thái durable trong PostgreSQL. |
-| IMP-004 | Mode: append, replace, upsert. Replace chỉ thay nội dung draft, không tác động public snapshot. |
+| ID      | Yêu cầu                                                                                                                                                                                                                           |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMP-001 | Chấp nhận CSV, XLSX, GeoJSON, JSON được sniff/validate như GeoJSON và KML, tối đa chính xác 25 MiB/file (26.214.400 byte). Kiểm tra kích thước cả trước và trong stream.                                                          |
+| IMP-002 | Pipeline bắt buộc: upload → inspect → map → validate/dry-run → apply.                                                                                                                                                             |
+| IMP-003 | Job chạy ở worker; API trả 202 và progress; trạng thái durable trong PostgreSQL.                                                                                                                                                  |
+| IMP-004 | Mode: append, replace, upsert. Replace chỉ thay nội dung draft, không tác động public snapshot.                                                                                                                                   |
 | IMP-005 | Với upsert, matching chỉ dùng canonical `feature_id` hoặc cặp `(external_source, external_id)` unique trong layer. Record không match được tạo UUID mới. Nếu không có match key, upsert hoạt động như append và phải cảnh báo rõ. |
-| IMP-006 | User chọn `skipInvalid=true`; record lỗi bị loại và report được lưu. Nếu false, bất kỳ error nào làm apply thất bại toàn bộ. |
-| IMP-007 | CSV hỗ trợ chọn encoding/delimiter và cột latitude/longitude; XLSX hỗ trợ chọn sheet; GeoJSON hỗ trợ Feature/FeatureCollection; KML được parse an toàn, không resolve external entity/network link. |
-| IMP-008 | CRS khác 4326 chỉ được transform nếu nhận diện chắc chắn hoặc user chọn rõ; nếu không, validation fail. |
-| IMP-009 | Apply chạy transaction/chunk staging có tính nguyên tử theo job; retry không tạo duplicate. |
-| IMP-010 | Report có tổng record, valid, warning, invalid, inserted, updated, skipped và lỗi theo dòng/feature. |
-| IMP-011 | Chống zip bomb/XML bomb/formula injection/path traversal; không chạy macro/formula; raw cell chỉ được log ở dạng rút gọn và lọc dữ liệu nhạy cảm. |
-| IMP-012 | Cancel chỉ đảm bảo trước phase commit; khi commit đã bắt đầu, hệ thống hoàn tất hoặc rollback transaction. |
-| IMP-013 | Mỗi job tối đa 100.000 record/feature, 2.000.000 vertex tổng và 250 MiB dữ liệu expanded/uncompressed. XLSX tối đa 10 sheet, chọn đúng một sheet/job và tối đa 256 cột. |
-| IMP-014 | Database giữ tối đa 20.000 issue/job để truy vấn; full report được lưu tại MinIO. Các limit có thể cấu hình thấp hơn; tăng cao hơn cần capacity review. |
+| IMP-006 | User chọn `skipInvalid=true`; record lỗi bị loại và report được lưu. Nếu false, bất kỳ error nào làm apply thất bại toàn bộ.                                                                                                      |
+| IMP-007 | CSV hỗ trợ chọn encoding/delimiter và cột latitude/longitude; XLSX hỗ trợ chọn sheet; GeoJSON hỗ trợ Feature/FeatureCollection; KML được parse an toàn, không resolve external entity/network link.                               |
+| IMP-008 | CRS khác 4326 chỉ được transform nếu nhận diện chắc chắn hoặc user chọn rõ; nếu không, validation fail.                                                                                                                           |
+| IMP-009 | Apply chạy transaction/chunk staging có tính nguyên tử theo job; retry không tạo duplicate.                                                                                                                                       |
+| IMP-010 | Report có tổng record, valid, warning, invalid, inserted, updated, skipped và lỗi theo dòng/feature.                                                                                                                              |
+| IMP-011 | Chống zip bomb/XML bomb/formula injection/path traversal; không chạy macro/formula; raw cell chỉ được log ở dạng rút gọn và lọc dữ liệu nhạy cảm.                                                                                 |
+| IMP-012 | Cancel chỉ đảm bảo trước phase commit; khi commit đã bắt đầu, hệ thống hoàn tất hoặc rollback transaction.                                                                                                                        |
+| IMP-013 | Mỗi job tối đa 100.000 record/feature, 2.000.000 vertex tổng và 250 MiB dữ liệu expanded/uncompressed. XLSX tối đa 10 sheet, chọn đúng một sheet/job và tối đa 256 cột.                                                           |
+| IMP-014 | Database giữ tối đa 20.000 issue/job để truy vấn; full report được lưu tại MinIO. Các limit có thể cấu hình thấp hơn; tăng cao hơn cần capacity review.                                                                           |
 
 ### 7.5 Workflow và publication
 
-| ID | Yêu cầu |
-|---|---|
-| WFL-001 | State của submitted revision: `draft → in_review → changes_requested` hoặc `in_review → approved → publishing → published`; failure publish trở về `approved` với lỗi. Request changes giữ revision gốc bất biến ở `changes_requested` và tạo successor `draft`. |
-| WFL-002 | Submit khóa revision, chạy validation đầy đủ và ghi manifest/checksum. |
-| WFL-003 | Request changes bắt buộc comment; approve có comment tùy chọn. |
-| WFL-004 | Separation-of-duties được kiểm tra ở mọi transition và rollback bằng participant history bất biến. Create/update/delete feature và import apply ghi `edit`; actor từng edit/review vẫn bị deny publish/rollback sau khi đổi role; System Admin không bypass. |
-| WFL-005 | Checkpoint MVP hiện tại publish đồng bộ: request chỉ trả terminal sau khi snapshot và active pointer commit nguyên tử. Client dùng trạng thái indeterminate trong lúc chờ; chỉ snapshot đã commit có `progress=100`, không tạo phần trăm trung gian giả. |
-| WFL-006 | Public cache chỉ invalidate sau khi pointer đổi thành công. |
-| WFL-007 | Rollback chỉ đến snapshot `published` đã từng active, yêu cầu reason + `clientIntent=desktop` + publication-pointer `If-Match`, tạo generation mới và không xóa lịch sử. Thiếu/sai intent trả `BAD_REQUEST` không mutation. History ETag, pointer ETag và public cache ETag là ba domain riêng. |
-| WFL-008 | Mọi transition, import apply và mutation quan trọng có audit event/request ID. |
-| WFL-009 | Request changes atomically cập nhật original + tạo đúng một successor khi chưa có active draft; response trả `originalRevisionId`, `draftRevisionId`, `supersedesRevisionId`. Nếu đã có draft, toàn command fail không đổi dữ liệu. |
-| WFL-010 | Revision diff đồng bộ trả summary và feature-level cursor page tối đa 25 entry, gồm added/removed/modified geometry, circle radius, public properties và redacted-change marker. Query có feature/vertex bound và trả `DIFF_TOO_LARGE` thay vì chạy không giới hạn. |
-| WFL-011 | Attachment diff báo explicit `ATTACHMENT_CONTRACT_PENDING` tới khi backend #29 có canonical versioned binding; không suy ra từ JSON properties hoặc dùng empty array làm bằng chứng không đổi. |
-| WFL-012 | Durable BullMQ publication job, observable queued/building/failed state và measured monotonic progress là follow-up; backend #30/frontend #19 tiếp tục Open/In Progress khi checkpoint chỉ có terminal progress. |
+| ID      | Yêu cầu                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WFL-001 | State của submitted revision: `draft → in_review → changes_requested` hoặc `in_review → approved → publishing → published`; failure publish trở về `approved` với lỗi. Request changes giữ revision gốc bất biến ở `changes_requested` và tạo successor `draft`.                                                                                                                                                                                                                                                                                                          |
+| WFL-002 | Submit khóa revision, chạy validation đầy đủ và ghi manifest/checksum.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| WFL-003 | Request changes bắt buộc comment; approve có comment tùy chọn.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| WFL-004 | Separation-of-duties được kiểm tra ở mọi transition và rollback bằng participant history bất biến. Create/update/delete feature và import apply ghi `edit`; actor từng edit/review vẫn bị deny publish/rollback sau khi đổi role; System Admin không bypass.                                                                                                                                                                                                                                                                                                              |
+| WFL-005 | Mặc định `ASYNC_PUBLICATION_ENABLED=false`, publish đồng bộ không đổi: request chỉ trả terminal sau khi snapshot và active pointer commit nguyên tử. Client dùng trạng thái indeterminate trong lúc chờ; chỉ snapshot đã commit có `progress=100`, không tạo phần trăm trung gian giả.                                                                                                                                                                                                                                                                                    |
+| WFL-006 | Public cache chỉ invalidate sau khi pointer đổi thành công.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| WFL-007 | Rollback chỉ đến snapshot `published` đã từng active, yêu cầu reason + `clientIntent=desktop` + publication-pointer `If-Match`, tạo generation mới và không xóa lịch sử. Thiếu/sai intent trả `BAD_REQUEST` không mutation. History ETag, pointer ETag và public cache ETag là ba domain riêng.                                                                                                                                                                                                                                                                           |
+| WFL-008 | Mọi transition, import apply và mutation quan trọng có audit event/request ID.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| WFL-009 | Request changes atomically cập nhật original + tạo đúng một successor khi chưa có active draft; response trả `originalRevisionId`, `draftRevisionId`, `supersedesRevisionId`. Nếu đã có draft, toàn command fail không đổi dữ liệu.                                                                                                                                                                                                                                                                                                                                       |
+| WFL-010 | Revision diff đồng bộ trả summary và feature-level cursor page tối đa 25 entry, gồm added/removed/modified geometry, circle radius, public properties và redacted-change marker. Query có feature/vertex bound và trả `DIFF_TOO_LARGE` thay vì chạy không giới hạn.                                                                                                                                                                                                                                                                                                       |
+| WFL-011 | Attachment diff báo explicit `ATTACHMENT_CONTRACT_PENDING` tới khi backend #29 có canonical versioned binding; không suy ra từ JSON properties hoặc dùng empty array làm bằng chứng không đổi.                                                                                                                                                                                                                                                                                                                                                                            |
+| WFL-012 | Checkpoint default-off của durable publication có transactional queued job + outbox, deterministic Bull dispatch/reconciliation, UUID-keyset batch checkpoint chỉ chứa public allowlist, measured feature progress, lease/heartbeat recovery, failure an toàn về `approved`, và final pointer switch nguyên tử/idempotent. Khi cờ thử nghiệm bật, admission bắt buộc `clientIntent=desktop` trước transaction. Production vẫn fail-closed cho đến khi frontend polling và exact full-stack activation được chấp nhận; backend #30/frontend #19 tiếp tục Open/In Progress. |
 
 ### 7.6 Public data
 
-| ID | Yêu cầu |
-|---|---|
-| PUB-001 | Catalog/GeoJSON/detail/search chỉ đọc active publication snapshot; MVT generation-addressed được đọc đúng snapshot từng publish. Draft/review/private fields không được xuất hiện. |
-| PUB-002 | Catalog trả cấu hình render, schema public, generation và bounds. |
-| PUB-003 | GeoJSON yêu cầu bbox hoặc giới hạn hợp lý; response lớn chuyển sang MVT. |
-| PUB-004 | MVT dùng source layer ổn định, hỗ trợ gzip/brotli qua proxy và cache immutable theo generation. |
-| PUB-005 | Feature detail có ETag; public endpoint hỗ trợ `If-None-Match → 304`. |
-| PUB-006 | Filter chỉ dùng field `filterable`; sort chỉ dùng field `sortable`; server giới hạn số filter và độ phức tạp. |
-| PUB-007 | Catalog public trả `snapshotId`, `revisionId`, `generation`, `sourceKind`, URL GeoJSON/tile, MVT source layer, min/max zoom, cluster, popup/filter/search capabilities và group/order. |
-| PUB-008 | MVT generation-addressed dùng `/public/tiles/{slug}/{generation}/{z}/{x}/{y}.pbf`, trả đúng snapshot bất biến; tile rỗng trả HTTP 200 với MVT rỗng hợp lệ. |
-| PUB-009 | Public API là supported-client-only cho DanangMap frontend trong MVP; CORS/origin allowlist không phải cam kết kiểm soát truy cập hay cơ chế auth. |
+| ID      | Yêu cầu                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PUB-001 | Catalog/GeoJSON/detail/search chỉ đọc active publication snapshot; MVT generation-addressed được đọc đúng snapshot từng publish. Một canonical public-field allowlist dùng chung cho builder và mọi serializer chỉ nhận `public && !sensitive` với type scalar an toàn; image/attachment/type mới bị fail-closed tới khi có association serializer. Draft/review/private/raw object key không được xuất hiện. |
+| PUB-002 | Catalog trả cấu hình render, schema public, generation và bounds.                                                                                                                                                                                                                                                                                                                                             |
+| PUB-003 | GeoJSON yêu cầu bbox hoặc giới hạn hợp lý; response lớn chuyển sang MVT.                                                                                                                                                                                                                                                                                                                                      |
+| PUB-004 | MVT dùng source layer ổn định, hỗ trợ gzip/brotli qua proxy và cache immutable theo generation; public ETag dựa trên snapshot ID + generation/path, không lộ internal checksum phụ thuộc private data.                                                                                                                                                                                                        |
+| PUB-005 | Feature detail có ETag; public endpoint hỗ trợ `If-None-Match → 304`.                                                                                                                                                                                                                                                                                                                                         |
+| PUB-006 | Filter chỉ dùng field `filterable`; sort chỉ dùng field `sortable`; server giới hạn số filter và độ phức tạp.                                                                                                                                                                                                                                                                                                 |
+| PUB-007 | Catalog public trả `snapshotId`, `revisionId`, `generation`, `sourceKind`, URL GeoJSON/tile, MVT source layer, min/max zoom, cluster, popup/filter/search capabilities và group/order.                                                                                                                                                                                                                        |
+| PUB-008 | MVT generation-addressed dùng `/public/tiles/{slug}/{generation}/{z}/{x}/{y}.pbf`, trả đúng snapshot bất biến; tile rỗng trả HTTP 200 với MVT rỗng hợp lệ.                                                                                                                                                                                                                                                    |
+| PUB-009 | Public API là supported-client-only cho DanangMap frontend trong MVP; CORS/origin allowlist không phải cam kết kiểm soát truy cập hay cơ chế auth.                                                                                                                                                                                                                                                            |
 
 ### 7.7 Tìm kiếm kết hợp và Geo Service
 
@@ -371,18 +371,18 @@ Kết quả internal có `position`: Point dùng chính tọa độ; line có mi
 
 ## 10. Validation geometry và dữ liệu
 
-| Trường hợp | Hành vi |
-|---|---|
-| Sai SRID/CRS không xác định | Error, không đoán |
-| Polygon self-intersection | Error hoặc warning + preview repair; không âm thầm sửa |
-| Feature ngoài vùng Đà Nẵng | Warning mặc định; policy layer có thể nâng thành error |
-| Circle thiếu/âm/0 `radius_m` | Error |
-| Geometry không đúng mode | Error |
-| Mixed + GeometryCollection | Error |
-| Properties có key ngoài schema | Error ở mutation; import có thể map/bỏ theo lựa chọn rõ ràng |
-| Field required thiếu | Error |
-| Field private | Lưu admin được; loại bỏ khỏi public snapshot |
-| Attachment chưa finalize/scan fail | Không được bind/publish |
+| Trường hợp                         | Hành vi                                                      |
+| ---------------------------------- | ------------------------------------------------------------ |
+| Sai SRID/CRS không xác định        | Error, không đoán                                            |
+| Polygon self-intersection          | Error hoặc warning + preview repair; không âm thầm sửa       |
+| Feature ngoài vùng Đà Nẵng         | Warning mặc định; policy layer có thể nâng thành error       |
+| Circle thiếu/âm/0 `radius_m`       | Error                                                        |
+| Geometry không đúng mode           | Error                                                        |
+| Mixed + GeometryCollection         | Error                                                        |
+| Properties có key ngoài schema     | Error ở mutation; import có thể map/bỏ theo lựa chọn rõ ràng |
+| Field required thiếu               | Error                                                        |
+| Field private                      | Lưu admin được; loại bỏ khỏi public snapshot                 |
+| Attachment chưa finalize/scan fail | Không được bind/publish                                      |
 
 ## 11. Trạng thái và chuyển đổi
 
@@ -410,7 +410,7 @@ Cancel hợp lệ ở `uploaded|inspecting|mapping_required|validating|ready`.
 
 ### 11.3 Publication execution
 
-Checkpoint hiện tại là synchronous terminal-only:
+Đường mặc định hiện tại là synchronous terminal-only:
 
 ```text
 approved ── one HTTP transaction ──► published + active pointer switched
@@ -419,34 +419,40 @@ approved ── one HTTP transaction ──► published + active pointer switch
 
 Frontend hiển thị indeterminate trong lúc POST đang chạy. Publication history/detail chỉ trả `progress=100` sau commit; row không có measured progress trả `null`, không gán 50% theo phase.
 
-Durable publication job sau đây là follow-up có thiết kế/PR riêng, chưa được checkpoint hiện tại tuyên bố:
+Đường durable thử nghiệm sau đây chỉ hoạt động khi `ASYNC_PUBLICATION_ENABLED=true`:
 
 ```text
-queued → building → validating → switching → completed
-                 └──────────────► failed
+approved ── transaction ──► publishing + queued job + pending outbox
+                                      └── deterministic Bull dispatch/reconciliation
+                                                 │
+                                                 ▼
+                                  preparing → scanning_features → switching
+                                      measured UUID-keyset batches       │
+                                                                        ▼
+                                     succeeded + new immutable snapshot + pointer
 ```
 
-Follow-up chỉ hợp lệ khi job row được commit trước work, BullMQ retry/crash recovery idempotent và progress monotonic được đo từ work thật. Không đổi active pointer trước `switching`; failed giữ nguyên publication cũ.
+Job row được commit trước queue work; Postgres là source of truth và Redis loss được reconcile bằng deterministic job ID. PostgreSQL `attempts/available_at` sở hữu retry/backoff capped; Bull chỉ giao từng attempt một, và reconciliation thay delayed transport cũ khi DB đã due để queue delay không vượt lịch durable. Reconciliation dùng cursor/index `(available_at,created_at,id)` để delayed retry không bị đói dưới tải liên tục. Builder và toàn bộ public serializer dùng cùng canonical public-field allowlist, persist batch UUID-keyset, đếm feature/vertex thật, resume từ checkpoint và không ghi private/sensitive/image/attachment property. Lease hết hạn được requeue; actor/role/SoD/fingerprint/base pointer được kiểm tra lại trước build và final transaction. Detail/list trả ETag/304, cursor bounded và failure redacted. Readiness theo dõi riêng dispatcher sweep, recovery sweep, processor heartbeat và error của từng component để activation không giả làm recovery heartbeat và success của component này không xóa lỗi component kia. Pointer/public ETag giữ nguyên đến final transaction; duplicate delivery và crash sau commit không tạo generation thứ hai. Cờ vẫn mặc định false và production fail-closed cho đến khi frontend polling + exact full-stack activation được review; không được quảng bá checkpoint này là production-ready.
 
 ## 12. Ma trận kiểm thử bắt buộc
 
 ### 12.1 Unit và integration
 
-| Nhóm | Ca tối thiểu |
-|---|---|
-| Auth | Argon2 verify, MFA TOTP/recovery, expiry, revoke gồm caller, old-cookie 401, CSRF, lockout |
+| Nhóm              | Ca tối thiểu                                                                                                                                                                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth              | Argon2 verify, MFA TOTP/recovery, expiry, revoke gồm caller, old-cookie 401, CSRF, lockout                                                                                                                                                               |
 | Account lifecycle | Invite inspect/accept/replay; must-change guard; password change rotation/concurrent receipt; reset generic 202/body-only token/expiry/concurrent replay; recovery-code regenerate; admin MFA reset/re-enroll; user import inspect/validate/apply/report |
-| RBAC | Mỗi route có allow và deny; System Admin không bypass workflow |
-| Separation | self-review, editor-as-publisher, reviewer-as-publisher và editor/importer đổi role rồi publish/rollback đều bị chặn; zero domain mutation |
-| Geometry | 6 geometry type, Point-only circle, invalid polygon, wrong SRID, GeometryCollection, 100.000 vertex và 64 KiB property boundaries |
-| Schema | required/type/enum/private/searchable/filterable và migration impact |
-| Sync | retry cùng mutation, stale ETag, conflict, cursor expired, server UUID mapping |
-| Import | 4 format + `.json` GeoJSON sniff, 3 mode, exact 25 MiB, 100.000 record, 2.000.000 vertex, 250 MiB expanded, XLSX sheet/column limits, 20.000 DB issues, skip-invalid on/off, duplicate/retry/cancel |
-| Workflow | mọi transition hợp lệ/không hợp lệ; synchronous publish chỉ indeterminate→terminal; feature-level diff cursor/bound/redaction/circle radius; failure publish; pointer-ETag rollback |
-| Public | draft/private leak test, ETag/304, bbox/filter/limit, MVT source layer |
-| Public contract | Full catalog source descriptor, immutable generation tile, HTTP 200 empty MVT, feature-detail ETag, polygon `ST_PointOnSurface` search position |
-| Geo adapter | timeout/retry/breaker/schema-invalid/oversized/partial search |
-| Attachment | MIME spoof, too large, unfinalized, private/public binding |
+| RBAC              | Mỗi route có allow và deny; System Admin không bypass workflow                                                                                                                                                                                           |
+| Separation        | self-review, editor-as-publisher, reviewer-as-publisher và editor/importer đổi role rồi publish/rollback đều bị chặn; zero domain mutation                                                                                                               |
+| Geometry          | 6 geometry type, Point-only circle, invalid polygon, wrong SRID, GeometryCollection, 100.000 vertex và 64 KiB property boundaries                                                                                                                        |
+| Schema            | required/type/enum/private/searchable/filterable và migration impact                                                                                                                                                                                     |
+| Sync              | retry cùng mutation, stale ETag, conflict, cursor expired, server UUID mapping                                                                                                                                                                           |
+| Import            | 4 format + `.json` GeoJSON sniff, 3 mode, exact 25 MiB, 100.000 record, 2.000.000 vertex, 250 MiB expanded, XLSX sheet/column limits, 20.000 DB issues, skip-invalid on/off, duplicate/retry/cancel                                                      |
+| Workflow          | mọi transition hợp lệ/không hợp lệ; synchronous publish chỉ indeterminate→terminal; feature-level diff cursor/bound/redaction/circle radius; failure publish; pointer-ETag rollback                                                                      |
+| Public            | draft/private leak test, ETag/304, bbox/filter/limit, MVT source layer                                                                                                                                                                                   |
+| Public contract   | Full catalog source descriptor, immutable generation tile, HTTP 200 empty MVT, feature-detail ETag, polygon `ST_PointOnSurface` search position                                                                                                          |
+| Geo adapter       | timeout/retry/breaker/schema-invalid/oversized/partial search                                                                                                                                                                                            |
+| Attachment        | MIME spoof, too large, unfinalized, private/public binding                                                                                                                                                                                               |
 
 ### 12.2 Docker E2E
 
@@ -465,16 +471,16 @@ E2E chạy với PostGIS, Redis, MinIO, API, worker và seed xác định:
 
 ### 12.3 Acceptance matrix
 
-| Capability | Given | When | Then |
-|---|---|---|---|
-| Autosave | Có 10 mutation chưa ack trong Dexie | Reload và sync | Mỗi mutation áp dụng tối đa một lần; conflict được hiển thị, không mất local change |
-| Upsert | 3 match, 2 không match | Apply | 3 update, 2 feature UUID mới, report đúng count |
-| Skip invalid | 100 record, 4 error | Apply với skip=true | 96 record commit, 4 issue lưu; với skip=false commit 0 |
-| Publication | Snapshot A đang active | Build B thất bại | A vẫn active; public/cache không trỏ B |
-| Privacy | Field `internalNote.public=false` | Publish/search/tile/detail | Field không xuất hiện ở mọi public surface |
-| Strict roles | Editor là participant | Role sau đó đổi Reviewer/Publisher | Vẫn không được review/publish revision đó |
-| Geo degraded | Breaker đang open | Combined search | HTTP 200, internal results, `partial=true`, warning ổn định |
-| Concurrency | Hai client cùng ETag | Cùng sửa feature | Một thành công; client còn lại nhận conflict, không last-write-wins |
+| Capability   | Given                               | When                               | Then                                                                                |
+| ------------ | ----------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| Autosave     | Có 10 mutation chưa ack trong Dexie | Reload và sync                     | Mỗi mutation áp dụng tối đa một lần; conflict được hiển thị, không mất local change |
+| Upsert       | 3 match, 2 không match              | Apply                              | 3 update, 2 feature UUID mới, report đúng count                                     |
+| Skip invalid | 100 record, 4 error                 | Apply với skip=true                | 96 record commit, 4 issue lưu; với skip=false commit 0                              |
+| Publication  | Snapshot A đang active              | Build B thất bại                   | A vẫn active; public/cache không trỏ B                                              |
+| Privacy      | Field `internalNote.public=false`   | Publish/search/tile/detail         | Field không xuất hiện ở mọi public surface                                          |
+| Strict roles | Editor là participant               | Role sau đó đổi Reviewer/Publisher | Vẫn không được review/publish revision đó                                           |
+| Geo degraded | Breaker đang open                   | Combined search                    | HTTP 200, internal results, `partial=true`, warning ổn định                         |
+| Concurrency  | Hai client cùng ETag                | Cùng sửa feature                   | Một thành công; client còn lại nhận conflict, không last-write-wins                 |
 
 ## 13. Migration dữ liệu v1
 

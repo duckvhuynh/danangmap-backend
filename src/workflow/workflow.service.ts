@@ -10,6 +10,12 @@ import type {
   WorkflowCommentDto,
 } from '../layers/layer.dto';
 import { revisionEtag } from '../layers/etag';
+import {
+  publicationReceiptMetadata,
+  replayPublicationReceipt,
+  synchronousPublicationResult,
+  type PublicationReceiptMetadata,
+} from '../publications/publication-result';
 
 interface Actor {
   id: string;
@@ -287,14 +293,11 @@ export class WorkflowService {
   ) {
     const requestDigest = this.idempotency.digest({ revisionId, dto });
     return this.dataSource.transaction(async (manager) => {
-      const receipt = await this.idempotency.claim<Record<string, unknown>>(
-        manager,
-        actor.id,
-        'revision.publish',
-        idempotencyKey,
-        requestDigest,
-      );
-      if (!receipt.owner) return this.replayed(receipt.response);
+      const receipt = await this.idempotency.claim<
+        Record<string, unknown>,
+        PublicationReceiptMetadata
+      >(manager, actor.id, 'revision.publish', idempotencyKey, requestDigest);
+      if (!receipt.owner) return replayPublicationReceipt(receipt);
       const revisionIdentity = await this.revisionIdentity(manager, revisionId);
       await this.lockLayer(manager, revisionIdentity.layer_id);
       const revision = await this.lockRevision(manager, revisionId);
@@ -388,6 +391,7 @@ export class WorkflowService {
         generation: Number(generation),
         status: 'completed',
       };
+      const result = synchronousPublicationResult(response);
       await this.idempotency.complete(
         manager,
         actor.id,
@@ -395,8 +399,10 @@ export class WorkflowService {
         idempotencyKey,
         response,
         202,
+        null,
+        publicationReceiptMetadata(result),
       );
-      return response;
+      return result;
     });
   }
 

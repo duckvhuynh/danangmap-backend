@@ -30,6 +30,28 @@ const environmentSchema = z
     REDIS_HOST: z.string().min(1).default('localhost'),
     REDIS_PORT: z.coerce.number().int().min(1).max(65535).default(6379),
     REDIS_PASSWORD: z.string().optional(),
+    ASYNC_PUBLICATION_ENABLED: booleanString,
+    PUBLICATION_DISPATCH_INTERVAL_MS: z.coerce.number().int().min(500).max(60_000).default(2_000),
+    PUBLICATION_DISPATCH_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(25),
+    PUBLICATION_OUTBOX_LEASE_SECONDS: z.coerce.number().int().min(10).max(300).default(30),
+    PUBLICATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+    PUBLICATION_BUILD_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(100),
+    PUBLICATION_BUILD_LEASE_SECONDS: z.coerce.number().int().min(15).max(600).default(60),
+    PUBLICATION_HEARTBEAT_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    PUBLICATION_RECOVERY_INTERVAL_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000),
+    PUBLICATION_WORKER_STALE_SECONDS: z.coerce.number().int().min(10).max(600).default(30),
+    PUBLICATION_RETRY_BACKOFF_MS: z.coerce.number().int().min(100).max(60_000).default(1_000),
+    PUBLICATION_MAX_FEATURES: z.coerce.number().int().min(1).max(1_000_000).default(100_000),
+    PUBLICATION_MAX_VERTICES: z.coerce.number().int().min(1).max(20_000_000).default(2_000_000),
+    PUBLICATION_TEST_FAILPOINT: z
+      .enum(['after_batch_commit', 'before_pointer_switch', 'after_final_commit'])
+      .optional(),
+    PUBLICATION_TEST_BARRIER: z.enum(['before_first_batch', 'before_pointer_switch']).optional(),
     MINIO_ENDPOINT: z.string().min(1).default('localhost'),
     MINIO_PORT: z.coerce.number().int().min(1).max(65535).default(9000),
     MINIO_USE_SSL: booleanString,
@@ -84,6 +106,23 @@ const environmentSchema = z
     MAIL_WORKER_HEARTBEAT_STALE_SECONDS: z.coerce.number().int().min(30).max(600).default(120),
   })
   .superRefine((value, context) => {
+    if (
+      value.NODE_ENV !== 'test' &&
+      (value.PUBLICATION_TEST_FAILPOINT || value.PUBLICATION_TEST_BARRIER)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['PUBLICATION_TEST_FAILPOINT'],
+        message: 'publication test controls are allowed only when NODE_ENV=test',
+      });
+    }
+    if (value.NODE_ENV === 'production' && value.ASYNC_PUBLICATION_ENABLED) {
+      context.addIssue({
+        code: 'custom',
+        path: ['ASYNC_PUBLICATION_ENABLED'],
+        message: 'must remain false in production until frontend and exact E2E activation pass',
+      });
+    }
     if (value.MAIL_DELIVERY_REQUIRED && !value.SMTP_ENABLED) {
       context.addIssue({
         code: 'custom',

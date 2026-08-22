@@ -8,6 +8,7 @@ import { ImportsWorkerModule } from './imports/imports-worker.module';
 import { IdempotencyModule } from './common/idempotency/idempotency.module';
 import { UserImportsWorkerModule } from './user-imports/user-imports-worker.module';
 import { MailWorkerModule } from './mail/mail-worker.module';
+import { PublicationsWorkerModule } from './publications/publications-worker.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { MailWorkerModule } from './mail/mail-worker.module';
     ImportsWorkerModule,
     UserImportsWorkerModule,
     MailWorkerModule,
+    PublicationsWorkerModule,
   ],
 })
 export class WorkerModule {}

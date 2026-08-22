@@ -648,6 +648,16 @@ export class PublishRevisionDto {
   @IsString()
   @Length(1, 4_000)
   releaseNote: string;
+
+  @ApiProperty({
+    required: false,
+    enum: ['desktop'],
+    example: 'desktop',
+    description: 'Required only when ASYNC_PUBLICATION_ENABLED=true.',
+  })
+  @IsOptional()
+  @IsIn(['desktop'])
+  clientIntent?: 'desktop';
 }
 
 export class RollbackDto {

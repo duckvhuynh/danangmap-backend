@@ -57,7 +57,12 @@ export class PublicationProcessor extends WorkerHost implements OnApplicationShu
       return;
     }
     if (claim.kind === 'exhausted') {
-      await this.activation.fail(jobId, null, 'PUBLICATION_RETRY_EXHAUSTED', randomUUID());
+      await this.activation.fail(
+        jobId,
+        claim.job.leaseToken,
+        'PUBLICATION_RETRY_EXHAUSTED',
+        randomUUID(),
+      );
       this.log('publication.job_failed', jobId, { code: 'PUBLICATION_RETRY_EXHAUSTED' });
       return;
     }

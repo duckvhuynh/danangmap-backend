@@ -5,6 +5,83 @@ const uuid: SchemaObject = { type: 'string', format: 'uuid' };
 const dateTime: SchemaObject = { type: 'string', format: 'date-time' };
 const nullableString: SchemaObject = { type: 'string', nullable: true };
 const jsonObject: SchemaObject = { type: 'object', additionalProperties: true };
+const color: SchemaObject = { type: 'string', pattern: '^#[0-9A-Fa-f]{6}$' };
+
+const pointStyleSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    color,
+    radius: { type: 'number', minimum: 1, maximum: 64 },
+    strokeColor: color,
+    strokeWidth: { type: 'number', minimum: 0, maximum: 16 },
+    cluster: { type: 'boolean' },
+  },
+};
+
+const lineStyleSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    color,
+    width: { type: 'number', minimum: 0.5, maximum: 32 },
+    opacity: { type: 'number', minimum: 0, maximum: 1 },
+  },
+};
+
+const polygonStyleSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    fillColor: color,
+    fillOpacity: { type: 'number', minimum: 0, maximum: 1 },
+    strokeColor: color,
+    strokeWidth: { type: 'number', minimum: 0, maximum: 16 },
+  },
+};
+
+export const layerStyleSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    point: pointStyleSchema,
+    line: lineStyleSchema,
+    polygon: polygonStyleSchema,
+  },
+};
+
+export const layerRenderConfigSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    minZoom: { type: 'integer', minimum: 0, maximum: 24 },
+    maxZoom: { type: 'integer', minimum: 0, maximum: 24 },
+    cluster: { type: 'boolean' },
+    sourcePolicy: { type: 'string', enum: ['auto', 'geojson', 'mvt', 'hybrid'] },
+  },
+};
+
+export const layerPopupConfigSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    titleField: { type: 'string' },
+    subtitleField: { type: 'string' },
+    fieldKeys: { type: 'array', maxItems: 100, items: { type: 'string' } },
+    showCoordinates: { type: 'boolean' },
+  },
+};
+
+export const layerFieldValidationSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    minLength: { type: 'integer', minimum: 0, maximum: 10_000 },
+    maxLength: { type: 'integer', minimum: 1, maximum: 10_000 },
+    minimum: { type: 'number' },
+    maximum: { type: 'number' },
+  },
+};
 
 export const requestMetaSchema: SchemaObject = {
   type: 'object',
@@ -224,6 +301,7 @@ export const publicLayerSchema: SchemaObject = {
     'slug',
     'group',
     'displayOrder',
+    'defaultVisible',
     'title',
     'geometryMode',
     'allowedGeometryKinds',
@@ -249,6 +327,7 @@ export const publicLayerSchema: SchemaObject = {
     slug: { type: 'string' },
     group: layerGroupSchema,
     displayOrder: { type: 'integer' },
+    defaultVisible: { type: 'boolean' },
     title: { type: 'string' },
     description: nullableString,
     geometryMode: { type: 'string', enum: ['point', 'circle', 'polyline', 'polygon', 'mixed'] },
@@ -271,8 +350,8 @@ export const publicLayerSchema: SchemaObject = {
     minZoom: { type: 'number' },
     maxZoom: { type: 'number' },
     cluster: { type: 'boolean' },
-    style: jsonObject,
-    popupConfig: jsonObject,
+    style: layerStyleSchema,
+    popupConfig: layerPopupConfigSchema,
     filterCapabilities: {
       type: 'object',
       required: ['fieldKeys', 'maxFilters'],
@@ -315,8 +394,8 @@ export const publicLayerDetailSchema: SchemaObject = {
           filterable: { type: 'boolean' },
           sortable: { type: 'boolean' },
           defaultValue: {},
-          validation: jsonObject,
-          options: { type: 'array', items: {} },
+          validation: layerFieldValidationSchema,
+          options: { type: 'array', items: { type: 'string' } },
           displayOrder: { type: 'integer' },
         },
       },
@@ -490,12 +569,13 @@ export const adminLayerGroupSchema: SchemaObject = {
 export const adminLayerListItemSchema: SchemaObject = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'slug', 'displayOrder'],
+  required: ['id', 'slug', 'displayOrder', 'defaultVisible'],
   properties: {
     id: uuid,
     slug: { type: 'string' },
     groupId: { ...uuid, nullable: true },
     displayOrder: { type: 'integer' },
+    defaultVisible: { type: 'boolean' },
     archivedAt: { ...dateTime, nullable: true },
     revisionId: { ...uuid, nullable: true },
     title: { ...nullableString },
@@ -508,12 +588,13 @@ export const adminLayerListItemSchema: SchemaObject = {
 export const adminLayerEntitySchema: SchemaObject = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'slug', 'groupId', 'displayOrder', 'createdBy', 'archivedAt'],
+  required: ['id', 'slug', 'groupId', 'displayOrder', 'defaultVisible', 'createdBy', 'archivedAt'],
   properties: {
     id: uuid,
     slug: { type: 'string' },
     groupId: { ...uuid, nullable: true },
     displayOrder: { type: 'integer' },
+    defaultVisible: { type: 'boolean' },
     createdBy: uuid,
     archivedAt: { ...dateTime, nullable: true },
     createdAt: dateTime,
@@ -549,9 +630,9 @@ export const adminRevisionSchema: SchemaObject = {
     description: nullableString,
     geometryMode: { type: 'string', enum: ['point', 'circle', 'polyline', 'polygon', 'mixed'] },
     allowedGeometryKinds: { type: 'array', items: { type: 'string' } },
-    style: jsonObject,
-    renderConfig: jsonObject,
-    popupConfig: jsonObject,
+    style: layerStyleSchema,
+    renderConfig: layerRenderConfigSchema,
+    popupConfig: layerPopupConfigSchema,
     schemaVersion: { type: 'integer' },
     lockVersion: { type: 'integer' },
     cursorSeq: { type: 'string' },
@@ -601,8 +682,8 @@ export const adminLayerFieldSchema: SchemaObject = {
     sensitive: { type: 'boolean' },
     offlineCache: { type: 'boolean' },
     defaultValue: { nullable: true },
-    validation: jsonObject,
-    options: { type: 'array', items: {} },
+    validation: layerFieldValidationSchema,
+    options: { type: 'array', items: { type: 'string' } },
     displayOrder: { type: 'integer' },
   },
 };

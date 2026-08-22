@@ -56,15 +56,22 @@ export class LayersController {
   @Post('layer-groups')
   @Roles('editor')
   @UseGuards(CsrfGuard)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'createLayerGroup' })
   @apiJsonResponse(201, adminLayerGroupSchema)
   createGroup(
     @Body() dto: CreateLayerGroupDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: RequestWithContext,
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
   ) {
-    return this.layers.createGroup(dto, principal, request.requestId);
+    requireIdempotencyKey(idempotencyKey);
+    return this.layers.createGroup(dto, principal, request.requestId, idempotencyKey!);
   }
 
   @Get('layers')

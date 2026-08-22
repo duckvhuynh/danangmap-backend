@@ -1814,6 +1814,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -1936,7 +1945,8 @@
                         "required": [
                           "id",
                           "slug",
-                          "displayOrder"
+                          "displayOrder",
+                          "defaultVisible"
                         ],
                         "properties": {
                           "id": {
@@ -1953,6 +1963,9 @@
                           },
                           "displayOrder": {
                             "type": "integer"
+                          },
+                          "defaultVisible": {
+                            "type": "boolean"
                           },
                           "archivedAt": {
                             "type": "string",
@@ -2070,6 +2083,7 @@
                             "slug",
                             "groupId",
                             "displayOrder",
+                            "defaultVisible",
                             "createdBy",
                             "archivedAt"
                           ],
@@ -2088,6 +2102,9 @@
                             },
                             "displayOrder": {
                               "type": "integer"
+                            },
+                            "defaultVisible": {
+                              "type": "boolean"
                             },
                             "createdBy": {
                               "type": "string",
@@ -2167,15 +2184,130 @@
                             },
                             "style": {
                               "type": "object",
-                              "additionalProperties": true
+                              "additionalProperties": false,
+                              "properties": {
+                                "point": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "color": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "radius": {
+                                      "type": "number",
+                                      "minimum": 1,
+                                      "maximum": 64
+                                    },
+                                    "strokeColor": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "strokeWidth": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 16
+                                    },
+                                    "cluster": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                },
+                                "line": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "color": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "width": {
+                                      "type": "number",
+                                      "minimum": 0.5,
+                                      "maximum": 32
+                                    },
+                                    "opacity": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  }
+                                },
+                                "polygon": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "fillColor": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "fillOpacity": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "strokeColor": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "strokeWidth": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 16
+                                    }
+                                  }
+                                }
+                              }
                             },
                             "renderConfig": {
                               "type": "object",
-                              "additionalProperties": true
+                              "additionalProperties": false,
+                              "properties": {
+                                "minZoom": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 24
+                                },
+                                "maxZoom": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 24
+                                },
+                                "cluster": {
+                                  "type": "boolean"
+                                },
+                                "sourcePolicy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "auto",
+                                    "geojson",
+                                    "mvt",
+                                    "hybrid"
+                                  ]
+                                }
+                              }
                             },
                             "popupConfig": {
                               "type": "object",
-                              "additionalProperties": true
+                              "additionalProperties": false,
+                              "properties": {
+                                "titleField": {
+                                  "type": "string"
+                                },
+                                "subtitleField": {
+                                  "type": "string"
+                                },
+                                "fieldKeys": {
+                                  "type": "array",
+                                  "maxItems": 100,
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "showCoordinates": {
+                                  "type": "boolean"
+                                }
+                              }
                             },
                             "schemaVersion": {
                               "type": "integer"
@@ -2342,15 +2474,130 @@
                             },
                             "style": {
                               "type": "object",
-                              "additionalProperties": true
+                              "additionalProperties": false,
+                              "properties": {
+                                "point": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "color": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "radius": {
+                                      "type": "number",
+                                      "minimum": 1,
+                                      "maximum": 64
+                                    },
+                                    "strokeColor": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "strokeWidth": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 16
+                                    },
+                                    "cluster": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                },
+                                "line": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "color": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "width": {
+                                      "type": "number",
+                                      "minimum": 0.5,
+                                      "maximum": 32
+                                    },
+                                    "opacity": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  }
+                                },
+                                "polygon": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "fillColor": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "fillOpacity": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "strokeColor": {
+                                      "type": "string",
+                                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                                    },
+                                    "strokeWidth": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 16
+                                    }
+                                  }
+                                }
+                              }
                             },
                             "renderConfig": {
                               "type": "object",
-                              "additionalProperties": true
+                              "additionalProperties": false,
+                              "properties": {
+                                "minZoom": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 24
+                                },
+                                "maxZoom": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 24
+                                },
+                                "cluster": {
+                                  "type": "boolean"
+                                },
+                                "sourcePolicy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "auto",
+                                    "geojson",
+                                    "mvt",
+                                    "hybrid"
+                                  ]
+                                }
+                              }
                             },
                             "popupConfig": {
                               "type": "object",
-                              "additionalProperties": true
+                              "additionalProperties": false,
+                              "properties": {
+                                "titleField": {
+                                  "type": "string"
+                                },
+                                "subtitleField": {
+                                  "type": "string"
+                                },
+                                "fieldKeys": {
+                                  "type": "array",
+                                  "maxItems": 100,
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "showCoordinates": {
+                                  "type": "boolean"
+                                }
+                              }
                             },
                             "schemaVersion": {
                               "type": "integer"
@@ -2469,11 +2716,31 @@
                               },
                               "validation": {
                                 "type": "object",
-                                "additionalProperties": true
+                                "additionalProperties": false,
+                                "properties": {
+                                  "minLength": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "maxLength": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10000
+                                  },
+                                  "minimum": {
+                                    "type": "number"
+                                  },
+                                  "maximum": {
+                                    "type": "number"
+                                  }
+                                }
                               },
                               "options": {
                                 "type": "array",
-                                "items": {}
+                                "items": {
+                                  "type": "string"
+                                }
                               },
                               "displayOrder": {
                                 "type": "integer"
@@ -4071,6 +4338,7 @@
                           "slug",
                           "group",
                           "displayOrder",
+                          "defaultVisible",
                           "title",
                           "geometryMode",
                           "allowedGeometryKinds",
@@ -4126,6 +4394,9 @@
                           },
                           "displayOrder": {
                             "type": "integer"
+                          },
+                          "defaultVisible": {
+                            "type": "boolean"
                           },
                           "title": {
                             "type": "string"
@@ -4202,11 +4473,102 @@
                           },
                           "style": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": false,
+                            "properties": {
+                              "point": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9A-Fa-f]{6}$"
+                                  },
+                                  "radius": {
+                                    "type": "number",
+                                    "minimum": 1,
+                                    "maximum": 64
+                                  },
+                                  "strokeColor": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9A-Fa-f]{6}$"
+                                  },
+                                  "strokeWidth": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 16
+                                  },
+                                  "cluster": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              },
+                              "line": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "color": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9A-Fa-f]{6}$"
+                                  },
+                                  "width": {
+                                    "type": "number",
+                                    "minimum": 0.5,
+                                    "maximum": 32
+                                  },
+                                  "opacity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                }
+                              },
+                              "polygon": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "fillColor": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9A-Fa-f]{6}$"
+                                  },
+                                  "fillOpacity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "strokeColor": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9A-Fa-f]{6}$"
+                                  },
+                                  "strokeWidth": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 16
+                                  }
+                                }
+                              }
+                            }
                           },
                           "popupConfig": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": false,
+                            "properties": {
+                              "titleField": {
+                                "type": "string"
+                              },
+                              "subtitleField": {
+                                "type": "string"
+                              },
+                              "fieldKeys": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "showCoordinates": {
+                                "type": "boolean"
+                              }
+                            }
                           },
                           "filterCapabilities": {
                             "type": "object",
@@ -4306,6 +4668,7 @@
                         "slug",
                         "group",
                         "displayOrder",
+                        "defaultVisible",
                         "title",
                         "geometryMode",
                         "allowedGeometryKinds",
@@ -4362,6 +4725,9 @@
                         },
                         "displayOrder": {
                           "type": "integer"
+                        },
+                        "defaultVisible": {
+                          "type": "boolean"
                         },
                         "title": {
                           "type": "string"
@@ -4438,11 +4804,102 @@
                         },
                         "style": {
                           "type": "object",
-                          "additionalProperties": true
+                          "additionalProperties": false,
+                          "properties": {
+                            "point": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "color": {
+                                  "type": "string",
+                                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                                },
+                                "radius": {
+                                  "type": "number",
+                                  "minimum": 1,
+                                  "maximum": 64
+                                },
+                                "strokeColor": {
+                                  "type": "string",
+                                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                                },
+                                "strokeWidth": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 16
+                                },
+                                "cluster": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "line": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "color": {
+                                  "type": "string",
+                                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                                },
+                                "width": {
+                                  "type": "number",
+                                  "minimum": 0.5,
+                                  "maximum": 32
+                                },
+                                "opacity": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
+                                }
+                              }
+                            },
+                            "polygon": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "fillColor": {
+                                  "type": "string",
+                                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                                },
+                                "fillOpacity": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
+                                },
+                                "strokeColor": {
+                                  "type": "string",
+                                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                                },
+                                "strokeWidth": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 16
+                                }
+                              }
+                            }
+                          }
                         },
                         "popupConfig": {
                           "type": "object",
-                          "additionalProperties": true
+                          "additionalProperties": false,
+                          "properties": {
+                            "titleField": {
+                              "type": "string"
+                            },
+                            "subtitleField": {
+                              "type": "string"
+                            },
+                            "fieldKeys": {
+                              "type": "array",
+                              "maxItems": 100,
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "showCoordinates": {
+                              "type": "boolean"
+                            }
+                          }
                         },
                         "filterCapabilities": {
                           "type": "object",
@@ -4534,11 +4991,31 @@
                               "defaultValue": {},
                               "validation": {
                                 "type": "object",
-                                "additionalProperties": true
+                                "additionalProperties": false,
+                                "properties": {
+                                  "minLength": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  },
+                                  "maxLength": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10000
+                                  },
+                                  "minimum": {
+                                    "type": "number"
+                                  },
+                                  "maximum": {
+                                    "type": "number"
+                                  }
+                                }
                               },
                               "options": {
                                 "type": "array",
-                                "items": {}
+                                "items": {
+                                  "type": "string"
+                                }
                               },
                               "displayOrder": {
                                 "type": "integer"
@@ -8645,6 +9122,27 @@
           "title"
         ]
       },
+      "LayerFieldValidationDto": {
+        "type": "object",
+        "properties": {
+          "minLength": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "maxLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "minimum": {
+            "type": "number"
+          },
+          "maximum": {
+            "type": "number"
+          }
+        }
+      },
       "LayerFieldDto": {
         "type": "object",
         "properties": {
@@ -8739,13 +9237,18 @@
             ]
           },
           "validation": {
-            "type": "object",
-            "additionalProperties": true,
-            "default": {}
+            "default": {},
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerFieldValidationDto"
+              }
+            ]
           },
           "options": {
             "type": "array",
-            "items": {},
+            "items": {
+              "type": "string"
+            },
             "maxItems": 100,
             "default": []
           },
@@ -8759,6 +9262,148 @@
           "label",
           "type"
         ]
+      },
+      "PointStyleDto": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "type": "string",
+            "example": "#0068B5",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "radius": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "strokeColor": {
+            "type": "string",
+            "example": "#FFFFFF",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "strokeWidth": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 16
+          },
+          "cluster": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LineStyleDto": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "type": "string",
+            "example": "#0068B5",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "width": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 32
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "PolygonStyleDto": {
+        "type": "object",
+        "properties": {
+          "fillColor": {
+            "type": "string",
+            "example": "#DDEFFC",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "fillOpacity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "strokeColor": {
+            "type": "string",
+            "example": "#0068B5",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "strokeWidth": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 16
+          }
+        }
+      },
+      "LayerStyleDto": {
+        "type": "object",
+        "properties": {
+          "point": {
+            "$ref": "#/components/schemas/PointStyleDto"
+          },
+          "line": {
+            "$ref": "#/components/schemas/LineStyleDto"
+          },
+          "polygon": {
+            "$ref": "#/components/schemas/PolygonStyleDto"
+          }
+        }
+      },
+      "LayerRenderConfigDto": {
+        "type": "object",
+        "properties": {
+          "minZoom": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 24,
+            "default": 0
+          },
+          "maxZoom": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 24,
+            "default": 18
+          },
+          "cluster": {
+            "type": "boolean",
+            "default": false
+          },
+          "sourcePolicy": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "geojson",
+              "mvt",
+              "hybrid"
+            ],
+            "default": "auto"
+          }
+        }
+      },
+      "LayerPopupConfigDto": {
+        "type": "object",
+        "properties": {
+          "titleField": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,63}$"
+          },
+          "subtitleField": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,63}$"
+          },
+          "fieldKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100
+          },
+          "showCoordinates": {
+            "type": "boolean",
+            "default": false
+          }
+        }
       },
       "CreateLayerDto": {
         "type": "object",
@@ -8775,6 +9420,10 @@
           "displayOrder": {
             "type": "integer",
             "default": 0
+          },
+          "defaultVisible": {
+            "type": "boolean",
+            "default": true
           },
           "title": {
             "type": "string",
@@ -8821,19 +9470,28 @@
             }
           },
           "style": {
-            "type": "object",
-            "additionalProperties": true,
-            "default": {}
+            "default": {},
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerStyleDto"
+              }
+            ]
           },
           "renderConfig": {
-            "type": "object",
-            "additionalProperties": true,
-            "default": {}
+            "default": {},
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerRenderConfigDto"
+              }
+            ]
           },
           "popupConfig": {
-            "type": "object",
-            "additionalProperties": true,
-            "default": {}
+            "default": {},
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerPopupConfigDto"
+              }
+            ]
           }
         },
         "required": [

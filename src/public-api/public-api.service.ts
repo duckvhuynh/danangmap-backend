@@ -8,6 +8,7 @@ interface PublishedLayerRow {
   id: string;
   slug: string;
   displayOrder: number;
+  defaultVisible: boolean;
   groupId: string | null;
   groupSlug: string | null;
   groupTitle: string | null;
@@ -27,6 +28,7 @@ interface PublishedLayerRow {
   manifest: Record<string, unknown>;
   filterFields: string[] | null;
   searchFields: string[] | null;
+  publicFields: string[] | null;
   updatedAt: Date;
 }
 
@@ -57,7 +59,9 @@ export class PublicApiService {
     const fields = (await this.dataSource.query(
       `SELECT id,key,label,description,type,icon,required,searchable,filterable,sortable,
               default_value AS "defaultValue",validation,options,display_order AS "displayOrder"
-       FROM layer_fields WHERE revision_id=$1 AND public=true ORDER BY display_order,id`,
+       FROM layer_fields
+       WHERE revision_id=$1 AND public=true AND sensitive=false
+       ORDER BY display_order,id`,
       [row.revisionId],
     )) as Record<string, unknown>[];
     const data = { ...this.catalogItem(row), fields };
@@ -83,7 +87,8 @@ export class PublicApiService {
     if (filter) {
       const parsed = this.parseFilter(filter);
       const field = (await this.dataSource.query(
-        `SELECT 1 FROM layer_fields WHERE revision_id=$1 AND key=$2 AND public=true AND filterable=true`,
+        `SELECT 1 FROM layer_fields
+         WHERE revision_id=$1 AND key=$2 AND public=true AND sensitive=false AND filterable=true`,
         [layer.revisionId, parsed.key],
       )) as unknown[];
       if (!field.length)
@@ -97,7 +102,8 @@ export class PublicApiService {
               fv.geometry_kind AS "geometryKind",fv.radius_m AS "radiusM",
               COALESCE((SELECT jsonb_object_agg(entry.key,entry.value)
                 FROM jsonb_each(fv.properties) entry
-                JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key AND lf.public=true),'{}'::jsonb) AS properties
+                JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key
+                  AND lf.public=true AND lf.sensitive=false),'{}'::jsonb) AS properties
        FROM revision_features rf
        JOIN features f ON f.id=rf.feature_id
        JOIN feature_versions fv ON fv.id=rf.feature_version_id
@@ -141,7 +147,8 @@ export class PublicApiService {
               fv.geometry_kind AS "geometryKind",fv.radius_m AS "radiusM",
               COALESCE((SELECT jsonb_object_agg(entry.key,entry.value)
                 FROM jsonb_each(fv.properties) entry
-                JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key AND lf.public=true),'{}'::jsonb) AS properties
+                JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key
+                  AND lf.public=true AND lf.sensitive=false),'{}'::jsonb) AS properties
        FROM revision_features rf
        JOIN features f ON f.id=rf.feature_id AND f.deleted_at IS NULL
        JOIN feature_versions fv ON fv.id=rf.feature_version_id
@@ -183,7 +190,8 @@ export class PublicApiService {
          SELECT f.id::text AS feature_id,fv.geometry_kind,fv.radius_m,
            COALESCE((SELECT jsonb_object_agg(entry.key,entry.value)
              FROM jsonb_each(fv.properties) entry
-             JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key AND lf.public=true),'{}'::jsonb) AS properties,
+             JOIN layer_fields lf ON lf.revision_id=$1 AND lf.key=entry.key
+               AND lf.public=true AND lf.sensitive=false),'{}'::jsonb) AS properties,
            ST_AsMVTGeom(ST_Transform(rendered.geometry,3857),bounds.geom,4096,64,true) AS geom
          FROM bounds,revision_features rf
          JOIN features f ON f.id=rf.feature_id AND f.deleted_at IS NULL
@@ -327,7 +335,8 @@ export class PublicApiService {
          JOIN feature_versions fv ON fv.id=rf.feature_version_id
          WHERE ($3::uuid[] IS NULL OR l.id=ANY($3::uuid[]))
            AND EXISTS (SELECT 1 FROM layer_fields lf, jsonb_each_text(fv.properties) prop
-             WHERE lf.revision_id=r.id AND lf.key=prop.key AND lf.public=true AND lf.searchable=true
+             WHERE lf.revision_id=r.id AND lf.key=prop.key AND lf.public=true
+               AND lf.sensitive=false AND lf.searchable=true
                AND unaccent(prop.value) ILIKE '%'||unaccent($1)||'%')
        ) SELECT 'feature:'||"featureId" AS id,'internal' AS source,'feature' AS kind,title,
            NULLIF(subtitle,'') AS subtitle,
@@ -343,14 +352,16 @@ export class PublicApiService {
 
   private async publishedLayers(): Promise<PublishedLayerRow[]> {
     return (await this.dataSource.query(
-      `SELECT l.id,l.slug,l.display_order AS "displayOrder",g.id AS "groupId",g.slug AS "groupSlug",
+      `SELECT l.id,l.slug,l.display_order AS "displayOrder",l.default_visible AS "defaultVisible",
+          g.id AS "groupId",g.slug AS "groupSlug",
           g.title AS "groupTitle",g.display_order AS "groupDisplayOrder",r.title,r.description,
           r.geometry_mode AS "geometryMode",r.allowed_geometry_kinds AS "allowedGeometryKinds",
           r.style,r.render_config AS "renderConfig",r.popup_config AS "popupConfig",
           s.id AS "snapshotId",s.revision_id AS "revisionId",s.generation,s.feature_count AS "featureCount",
           s.bounds,s.manifest,lp.pointer_updated_at AS "updatedAt",
-          ARRAY(SELECT key FROM layer_fields WHERE revision_id=r.id AND public=true AND filterable=true ORDER BY display_order) AS "filterFields",
-          ARRAY(SELECT key FROM layer_fields WHERE revision_id=r.id AND public=true AND searchable=true ORDER BY display_order) AS "searchFields"
+          ARRAY(SELECT key FROM layer_fields WHERE revision_id=r.id AND public=true AND sensitive=false AND filterable=true ORDER BY display_order) AS "filterFields",
+          ARRAY(SELECT key FROM layer_fields WHERE revision_id=r.id AND public=true AND sensitive=false AND searchable=true ORDER BY display_order) AS "searchFields",
+          ARRAY(SELECT key FROM layer_fields WHERE revision_id=r.id AND public=true AND sensitive=false ORDER BY display_order) AS "publicFields"
        FROM layer_publications lp
        JOIN layers l ON l.id=lp.layer_id AND l.archived_at IS NULL
        LEFT JOIN layer_groups g ON g.id=l.group_id AND g.archived_at IS NULL
@@ -385,6 +396,7 @@ export class PublicApiService {
           }
         : null,
       displayOrder: row.displayOrder,
+      defaultVisible: row.defaultVisible,
       title: row.title,
       description: row.description,
       geometryMode: row.geometryMode,
@@ -402,7 +414,7 @@ export class PublicApiService {
       maxZoom: Number(row.renderConfig.maxZoom ?? 18),
       cluster: Boolean(row.renderConfig.cluster),
       style: row.style,
-      popupConfig: row.popupConfig,
+      popupConfig: this.publicPopupConfig(row.popupConfig, row.publicFields ?? []),
       filterCapabilities: { fieldKeys: row.filterFields ?? [], maxFilters: 10 },
       searchCapabilities: {
         enabled: Boolean(row.searchFields?.length),
@@ -410,6 +422,29 @@ export class PublicApiService {
       },
       updatedAt: new Date(row.updatedAt).toISOString(),
     };
+  }
+
+  private publicPopupConfig(
+    popupConfig: Record<string, unknown>,
+    publicFields: string[],
+  ): Record<string, unknown> {
+    const allowed = new Set(publicFields);
+    const result: Record<string, unknown> = {};
+    if (typeof popupConfig.titleField === 'string' && allowed.has(popupConfig.titleField)) {
+      result.titleField = popupConfig.titleField;
+    }
+    if (typeof popupConfig.subtitleField === 'string' && allowed.has(popupConfig.subtitleField)) {
+      result.subtitleField = popupConfig.subtitleField;
+    }
+    if (Array.isArray(popupConfig.fieldKeys)) {
+      result.fieldKeys = popupConfig.fieldKeys.filter(
+        (key): key is string => typeof key === 'string' && allowed.has(key),
+      );
+    }
+    if (typeof popupConfig.showCoordinates === 'boolean') {
+      result.showCoordinates = popupConfig.showCoordinates;
+    }
+    return result;
   }
 
   private parseBbox(value: string): [number, number, number, number] {

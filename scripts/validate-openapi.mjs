@@ -5,6 +5,20 @@ const [openApiText, generatedTypes] = await Promise.all([
   readFile('openapi/generated-client-types.ts', 'utf8'),
 ]);
 const document = JSON.parse(openApiText);
+const requireWriteOnlyFields = (schemaName, fieldNames) => {
+  const schema = document.components?.schemas?.[schemaName];
+  for (const fieldName of fieldNames) {
+    if (!schema?.properties?.[fieldName]) {
+      throw new Error(`${schemaName} is missing ${fieldName}`);
+    }
+    if (!schema.required?.includes(fieldName)) {
+      throw new Error(`${schemaName}.${fieldName} must be required`);
+    }
+    if (schema.properties[fieldName].writeOnly !== true) {
+      throw new Error(`${schemaName}.${fieldName} must be write-only`);
+    }
+  }
+};
 const methods = new Set(['get', 'post', 'put', 'patch', 'delete', 'options', 'head']);
 const rawOperations = new Set([
   'getLiveness',
@@ -13,9 +27,22 @@ const rawOperations = new Set([
   'getPublicTile',
 ]);
 const strictlyTypedResponseOperations = new Set([
+  'login',
+  'verifyMfa',
+  'startMfaEnrollment',
+  'confirmMfaEnrollment',
+  'inspectInvite',
+  'acceptInvite',
+  'changePassword',
+  'requestPasswordReset',
+  'confirmPasswordReset',
+  'revokeAllSessions',
+  'rotateCsrf',
+  'getCurrentUser',
   'listUsers',
   'createUser',
   'createInvite',
+  'revokeInvite',
   'listLayerGroups',
   'createLayerGroup',
   'listAdminLayers',
@@ -32,6 +59,12 @@ const strictlyTypedResponseOperations = new Set([
   'validateSpatialImport',
   'listSpatialImportIssues',
   'applySpatialImport',
+  'createUserImport',
+  'getUserImport',
+  'validateUserImport',
+  'applyUserImport',
+  'listUserImportIssues',
+  'getUserImportReport',
   'submitRevision',
   'approveRevision',
   'requestRevisionChanges',
@@ -39,11 +72,30 @@ const strictlyTypedResponseOperations = new Set([
   'rollbackLayer',
 ]);
 const parameterContracts = {
+  login: [['header', 'X-CSRF-Token', true]],
+  verifyMfa: [['header', 'X-CSRF-Token', true]],
+  startMfaEnrollment: [['header', 'X-CSRF-Token', true]],
+  confirmMfaEnrollment: [['header', 'X-CSRF-Token', true]],
+  acceptInvite: [['header', 'X-CSRF-Token', true]],
   createUser: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
   createInvite: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  revokeInvite: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  changePassword: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  requestPasswordReset: [['header', 'Idempotency-Key', true]],
+  confirmPasswordReset: [['header', 'X-CSRF-Token', true]],
+  revokeAllSessions: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
@@ -70,6 +122,15 @@ const parameterContracts = {
   validateSpatialImport: [['header', 'X-CSRF-Token', true]],
   applySpatialImport: [
     ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  createUserImport: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  validateUserImport: [['header', 'X-CSRF-Token', true]],
+  applyUserImport: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
@@ -111,6 +172,9 @@ const parameterContracts = {
     ['header', 'X-CSRF-Token', true],
   ],
 };
+const preauthCsrfOperations = new Set(['verifyMfa', 'startMfaEnrollment', 'confirmMfaEnrollment']);
+const publicCsrfOperations = new Set(['login', 'acceptInvite', 'confirmPasswordReset']);
+const authenticatedCsrfOperations = new Set(['changePassword', 'revokeAllSessions', 'logout']);
 const resolveSchema = (schema) => {
   if (!schema?.$ref) return schema;
   const prefix = '#/components/schemas/';
@@ -142,6 +206,32 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
         );
       }
     }
+    if (preauthCsrfOperations.has(operationId)) {
+      const security = operation.security ?? [];
+      if (
+        !security.some(
+          (requirement) =>
+            Object.hasOwn(requirement, 'preauthSession') && Object.hasOwn(requirement, 'csrf'),
+        )
+      ) {
+        throw new Error(`Pre-auth CSRF security contract missing: ${operationId}`);
+      }
+    }
+    if (
+      publicCsrfOperations.has(operationId) &&
+      !(operation.security ?? []).some((requirement) => Object.hasOwn(requirement, 'csrf'))
+    ) {
+      throw new Error(`Public CSRF security contract missing: ${operationId}`);
+    }
+    if (
+      authenticatedCsrfOperations.has(operationId) &&
+      !(operation.security ?? []).some(
+        (requirement) =>
+          Object.hasOwn(requirement, 'adminSession') && Object.hasOwn(requirement, 'csrf'),
+      )
+    ) {
+      throw new Error(`Authenticated CSRF security contract missing: ${operationId}`);
+    }
     for (const [mediaType, media] of Object.entries(operation.requestBody?.content ?? {})) {
       const requestSchema = resolveSchema(media?.schema);
       if (!requestSchema) throw new Error(`Missing request schema: ${operationId} ${mediaType}`);
@@ -156,7 +246,9 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
         if (file?.type !== 'string' || file?.format !== 'binary') {
           throw new Error(`Multipart request lacks binary file schema: ${operationId}`);
         }
-        for (const field of ['file', 'mode', 'clientRequestId']) {
+        const requiredMultipartFields =
+          operationId === 'createUserImport' ? ['file'] : ['file', 'mode', 'clientRequestId'];
+        for (const field of requiredMultipartFields) {
           if (!requestSchema.required?.includes(field)) {
             throw new Error(`Multipart request lacks required field ${field}: ${operationId}`);
           }
@@ -208,6 +300,14 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
   }
 }
 if (seen.size === 0) throw new Error('OpenAPI document has no operations');
+requireWriteOnlyFields('InspectInviteDto', ['token']);
+requireWriteOnlyFields('AcceptInviteDto', ['token', 'password', 'passwordConfirmation']);
+requireWriteOnlyFields('ChangePasswordDto', [
+  'currentPassword',
+  'newPassword',
+  'passwordConfirmation',
+]);
+requireWriteOnlyFields('PasswordResetConfirmDto', ['token', 'password', 'passwordConfirmation']);
 const tile = document.paths?.['/api/v1/public/tiles/{slug}/{generation}/{z}/{x}/{y}.pbf']?.get;
 if (!tile?.responses?.['200']?.content?.['application/vnd.mapbox-vector-tile']?.schema) {
   throw new Error('MVT success response must declare application/vnd.mapbox-vector-tile');
@@ -263,6 +363,15 @@ if (
 ) {
   throw new Error('Import inspection descriptor is missing or untyped');
 }
+const searchPosition =
+  operationsById.get('searchPublicMap')?.responses?.['200']?.content?.['application/json']?.schema
+    ?.properties?.data?.items?.properties?.position;
+const placePosition =
+  operationsById.get('getExternalPlace')?.responses?.['200']?.content?.['application/json']?.schema
+    ?.properties?.data?.properties?.position;
+if (searchPosition?.nullable !== true || placePosition?.nullable !== true) {
+  throw new Error('Geo Service position must remain required and nullable');
+}
 for (const [name, schema] of Object.entries(document.components?.schemas ?? {})) {
   if (
     schema?.type === 'object' &&
@@ -292,5 +401,44 @@ if (
   !generatedTypes.includes('parserStatus: "pending" | "inspected";')
 ) {
   throw new Error('Generated import polling unions are missing');
+}
+const nullablePositionTypes = generatedTypes.match(
+  /position: \{\s+longitude: number;\s+latitude: number;\s+\} \| null;/g,
+);
+if ((nullablePositionTypes?.length ?? 0) < 2) {
+  throw new Error('Generated search and place detail positions must include null');
+}
+const userImportApply = document.components?.schemas?.ApplyUserImportDto;
+if (
+  JSON.stringify(userImportApply?.properties?.validRowPolicy?.enum) !== JSON.stringify(['invite'])
+) {
+  throw new Error('User import apply policy drifted from invite-only contract');
+}
+const createUserImport = operationsById.get('createUserImport');
+const createUserImportResponse =
+  createUserImport?.responses?.['202']?.content?.['application/json']?.schema;
+const userImportJob = resolveSchema(createUserImportResponse?.properties?.data);
+const expectedUserImportStatuses = [
+  'uploaded',
+  'inspecting',
+  'inspected',
+  'validating',
+  'ready',
+  'applying',
+  'completed',
+  'failed',
+];
+if (
+  JSON.stringify(userImportJob?.properties?.status?.enum) !==
+  JSON.stringify(expectedUserImportStatuses)
+) {
+  throw new Error('User import status enum drifted from runtime contract');
+}
+if (
+  userImportJob?.properties?.inspection?.properties?.limits?.properties?.maxBytes?.enum?.[0] !==
+    5 * 1024 * 1024 ||
+  userImportJob?.properties?.inspection?.properties?.limits?.properties?.maxRows?.enum?.[0] !== 5000
+) {
+  throw new Error('User import security limits are absent from the typed contract');
 }
 console.log(`Validated ${seen.size} unique operation IDs and typed success responses.`);

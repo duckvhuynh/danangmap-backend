@@ -9,11 +9,20 @@ import { AppModule } from '../../../src/app.module';
 import { ProblemDetailsFilter } from '../../../src/common/http/problem-details.filter';
 import { SuccessEnvelopeInterceptor } from '../../../src/common/http/success-envelope.interceptor';
 import { frontendOrigins } from '../../../src/config/environment';
+import { AppException } from '../../../src/common/http/app.exception';
 
 export async function createApplication() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
   const allowedOrigins = frontendOrigins(config.getOrThrow<string>('app.frontendOrigins'));
+  const trustProxyHops = config.getOrThrow<number>('app.trustProxyHops');
+
+  if (trustProxyHops > 0) {
+    const express = app.getHttpAdapter().getInstance() as {
+      set(name: string, value: number): void;
+    };
+    express.set('trust proxy', trustProxyHops);
+  }
 
   app.enableShutdownHooks();
   app.setGlobalPrefix('api', { exclude: ['health/live', 'health/ready'] });
@@ -38,8 +47,12 @@ export async function createApplication() {
       origin: string | undefined,
       callback: (error: Error | null, allow?: boolean) => void,
     ) => {
-      if (!origin || allowedOrigins.includes(new URL(origin).origin)) callback(null, true);
-      else callback(new Error('Origin is not allowed'));
+      try {
+        if (!origin || allowedOrigins.includes(new URL(origin).origin)) callback(null, true);
+        else callback(new AppException(403, 'CSRF_INVALID', 'Nguồn yêu cầu không hợp lệ.'));
+      } catch {
+        callback(new AppException(403, 'CSRF_INVALID', 'Nguồn yêu cầu không hợp lệ.'));
+      }
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -69,6 +82,7 @@ export async function createApplication() {
     .setDescription('DanangMap v2 spatial CMS contract')
     .setVersion(config.getOrThrow<string>('app.version'))
     .addCookieAuth('__Host-danangmap_session', { type: 'apiKey', in: 'cookie' }, 'adminSession')
+    .addCookieAuth('__Host-danangmap_preauth', { type: 'apiKey', in: 'cookie' }, 'preauthSession')
     .addApiKey({ type: 'apiKey', in: 'header', name: 'X-CSRF-Token' }, 'csrf')
     .build();
   const document = SwaggerModule.createDocument(app, swagger);

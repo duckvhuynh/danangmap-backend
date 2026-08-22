@@ -1,0 +1,12 @@
+https://gateway {
+	tls internal
+
+	@backend path /api/v1/* /health/*
+	handle @backend {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

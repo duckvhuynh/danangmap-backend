@@ -20,6 +20,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/invites:inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["inspectInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/invites:accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acceptInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/mfa/verify": {
         parameters: {
             query?: never;
@@ -30,6 +62,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["verifyMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startMfaEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/enroll/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmMfaEnrollment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -62,6 +126,72 @@ export interface paths {
         get: operations["getCurrentUser"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Concurrent retries share one effect. Only the owning response rotates cookies; a retry after the old session is revoked returns 401. */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset:request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset:confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions:revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Revokes every session including the caller. Concurrent retries share one effect; a later retry with the revoked cookie returns 401. */
+        post: operations["revokeAllSessions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -110,6 +240,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["createInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invites/{inviteId}:revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokeInvite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -500,6 +646,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/user-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUserImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}:validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["validateUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}:apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["applyUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listUserImportIssues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-imports/{importId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUserImportReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -541,6 +783,14 @@ export interface components {
             login: string;
             password: string;
         };
+        InspectInviteDto: {
+            token: string;
+        };
+        AcceptInviteDto: {
+            token: string;
+            password: string;
+            passwordConfirmation: string;
+        };
         VerifyMfaDto: {
             /**
              * @default totp
@@ -548,6 +798,23 @@ export interface components {
              */
             method: "totp" | "recovery_code";
             code: string;
+        };
+        ConfirmMfaEnrollmentDto: {
+            code: string;
+        };
+        ChangePasswordDto: {
+            currentPassword: string;
+            newPassword: string;
+            passwordConfirmation: string;
+        };
+        PasswordResetRequestDto: {
+            /** @example editor@example.gov.vn */
+            email: string;
+        };
+        PasswordResetConfirmDto: {
+            token: string;
+            password: string;
+            passwordConfirmation: string;
         };
         CreateUserDto: {
             /** @example editor@example.gov.vn */
@@ -739,6 +1006,17 @@ export interface components {
             /** @default [] */
             acknowledgedWarningCodes: string[];
         };
+        ValidateUserImportDto: {
+            /** @description Required when an XLSX workbook contains more than one worksheet. */
+            sheet?: string;
+        };
+        ApplyUserImportDto: {
+            /**
+             * @default invite
+             * @enum {string}
+             */
+            validRowPolicy: "invite";
+        };
     };
     responses: never;
     parameters: never;
@@ -751,7 +1029,9 @@ export interface operations {
     login: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -782,10 +1062,84 @@ export interface operations {
             };
         };
     };
-    verifyMfa: {
+    inspectInvite: {
         parameters: {
             query?: never;
             header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectInviteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            maskedEmail: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** @enum {boolean} */
+                            requiresMfaEnrollment: true;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    acceptInvite: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInviteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "mfa_required";
+                            mfaEnrollmentRequired: boolean;
+                            /** Format: date-time */
+                            challengeExpiresAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    verifyMfa: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -814,6 +1168,82 @@ export interface operations {
                             status: "active" | "inactive" | "disabled" | "invited";
                             mfaEnabled: boolean;
                             mustChangePassword: boolean;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    startMfaEnrollment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "pending";
+                            enrollmentUri: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    confirmMfaEnrollment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmMfaEnrollmentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            principal: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: email */
+                                email: string;
+                                username: string;
+                                displayName: string;
+                                /** @enum {string} */
+                                role: "editor" | "reviewer" | "publisher" | "system_admin";
+                                /** @enum {string} */
+                                status: "active" | "inactive" | "disabled" | "invited";
+                                mfaEnabled: boolean;
+                                mustChangePassword: boolean;
+                            };
+                            recoveryCodes: string[];
                         };
                         meta: {
                             requestId: string;
@@ -886,10 +1316,167 @@ export interface operations {
             };
         };
     };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "password_changed";
+                            sessionsRevoked: number;
+                            /** @enum {boolean} */
+                            sessionRotated: true;
+                            principal: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: email */
+                                email: string;
+                                username: string;
+                                displayName: string;
+                                /** @enum {string} */
+                                role: "editor" | "reviewer" | "publisher" | "system_admin";
+                                /** @enum {string} */
+                                status: "active" | "inactive" | "disabled" | "invited";
+                                mfaEnabled: boolean;
+                                mustChangePassword: boolean;
+                            };
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequestDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "accepted";
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    confirmPasswordReset: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirmDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "password_reset";
+                            /** @enum {boolean} */
+                            loginRequired: true;
+                            sessionsRevoked: number;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    revokeAllSessions: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "sessions_revoked";
+                            revokedCount: number;
+                            /** @enum {boolean} */
+                            currentSessionRevoked: true;
+                            /** @enum {boolean} */
+                            loginRequired: true;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     logout: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1043,6 +1630,42 @@ export interface operations {
                             status: "pending";
                             /** Format: date-time */
                             expiresAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    revokeInvite: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                inviteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "revoked";
+                            /** Format: date-time */
+                            revokedAt: string;
                         };
                         meta: {
                             requestId: string;
@@ -2209,7 +2832,7 @@ export interface operations {
                             position: {
                                 longitude: number;
                                 latitude: number;
-                            };
+                            } | null;
                             bbox?: number[] | null;
                             layer: {
                                 [key: string]: unknown;
@@ -2267,7 +2890,7 @@ export interface operations {
                             position: {
                                 longitude: number;
                                 latitude: number;
-                            };
+                            } | null;
                             phone?: string | null;
                             website?: string | null;
                             /** @enum {string} */
@@ -2715,6 +3338,426 @@ export interface operations {
             };
         };
     };
+    createUserImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                            /** @enum {string} */
+                            format: "csv" | "xlsx";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                total: number;
+                                valid: number;
+                                invalid: number;
+                                applied: number;
+                                skipped: number;
+                            };
+                            inspection: {
+                                sheets: string[];
+                                selectedSheet: string | null;
+                                limits: {
+                                    /** @enum {integer} */
+                                    maxBytes: 5242880;
+                                    /** @enum {integer} */
+                                    maxRows: 5000;
+                                    /** @enum {integer} */
+                                    maxSheets: 10;
+                                    /** @enum {integer} */
+                                    maxColumns: 4;
+                                    /** @enum {integer} */
+                                    maxExpandedBytes: 52428800;
+                                };
+                            };
+                            /** @enum {string} */
+                            validRowPolicy: "invite";
+                            failureCode: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getUserImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                            /** @enum {string} */
+                            format: "csv" | "xlsx";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                total: number;
+                                valid: number;
+                                invalid: number;
+                                applied: number;
+                                skipped: number;
+                            };
+                            inspection: {
+                                sheets: string[];
+                                selectedSheet: string | null;
+                                limits: {
+                                    /** @enum {integer} */
+                                    maxBytes: 5242880;
+                                    /** @enum {integer} */
+                                    maxRows: 5000;
+                                    /** @enum {integer} */
+                                    maxSheets: 10;
+                                    /** @enum {integer} */
+                                    maxColumns: 4;
+                                    /** @enum {integer} */
+                                    maxExpandedBytes: 52428800;
+                                };
+                            };
+                            /** @enum {string} */
+                            validRowPolicy: "invite";
+                            failureCode: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    validateUserImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateUserImportDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                            /** @enum {string} */
+                            format: "csv" | "xlsx";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                total: number;
+                                valid: number;
+                                invalid: number;
+                                applied: number;
+                                skipped: number;
+                            };
+                            inspection: {
+                                sheets: string[];
+                                selectedSheet: string | null;
+                                limits: {
+                                    /** @enum {integer} */
+                                    maxBytes: 5242880;
+                                    /** @enum {integer} */
+                                    maxRows: 5000;
+                                    /** @enum {integer} */
+                                    maxSheets: 10;
+                                    /** @enum {integer} */
+                                    maxColumns: 4;
+                                    /** @enum {integer} */
+                                    maxExpandedBytes: 52428800;
+                                };
+                            };
+                            /** @enum {string} */
+                            validRowPolicy: "invite";
+                            failureCode: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    applyUserImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyUserImportDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                            /** @enum {string} */
+                            format: "csv" | "xlsx";
+                            file: {
+                                name: string;
+                                sizeBytes: number;
+                            };
+                            progress: number;
+                            counts: {
+                                total: number;
+                                valid: number;
+                                invalid: number;
+                                applied: number;
+                                skipped: number;
+                            };
+                            inspection: {
+                                sheets: string[];
+                                selectedSheet: string | null;
+                                limits: {
+                                    /** @enum {integer} */
+                                    maxBytes: 5242880;
+                                    /** @enum {integer} */
+                                    maxRows: 5000;
+                                    /** @enum {integer} */
+                                    maxSheets: 10;
+                                    /** @enum {integer} */
+                                    maxColumns: 4;
+                                    /** @enum {integer} */
+                                    maxExpandedBytes: 52428800;
+                                };
+                            };
+                            /** @enum {string} */
+                            validRowPolicy: "invite";
+                            failureCode: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    listUserImportIssues: {
+        parameters: {
+            query?: {
+                code?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            rowNumber: number;
+                            /** @enum {string} */
+                            severity: "error";
+                            code: string;
+                            /** @enum {string|null} */
+                            field: "email" | "username" | "displayName" | "role" | null;
+                        }[];
+                        meta: {
+                            requestId: string;
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getUserImportReport: {
+        parameters: {
+            query?: {
+                code?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            job: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "uploaded" | "inspecting" | "inspected" | "validating" | "ready" | "applying" | "completed" | "failed";
+                                /** @enum {string} */
+                                format: "csv" | "xlsx";
+                                file: {
+                                    name: string;
+                                    sizeBytes: number;
+                                };
+                                progress: number;
+                                counts: {
+                                    total: number;
+                                    valid: number;
+                                    invalid: number;
+                                    applied: number;
+                                    skipped: number;
+                                };
+                                inspection: {
+                                    sheets: string[];
+                                    selectedSheet: string | null;
+                                    limits: {
+                                        /** @enum {integer} */
+                                        maxBytes: 5242880;
+                                        /** @enum {integer} */
+                                        maxRows: 5000;
+                                        /** @enum {integer} */
+                                        maxSheets: 10;
+                                        /** @enum {integer} */
+                                        maxColumns: 4;
+                                        /** @enum {integer} */
+                                        maxExpandedBytes: 52428800;
+                                    };
+                                };
+                                /** @enum {string} */
+                                validRowPolicy: "invite";
+                                failureCode: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                            };
+                            issues: {
+                                id: string;
+                                rowNumber: number;
+                                /** @enum {string} */
+                                severity: "error";
+                                code: string;
+                                /** @enum {string|null} */
+                                field: "email" | "username" | "displayName" | "role" | null;
+                            }[];
+                        };
+                        meta: {
+                            requestId: string;
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
     getLiveness: {
         parameters: {
             query?: never;
@@ -2757,7 +3800,18 @@ export interface operations {
                         status: "ok";
                         version: string;
                         checks: {
-                            [key: string]: "up" | "down" | "degraded" | "current";
+                            /** @enum {string} */
+                            postgres: "up" | "down";
+                            /** @enum {string} */
+                            redis: "up" | "down";
+                            /** @enum {string} */
+                            migrations: "current" | "down";
+                            /** @enum {string} */
+                            minio: "up" | "down";
+                            /** @enum {string} */
+                            geoService: "up" | "degraded";
+                            /** @enum {string} */
+                            mail: "up" | "degraded";
                         };
                     };
                 };

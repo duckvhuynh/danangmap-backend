@@ -46,6 +46,7 @@ export class SessionGuard implements CanActivate {
       role: user.role,
       sessionId: session.id,
       displayName: user.displayName,
+      mustChangePassword: user.mustChangePassword,
     };
     return true;
   }
@@ -75,7 +76,61 @@ export class PreAuthGuard implements CanActivate {
       role: 'preauth',
       sessionId: session.id,
       displayName: '',
+      mustChangePassword: false,
     };
+    return true;
+  }
+}
+
+@Injectable()
+export class OptionalAuthGuard implements CanActivate {
+  constructor(
+    @InjectRepository(AdminSessionEntity)
+    private readonly sessions: Repository<AdminSessionEntity>,
+    @InjectRepository(UserEntity)
+    private readonly users: Repository<UserEntity>,
+    private readonly crypto: CryptoService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<RequestWithContext>();
+    const authenticatedToken = request.cookies?.[SESSION_COOKIE] as string | undefined;
+    const preauthToken = request.cookies?.[PREAUTH_COOKIE] as string | undefined;
+    const candidates: Array<{
+      token: string;
+      kind: AdminSessionEntity['kind'];
+    }> = [];
+    if (authenticatedToken) candidates.push({ token: authenticatedToken, kind: 'authenticated' });
+    if (preauthToken) candidates.push({ token: preauthToken, kind: 'preauth' });
+
+    for (const candidate of candidates) {
+      const session = await this.sessions.findOneBy({
+        tokenHash: this.crypto.digest(candidate.token),
+        kind: candidate.kind,
+      });
+      if (!session || session.revokedAt || session.expiresAt <= new Date()) continue;
+      if (candidate.kind === 'preauth') {
+        request.principal = {
+          id: session.userId,
+          role: 'preauth',
+          sessionId: session.id,
+          displayName: '',
+          mustChangePassword: false,
+        };
+        return true;
+      }
+
+      const user = await this.users.findOneBy({ id: session.userId });
+      if (!user || user.status !== 'active' || user.disabledAt) continue;
+      request.principal = {
+        id: user.id,
+        role: user.role,
+        sessionId: session.id,
+        displayName: user.displayName,
+        mustChangePassword: user.mustChangePassword,
+      };
+      return true;
+    }
     return true;
   }
 }
@@ -85,12 +140,19 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    const principal = context.switchToHttp().getRequest<RequestWithContext>().principal;
+    if (principal?.mustChangePassword) {
+      throw new AppException(
+        403,
+        'PASSWORD_CHANGE_REQUIRED',
+        'Bạn phải đổi mật khẩu tạm trước khi tiếp tục.',
+      );
+    }
     const roles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
     if (!roles?.length) return true;
-    const principal = context.switchToHttp().getRequest<RequestWithContext>().principal;
     if (!principal || !roles.includes(principal.role as UserRole)) {
       throw new AppException(403, 'ROLE_FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này.');
     }
@@ -115,14 +177,19 @@ export class CsrfGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<RequestWithContext>();
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return true;
     const principal = request.principal;
-    if (!principal) throw new UnauthorizedException('Phiên đăng nhập đã hết hạn.');
     const originHeader = request.header('origin');
     const refererHeader = request.header('referer');
-    const candidateOrigin = originHeader
-      ? new URL(originHeader).origin
-      : refererHeader
-        ? new URL(refererHeader).origin
-        : null;
+    const candidateOrigin = (() => {
+      try {
+        return originHeader
+          ? new URL(originHeader).origin
+          : refererHeader
+            ? new URL(refererHeader).origin
+            : null;
+      } catch {
+        throw new AppException(403, 'CSRF_INVALID', 'Nguồn yêu cầu không hợp lệ.');
+      }
+    })();
     if (!candidateOrigin || !this.origins.includes(candidateOrigin)) {
       throw new AppException(403, 'CSRF_INVALID', 'Nguồn yêu cầu không hợp lệ.');
     }
@@ -131,6 +198,7 @@ export class CsrfGuard implements CanActivate {
     if (!csrfHeader || !csrfCookie || !this.equal(csrfHeader, csrfCookie)) {
       throw new AppException(403, 'CSRF_INVALID', 'CSRF token không hợp lệ.');
     }
+    if (!principal) return true;
     const session = await this.sessions.findOneBy({ id: principal.sessionId });
     if (!session?.csrfHash || !this.equal(session.csrfHash, this.crypto.digest(csrfHeader))) {
       throw new AppException(403, 'CSRF_INVALID', 'CSRF token không hợp lệ.');

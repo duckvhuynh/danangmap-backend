@@ -1,0 +1,115 @@
+name: danangmap-fullstack
+
+services:
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  minio:
+    ports: !reset []
+
+  mailpit:
+    ports: !reset []
+
+  api:
+    ports: !reset []
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    environment:
+      COOKIE_SECURE: 'true'
+      FRONTEND_ORIGINS: https://gateway
+
+  worker:
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+
+  frontend:
+    ports: !reset []
+    labels:
+      danangmap.frontend.revision: 41ff532bea0f2ff46bacb88c4797befd20ae38de
+    build:
+      args:
+        NEXT_PUBLIC_API_BASE_URL: https://gateway
+
+  gateway:
+    image: caddy:2.10.2-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    volumes:
+      - ./docker/Caddyfile.e2e:/etc/caddy/Caddyfile:ro
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-check-certificate',
+          '--quiet',
+          '--spider',
+          'https://gateway/api/health',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  fullstack-smoke:
+    environment:
+      FRONTEND_PUBLIC_ORIGIN: https://gateway
+      CROSSSTACK_PUBLICATION_LAYER_SLUG: cross-stack-publication
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+  fullstack-browser:
+    profiles: ['fullstack']
+    build:
+      context: ${DANANGMAP_FRONTEND_CONTEXT:-../danangmap-frontend}
+      dockerfile: Dockerfile.e2e
+      labels:
+        danangmap.frontend.revision: 41ff532bea0f2ff46bacb88c4797befd20ae38de
+    environment:
+      CI: 'true'
+      DANANGMAP_REAL_STACK: 'true'
+      PLAYWRIGHT_BASE_URL: https://gateway
+      MAILPIT_BASE_URL: http://mailpit:8025
+      DANANGMAP_ADMIN_LOGIN: ${DANANGMAP_ADMIN_LOGIN:-admin}
+      DANANGMAP_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe-Admin-2026!}
+      DANANGMAP_ADMIN_TOTP_SECRET: ${SEED_MFA_SECRET:-JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP}
+      DANANGMAP_GATE_B_ENABLED: 'true'
+      DANANGMAP_GATE_B_EDITOR_LOGIN: editor
+      DANANGMAP_GATE_B_EDITOR_PASSWORD: ${SEED_EDITOR_PASSWORD:-ChangeMe-Editor-2026!}
+      DANANGMAP_GATE_B_REVIEWER_LOGIN: reviewer
+      DANANGMAP_GATE_B_REVIEWER_PASSWORD: ${SEED_REVIEWER_PASSWORD:-ChangeMe-Reviewer-2026!}
+      DANANGMAP_GATE_B_PUBLISHER_LOGIN: publisher
+      DANANGMAP_GATE_B_PUBLISHER_PASSWORD: ${SEED_PUBLISHER_PASSWORD:-ChangeMe-Publisher-2026!}
+      DANANGMAP_GATE_B_TOTP_SECRET: ${SEED_MFA_SECRET:-JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP}
+      DANANGMAP_GATE_B_LAYER_SLUG: cross-stack-publication
+      DANANGMAP_GATE_B_BASE_GENERATION: '1'
+      DANANGMAP_GATE_B_BASE_FEATURE_NAME: Điểm nền Gate B
+      DANANGMAP_GATE_B_IMPORTED_FEATURE_NAME: Điểm nhập Gate B
+      DANANGMAP_GATE_B_PRIVATE_FIELD_KEY: internal_note
+      DANANGMAP_GATE_B_PRIVATE_VALUE: Gate B private value
+    command:
+      ['npx', 'playwright', 'test', '--config=playwright.real.config.ts', '--project=real-stack']
+    volumes:
+      - type: bind
+        source: ${DANANGMAP_PLAYWRIGHT_REPORT_DIR:-./artifacts/fullstack/playwright-report}
+        target: /app/playwright-report
+      - type: bind
+        source: ${DANANGMAP_PLAYWRIGHT_RESULTS_DIR:-./artifacts/fullstack/test-results}
+        target: /app/test-results
+    depends_on:
+      fullstack-smoke:
+        condition: service_completed_successfully
+      gateway:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      worker:
+        condition: service_started
+    restart: 'no'

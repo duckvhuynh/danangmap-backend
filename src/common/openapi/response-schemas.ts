@@ -72,6 +72,29 @@ export const inviteResultSchema: SchemaObject = {
   },
 };
 
+export const inviteInspectionSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['maskedEmail', 'role', 'expiresAt', 'requiresMfaEnrollment'],
+  properties: {
+    maskedEmail: { type: 'string' },
+    role: { type: 'string', enum: ['editor', 'reviewer', 'publisher', 'system_admin'] },
+    expiresAt: dateTime,
+    requiresMfaEnrollment: { type: 'boolean', enum: [true] },
+  },
+};
+
+export const inviteRevocationSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'status', 'revokedAt'],
+  properties: {
+    id: uuid,
+    status: { type: 'string', enum: ['revoked'] },
+    revokedAt: dateTime,
+  },
+};
+
 export const userCreationResultSchema: SchemaObject = {
   oneOf: [authPrincipalSchema, inviteResultSchema],
 };
@@ -104,12 +127,81 @@ export const csrfResultSchema: SchemaObject = {
   properties: { csrfToken: { type: 'string' } },
 };
 
+export const mfaEnrollmentSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'enrollmentUri'],
+  properties: {
+    status: { type: 'string', enum: ['pending'] },
+    enrollmentUri: { type: 'string', pattern: '^otpauth://totp/' },
+  },
+};
+
+export const mfaEnrollmentConfirmationSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['principal', 'recoveryCodes'],
+  properties: {
+    principal: authPrincipalSchema,
+    recoveryCodes: {
+      type: 'array',
+      minItems: 10,
+      maxItems: 10,
+      items: { type: 'string', pattern: '^[A-F0-9]{4}(?:-[A-F0-9]{4}){4}$' },
+    },
+  },
+};
+
 export const logoutResultSchema: SchemaObject = {
   type: 'object',
   required: ['status', 'recoveryAction'],
   properties: {
     status: { type: 'string', enum: ['logged_out'] },
     recoveryAction: { type: 'string', enum: ['delete'] },
+  },
+};
+
+export const passwordChangeResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'sessionsRevoked', 'sessionRotated', 'principal'],
+  properties: {
+    status: { type: 'string', enum: ['password_changed'] },
+    sessionsRevoked: { type: 'integer', minimum: 1 },
+    sessionRotated: { type: 'boolean', enum: [true] },
+    principal: authPrincipalSchema,
+  },
+};
+
+export const passwordResetRequestResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status'],
+  properties: {
+    status: { type: 'string', enum: ['accepted'] },
+  },
+};
+
+export const passwordResetConfirmationSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'loginRequired', 'sessionsRevoked'],
+  properties: {
+    status: { type: 'string', enum: ['password_reset'] },
+    loginRequired: { type: 'boolean', enum: [true] },
+    sessionsRevoked: { type: 'integer', minimum: 0 },
+  },
+};
+
+export const sessionRevocationResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'revokedCount', 'currentSessionRevoked', 'loginRequired'],
+  properties: {
+    status: { type: 'string', enum: ['sessions_revoked'] },
+    revokedCount: { type: 'integer', minimum: 1 },
+    currentSessionRevoked: { type: 'boolean', enum: [true] },
+    loginRequired: { type: 'boolean', enum: [true] },
   },
 };
 
@@ -294,6 +386,7 @@ export const publicFeatureDetailSchema: SchemaObject = {
 
 const positionSchema: SchemaObject = {
   type: 'object',
+  nullable: true,
   required: ['longitude', 'latitude'],
   properties: { longitude: { type: 'number' }, latitude: { type: 'number' } },
 };
@@ -318,7 +411,7 @@ export const publicSearchItemSchema: SchemaObject = {
     kind: { type: 'string', enum: ['feature', 'place'] },
     title: { type: 'string' },
     subtitle: nullableString,
-    position: positionSchema,
+    position: { ...positionSchema },
     bbox: {
       type: 'array',
       nullable: true,
@@ -370,7 +463,7 @@ export const externalPlaceSchema: SchemaObject = {
     id: { type: 'string' },
     name: { type: 'string' },
     address: nullableString,
-    position: positionSchema,
+    position: { ...positionSchema },
     phone: nullableString,
     website: nullableString,
     source: { type: 'string', enum: ['geo_service'] },
@@ -724,6 +817,123 @@ export const importIssueMetaSchema: SchemaObject = {
   },
 };
 
+export const userImportJobSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'status',
+    'format',
+    'file',
+    'progress',
+    'counts',
+    'inspection',
+    'validRowPolicy',
+    'failureCode',
+    'createdAt',
+    'updatedAt',
+  ],
+  properties: {
+    id: uuid,
+    status: {
+      type: 'string',
+      enum: [
+        'uploaded',
+        'inspecting',
+        'inspected',
+        'validating',
+        'ready',
+        'applying',
+        'completed',
+        'failed',
+      ],
+    },
+    format: { type: 'string', enum: ['csv', 'xlsx'] },
+    file: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['name', 'sizeBytes'],
+      properties: {
+        name: { type: 'string' },
+        sizeBytes: { type: 'integer', minimum: 1, maximum: 5 * 1024 * 1024 },
+      },
+    },
+    progress: { type: 'integer', minimum: 0, maximum: 100 },
+    counts: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['total', 'valid', 'invalid', 'applied', 'skipped'],
+      properties: {
+        total: { type: 'integer', minimum: 0, maximum: 5000 },
+        valid: { type: 'integer', minimum: 0, maximum: 5000 },
+        invalid: { type: 'integer', minimum: 0, maximum: 5000 },
+        applied: { type: 'integer', minimum: 0, maximum: 5000 },
+        skipped: { type: 'integer', minimum: 0, maximum: 5000 },
+      },
+    },
+    inspection: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['sheets', 'selectedSheet', 'limits'],
+      properties: {
+        sheets: { type: 'array', maxItems: 10, items: { type: 'string' } },
+        selectedSheet: nullableString,
+        limits: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['maxBytes', 'maxRows', 'maxSheets', 'maxColumns', 'maxExpandedBytes'],
+          properties: {
+            maxBytes: { type: 'integer', enum: [5 * 1024 * 1024] },
+            maxRows: { type: 'integer', enum: [5000] },
+            maxSheets: { type: 'integer', enum: [10] },
+            maxColumns: { type: 'integer', enum: [4] },
+            maxExpandedBytes: { type: 'integer', enum: [50 * 1024 * 1024] },
+          },
+        },
+      },
+    },
+    validRowPolicy: { type: 'string', enum: ['invite'] },
+    failureCode: nullableString,
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+};
+
+export const userImportIssueSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'rowNumber', 'severity', 'code', 'field'],
+  properties: {
+    id: { type: 'string', pattern: '^\\d+$' },
+    rowNumber: { type: 'integer', minimum: 2, maximum: 5001 },
+    severity: { type: 'string', enum: ['error'] },
+    code: { type: 'string' },
+    field: { type: 'string', enum: ['email', 'username', 'displayName', 'role'], nullable: true },
+  },
+};
+
+export const userImportIssueMetaSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['requestId', 'nextCursor', 'hasMore', 'limit'],
+  properties: {
+    requestId: { type: 'string' },
+    nextCursor: nullableString,
+    hasMore: { type: 'boolean' },
+    limit: { type: 'integer', minimum: 1, maximum: 200 },
+  },
+};
+
+export const userImportReportSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['job', 'issues'],
+  properties: {
+    job: userImportJobSchema,
+    issues: { type: 'array', items: userImportIssueSchema },
+  },
+};
+
 export const workflowResultSchema: SchemaObject = {
   oneOf: [
     {
@@ -780,7 +990,16 @@ export const readinessSchema: SchemaObject = {
     version: { type: 'string' },
     checks: {
       type: 'object',
-      additionalProperties: { type: 'string', enum: ['up', 'down', 'degraded', 'current'] },
+      additionalProperties: false,
+      required: ['postgres', 'redis', 'migrations', 'minio', 'geoService', 'mail'],
+      properties: {
+        postgres: { type: 'string', enum: ['up', 'down'] },
+        redis: { type: 'string', enum: ['up', 'down'] },
+        migrations: { type: 'string', enum: ['current', 'down'] },
+        minio: { type: 'string', enum: ['up', 'down'] },
+        geoService: { type: 'string', enum: ['up', 'degraded'] },
+        mail: { type: 'string', enum: ['up', 'degraded'] },
+      },
     },
   },
 };

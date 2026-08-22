@@ -29,6 +29,18 @@ const ids = {
   workflowFeature: '40000000-0000-4000-8000-000000000003',
   workflowVersion: '50000000-0000-4000-8000-000000000003',
   workflowSnapshot: '60000000-0000-4000-8000-000000000003',
+  activationLayer: '20000000-0000-4000-8000-000000000004',
+  activationPublishedRevision: '30000000-0000-4000-8000-000000000005',
+  activationApprovedRevision: '30000000-0000-4000-8000-000000000006',
+  activationBaselineFeature: '40000000-0000-4000-8000-000000000004',
+  activationFeatureOne: '40000000-0000-4000-8000-000000000005',
+  activationFeatureTwo: '40000000-0000-4000-8000-000000000006',
+  activationFeatureThree: '40000000-0000-4000-8000-000000000007',
+  activationBaselineVersion: '50000000-0000-4000-8000-000000000004',
+  activationVersionOne: '50000000-0000-4000-8000-000000000005',
+  activationVersionTwo: '50000000-0000-4000-8000-000000000006',
+  activationVersionThree: '50000000-0000-4000-8000-000000000007',
+  activationSnapshot: '60000000-0000-4000-8000-000000000004',
 } as const;
 
 const schoolGeometry = { type: 'Point', coordinates: [108.24620601721108, 16.047487976029515] };
@@ -341,6 +353,9 @@ async function seedCatalog(): Promise<void> {
   if (process.env.SEED_CROSSSTACK_FIXTURES === 'true') {
     await seedCrossStackPublicationFixture();
   }
+  if (process.env.SEED_DURABLE_PUBLICATION_FIXTURE === 'true') {
+    await seedDurablePublicationActivationFixture();
+  }
 }
 
 async function seedCrossStackPublicationFixture(): Promise<void> {
@@ -458,6 +473,180 @@ async function seedCrossStackPublicationFixture(): Promise<void> {
      VALUES($1,$2,now())
      ON CONFLICT(layer_id) DO NOTHING`,
     [ids.workflowLayer, ids.workflowSnapshot],
+  );
+}
+
+async function seedDurablePublicationActivationFixture(): Promise<void> {
+  const runNonce = process.env.DANANGMAP_RUN_NONCE?.trim();
+  if (!runNonce || !/^[a-z0-9-]{16,128}$/u.test(runNonce)) {
+    throw new Error('DANANGMAP_RUN_NONCE is required for the durable publication fixture');
+  }
+  const baselineGeometry = { type: 'Point', coordinates: [108.221, 16.068] };
+  const successorGeometries = [
+    { type: 'Point', coordinates: [108.222, 16.0685] },
+    { type: 'Point', coordinates: [108.223, 16.069] },
+    { type: 'Point', coordinates: [108.224, 16.0695] },
+  ];
+  const baselineProperties = {
+    name: 'Durable activation baseline',
+    address: 'Đà Nẵng',
+    internal_note: 'Never public: durable activation baseline',
+  };
+  const successorProperties = successorGeometries.map((_, index) => ({
+    name: `Durable activation feature ${index + 1}`,
+    address: `Điểm kiểm thử ${index + 1}, Đà Nẵng`,
+    activation_run_nonce: runNonce,
+    internal_note: `Never public: durable activation ${index + 1}`,
+  }));
+
+  await AppDataSource.query(
+    `INSERT INTO layers(id,slug,group_id,display_order,created_by)
+     VALUES($1,'durable-publication-activation',$2,91,$3)
+     ON CONFLICT(id) DO NOTHING`,
+    [ids.activationLayer, ids.groupEducation, ids.editor],
+  );
+  await AppDataSource.query(
+    `INSERT INTO layer_revisions(
+       id,layer_id,revision_no,status,title,description,geometry_mode,allowed_geometry_kinds,
+       style,render_config,popup_config,schema_version,lock_version,cursor_seq,created_by,
+       submitted_at,approved_at,published_at,supersedes_revision_id
+     ) VALUES
+       ($1,$2,1,'published','Durable publication activation',
+        'Generation-one baseline for the exact-SHA activation harness.',
+        'point',ARRAY['point'],'{"point":{"color":"#1A73E8","radius":7,"cluster":false}}',
+        '{"minZoom":8,"maxZoom":18,"cluster":false,"sourcePolicy":"geojson"}',
+        '{"titleField":"name","fieldKeys":["name","address"],"showCoordinates":false}',
+        1,1,0,$3,now(),now(),now(),NULL),
+       ($4,$2,2,'approved','Durable publication activation',
+        'Approved three-feature successor reserved for crash/recovery acceptance.',
+        'point',ARRAY['point'],'{"point":{"color":"#1A73E8","radius":7,"cluster":false}}',
+        '{"minZoom":8,"maxZoom":18,"cluster":false,"sourcePolicy":"geojson"}',
+        '{"titleField":"name","fieldKeys":["name","address"],"showCoordinates":false}',
+        1,3,3,$3,now(),now(),NULL,$1)
+     ON CONFLICT(id) DO NOTHING`,
+    [
+      ids.activationPublishedRevision,
+      ids.activationLayer,
+      ids.editor,
+      ids.activationApprovedRevision,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO layer_fields(
+       revision_id,key,label,type,icon,required,public,searchable,filterable,sortable,display_order
+     ) VALUES
+       ($1,'name','Tên điểm','text','map-pin',true,true,true,false,true,10),
+       ($1,'address','Địa chỉ','address','map-pin',false,true,true,false,false,20),
+       ($1,'internal_note','Ghi chú nội bộ','long_text','note',false,false,false,false,false,30),
+       ($2,'name','Tên điểm','text','map-pin',true,true,true,false,true,10),
+       ($2,'address','Địa chỉ','address','map-pin',false,true,true,false,false,20),
+       ($2,'activation_run_nonce','Mã lần chạy','text','hash',true,true,false,false,false,25),
+       ($2,'internal_note','Ghi chú nội bộ','long_text','note',false,false,false,false,false,30)
+     ON CONFLICT(revision_id,key) DO NOTHING`,
+    [ids.activationPublishedRevision, ids.activationApprovedRevision],
+  );
+  await AppDataSource.query(
+    `INSERT INTO features(id,layer_id,external_source,external_id) VALUES
+       ($1,$5,'activation-seed','baseline'),
+       ($2,$5,'activation-seed','successor-1'),
+       ($3,$5,'activation-seed','successor-2'),
+       ($4,$5,'activation-seed','successor-3')
+     ON CONFLICT(id) DO NOTHING`,
+    [
+      ids.activationBaselineFeature,
+      ids.activationFeatureOne,
+      ids.activationFeatureTwo,
+      ids.activationFeatureThree,
+      ids.activationLayer,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO feature_versions(
+       id,feature_id,revision_id,geometry,geometry_kind,properties,radius_m,checksum,created_by
+     ) VALUES
+       ($1,$2,$3,ST_SetSRID(ST_GeomFromGeoJSON($4),4326),'point',$5::jsonb,NULL,$6,$7),
+       ($8,$9,$10,ST_SetSRID(ST_GeomFromGeoJSON($11),4326),'point',$12::jsonb,NULL,$13,$7),
+       ($14,$15,$10,ST_SetSRID(ST_GeomFromGeoJSON($16),4326),'point',$17::jsonb,NULL,$18,$7),
+       ($19,$20,$10,ST_SetSRID(ST_GeomFromGeoJSON($21),4326),'point',$22::jsonb,NULL,$23,$7)
+     ON CONFLICT(id) DO NOTHING`,
+    [
+      ids.activationBaselineVersion,
+      ids.activationBaselineFeature,
+      ids.activationPublishedRevision,
+      JSON.stringify(baselineGeometry),
+      JSON.stringify(baselineProperties),
+      checksum({ geometry: baselineGeometry, properties: baselineProperties }),
+      ids.editor,
+      ids.activationVersionOne,
+      ids.activationFeatureOne,
+      ids.activationApprovedRevision,
+      JSON.stringify(successorGeometries[0]),
+      JSON.stringify(successorProperties[0]),
+      checksum({ geometry: successorGeometries[0], properties: successorProperties[0] }),
+      ids.activationVersionTwo,
+      ids.activationFeatureTwo,
+      JSON.stringify(successorGeometries[1]),
+      JSON.stringify(successorProperties[1]),
+      checksum({ geometry: successorGeometries[1], properties: successorProperties[1] }),
+      ids.activationVersionThree,
+      ids.activationFeatureThree,
+      JSON.stringify(successorGeometries[2]),
+      JSON.stringify(successorProperties[2]),
+      checksum({ geometry: successorGeometries[2], properties: successorProperties[2] }),
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO revision_features(revision_id,feature_id,feature_version_id,ordinal) VALUES
+       ($1,$2,$3,1),
+       ($4,$5,$6,1),($4,$7,$8,2),($4,$9,$10,3)
+     ON CONFLICT DO NOTHING`,
+    [
+      ids.activationPublishedRevision,
+      ids.activationBaselineFeature,
+      ids.activationBaselineVersion,
+      ids.activationApprovedRevision,
+      ids.activationFeatureOne,
+      ids.activationVersionOne,
+      ids.activationFeatureTwo,
+      ids.activationVersionTwo,
+      ids.activationFeatureThree,
+      ids.activationVersionThree,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO revision_participants(revision_id,user_id,participation_type) VALUES
+       ($1,$3,'edit'),($1,$4,'review'),($1,$5,'publish'),
+       ($2,$3,'edit'),($2,$4,'review')
+     ON CONFLICT DO NOTHING`,
+    [
+      ids.activationPublishedRevision,
+      ids.activationApprovedRevision,
+      ids.editor,
+      ids.reviewer,
+      ids.publisher,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO publication_snapshots(
+       id,layer_id,revision_id,status,generation,feature_count,bounds,checksum,manifest,
+       published_by,published_at,activated_at
+     ) VALUES(
+       $1,$2,$3,'published',1,1,ARRAY[108.221,16.068,108.221,16.068],$4,
+       '{"sourceKind":"geojson","sourceLayer":"features","activationFixture":true}',
+       $5,now(),now()
+     ) ON CONFLICT(id) DO NOTHING`,
+    [
+      ids.activationSnapshot,
+      ids.activationLayer,
+      ids.activationPublishedRevision,
+      checksum(ids.activationBaselineFeature),
+      ids.publisher,
+    ],
+  );
+  await AppDataSource.query(
+    `INSERT INTO layer_publications(layer_id,active_snapshot_id,pointer_updated_at)
+     VALUES($1,$2,now()) ON CONFLICT(layer_id) DO NOTHING`,
+    [ids.activationLayer, ids.activationSnapshot],
   );
 }
 

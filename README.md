@@ -8,6 +8,7 @@ NestJS API và background worker cho DanangMap v2 Spatial CMS.
 - [SRS](docs/SRS.md)
 - [API Contract](docs/API-CONTRACT.md)
 - [Kế hoạch triển khai](docs/PLANS.md)
+- [Runbook kích hoạt durable publication](docs/DURABLE-PUBLICATION-ACTIVATION.md)
 - [Thiết kế frontend](https://github.com/duckvhuynh/danangmap-frontend/blob/main/docs/DESIGN.md)
 - [GitHub Project](https://github.com/users/duckvhuynh/projects/3)
 
@@ -19,3 +20,7 @@ NestJS API và background worker cho DanangMap v2 Spatial CMS.
 - Session nội bộ HttpOnly, MFA và strict Editor, Reviewer, Publisher separation.
 - Revision bất biến, publication snapshot nguyên tử và public GeoJSON/MVT.
 - Backup hiện ngoài phạm vi và được ghi nhận là accepted risk.
+
+`ASYNC_PUBLICATION_ENABLED` vẫn mặc định `false`. Nhánh activation chỉ chuẩn bị harness
+crash/recovery exact-SHA; validation production vẫn fail-closed cho tới commit kích hoạt được review
+riêng sau khi hai run fresh-volume pass.

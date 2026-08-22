@@ -52,25 +52,38 @@ jobs:
         run: docker compose -f compose.e2e.yml down -v --remove-orphans
 
   cross-stack-browser:
-    if: github.event_name == 'pull_request' && github.head_ref == 'integration/v2-canonical-backend'
+    if: >-
+      github.event_name == 'pull_request' &&
+      (github.head_ref == 'integration/v2-canonical-backend' ||
+       github.head_ref == 'test/durable-publication-activation')
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 75
     env:
       DANANGMAP_BACKEND_SHA: ${{ github.event.pull_request.head.sha }}
       DANANGMAP_FRONTEND_CONTEXT: ${{ github.workspace }}/.crossstack/danangmap-frontend
-      DANANGMAP_FRONTEND_SHA: 244538488ecb4fd26f910c33d4a499ef23a7d040
+      DANANGMAP_FRONTEND_SHA: 6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8
       DANANGMAP_FULLSTACK_RUNS: '2'
     steps:
       - name: Checkout exact backend revision
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Require private cross-repository read token
+        env:
+          CROSS_REPO_READ_TOKEN: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+        run: |
+          if [ -z "$CROSS_REPO_READ_TOKEN" ]; then
+            echo "CROSS_REPO_READ_TOKEN is required for the private exact-SHA frontend checkout." >&2
+            exit 1
+          fi
       - name: Checkout exact frontend revision
         uses: actions/checkout@v4
         with:
           repository: duckvhuynh/danangmap-frontend
-          ref: 244538488ecb4fd26f910c33d4a499ef23a7d040
+          ref: ${{ env.DANANGMAP_FRONTEND_SHA }}
           path: .crossstack/danangmap-frontend
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:

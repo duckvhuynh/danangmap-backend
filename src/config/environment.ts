@@ -51,7 +51,9 @@ const environmentSchema = z
     PUBLICATION_TEST_FAILPOINT: z
       .enum(['after_batch_commit', 'before_pointer_switch', 'after_final_commit'])
       .optional(),
-    PUBLICATION_TEST_BARRIER: z.enum(['before_first_batch', 'before_pointer_switch']).optional(),
+    PUBLICATION_TEST_BARRIER: z
+      .enum(['before_first_batch', 'after_batch_commit', 'before_pointer_switch'])
+      .optional(),
     MINIO_ENDPOINT: z.string().min(1).default('localhost'),
     MINIO_PORT: z.coerce.number().int().min(1).max(65535).default(9000),
     MINIO_USE_SSL: booleanString,

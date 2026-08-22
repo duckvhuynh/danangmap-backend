@@ -84,9 +84,16 @@ describe('environment validation', () => {
       validateEnvironment({
         ...baseline,
         NODE_ENV: 'test',
-        PUBLICATION_TEST_BARRIER: 'before_pointer_switch',
+        PUBLICATION_TEST_BARRIER: 'after_batch_commit',
       }).PUBLICATION_TEST_BARRIER,
-    ).toBe('before_pointer_switch');
+    ).toBe('after_batch_commit');
+    expect(() =>
+      validateEnvironment({
+        ...baseline,
+        NODE_ENV: 'production',
+        PUBLICATION_TEST_BARRIER: 'after_batch_commit',
+      }),
+    ).toThrow('publication test controls are allowed only when NODE_ENV=test');
   });
 
   it('refuses the admission-only async publication flag in production', () => {

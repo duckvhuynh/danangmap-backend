@@ -27,6 +27,8 @@ services:
       service: seed
     environment:
       SEED_CROSSSTACK_FIXTURES: 'true'
+      SEED_DURABLE_PUBLICATION_FIXTURE: 'true'
+      DANANGMAP_RUN_NONCE: ${DANANGMAP_RUN_NONCE:-integration-durable-publication}
 
   api:
     extends:
@@ -101,6 +103,7 @@ services:
       SEED_PUBLISHER_PASSWORD: ChangeMe-Publisher-2026!
       SEED_MFA_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
       GEO_SERVICE_BASE_URL: ''
+      DANANGMAP_RUN_NONCE: ${DANANGMAP_RUN_NONCE:-integration-durable-publication}
       API_BASE_URL: http://api:4000
       MAILPIT_API_URL: http://mailpit:8025
     command: ['npm', 'run', 'test:integration']

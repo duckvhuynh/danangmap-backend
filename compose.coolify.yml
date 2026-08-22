@@ -1,0 +1,193 @@
+x-backend-build: &backend-build
+  context: .
+  dockerfile: Dockerfile
+  target: runtime
+
+x-backend-environment: &backend-environment
+  NODE_ENV: production
+  APP_VERSION: ${APP_VERSION:-0.1.0}
+  PORT: '4000'
+  DATABASE_URL: postgresql://danangmap:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/danangmap
+  DATABASE_SSL: 'false'
+  REDIS_HOST: redis
+  REDIS_PORT: '6379'
+  REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+  ASYNC_PUBLICATION_ENABLED: ${ASYNC_PUBLICATION_ENABLED:-false}
+  PUBLICATION_DISPATCH_INTERVAL_MS: ${PUBLICATION_DISPATCH_INTERVAL_MS:-2000}
+  PUBLICATION_DISPATCH_BATCH_SIZE: ${PUBLICATION_DISPATCH_BATCH_SIZE:-25}
+  PUBLICATION_OUTBOX_LEASE_SECONDS: ${PUBLICATION_OUTBOX_LEASE_SECONDS:-30}
+  PUBLICATION_MAX_ATTEMPTS: ${PUBLICATION_MAX_ATTEMPTS:-5}
+  PUBLICATION_BUILD_BATCH_SIZE: ${PUBLICATION_BUILD_BATCH_SIZE:-100}
+  PUBLICATION_BUILD_LEASE_SECONDS: ${PUBLICATION_BUILD_LEASE_SECONDS:-60}
+  PUBLICATION_HEARTBEAT_INTERVAL_MS: ${PUBLICATION_HEARTBEAT_INTERVAL_MS:-5000}
+  PUBLICATION_RECOVERY_INTERVAL_MS: ${PUBLICATION_RECOVERY_INTERVAL_MS:-5000}
+  PUBLICATION_WORKER_STALE_SECONDS: ${PUBLICATION_WORKER_STALE_SECONDS:-30}
+  PUBLICATION_RETRY_BACKOFF_MS: ${PUBLICATION_RETRY_BACKOFF_MS:-1000}
+  PUBLICATION_MAX_FEATURES: ${PUBLICATION_MAX_FEATURES:-100000}
+  PUBLICATION_MAX_VERTICES: ${PUBLICATION_MAX_VERTICES:-2000000}
+  MINIO_ENDPOINT: minio
+  MINIO_PORT: '9000'
+  MINIO_USE_SSL: 'false'
+  MINIO_ACCESS_KEY: danangmap
+  MINIO_SECRET_KEY: ${SERVICE_PASSWORD_MINIO}
+  MINIO_BUCKET: ${MINIO_BUCKET:-danangmap}
+  SESSION_PEPPER: ${SERVICE_PASSWORD_64_SESSIONPEPPER}
+  FIELD_ENCRYPTION_KEY: ${SERVICE_PASSWORD_64_FIELDENCRYPTION}
+  FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:?Set FRONTEND_ORIGINS to the HTTPS frontend origin}
+  COOKIE_SECURE: 'true'
+  MFA_TOTP_ISSUER: ${MFA_TOTP_ISSUER:-DanangMap}
+  TRUST_PROXY_HOPS: '1'
+  GEO_SERVICE_BASE_URL: ${GEO_SERVICE_BASE_URL:-}
+  GEO_SERVICE_AUTH_HEADER: ${GEO_SERVICE_AUTH_HEADER:-}
+  GEO_SERVICE_CONNECT_TIMEOUT_MS: ${GEO_SERVICE_CONNECT_TIMEOUT_MS:-2000}
+  GEO_SERVICE_TOTAL_TIMEOUT_MS: ${GEO_SERVICE_TOTAL_TIMEOUT_MS:-5000}
+  GEO_SERVICE_RETRY_ATTEMPTS: ${GEO_SERVICE_RETRY_ATTEMPTS:-2}
+  GEO_SERVICE_RETRY_DELAY_MS: ${GEO_SERVICE_RETRY_DELAY_MS:-100}
+  GEO_SERVICE_BREAKER_FAILURE_THRESHOLD: ${GEO_SERVICE_BREAKER_FAILURE_THRESHOLD:-5}
+  GEO_SERVICE_BREAKER_OPEN_MS: ${GEO_SERVICE_BREAKER_OPEN_MS:-30000}
+  SMTP_ENABLED: ${SMTP_ENABLED:-false}
+  MAIL_DELIVERY_REQUIRED: ${MAIL_DELIVERY_REQUIRED:-false}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_TLS_MODE: ${SMTP_TLS_MODE:-starttls}
+  SMTP_REJECT_UNAUTHORIZED: ${SMTP_REJECT_UNAUTHORIZED:-true}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_FROM_NAME: ${SMTP_FROM_NAME:-DanangMap}
+  SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-}
+  SMTP_REPLY_TO_ADDRESS: ${SMTP_REPLY_TO_ADDRESS:-}
+  SMTP_CONNECTION_TIMEOUT_MS: ${SMTP_CONNECTION_TIMEOUT_MS:-5000}
+  SMTP_GREETING_TIMEOUT_MS: ${SMTP_GREETING_TIMEOUT_MS:-5000}
+  SMTP_SOCKET_TIMEOUT_MS: ${SMTP_SOCKET_TIMEOUT_MS:-15000}
+  SMTP_POOL_MAX_CONNECTIONS: ${SMTP_POOL_MAX_CONNECTIONS:-2}
+  SMTP_RATE_LIMIT_PER_MINUTE: ${SMTP_RATE_LIMIT_PER_MINUTE:-60}
+  SMTP_PER_RECIPIENT_INTERVAL_SECONDS: ${SMTP_PER_RECIPIENT_INTERVAL_SECONDS:-60}
+  MAIL_SWEEP_INTERVAL_MS: ${MAIL_SWEEP_INTERVAL_MS:-5000}
+  SMTP_PROBE_INTERVAL_MS: ${SMTP_PROBE_INTERVAL_MS:-30000}
+  MAIL_CLAIM_LEASE_SECONDS: ${MAIL_CLAIM_LEASE_SECONDS:-60}
+  MAIL_MAX_ATTEMPTS: ${MAIL_MAX_ATTEMPTS:-5}
+  MAIL_BACKOFF_BASE_SECONDS: ${MAIL_BACKOFF_BASE_SECONDS:-30}
+  MAIL_BACKOFF_MAX_SECONDS: ${MAIL_BACKOFF_MAX_SECONDS:-3600}
+  MAIL_BACKOFF_JITTER_PERCENT: ${MAIL_BACKOFF_JITTER_PERCENT:-20}
+  MAIL_FAILED_PAYLOAD_RETENTION_HOURS: ${MAIL_FAILED_PAYLOAD_RETENTION_HOURS:-24}
+  MAIL_WORKER_HEARTBEAT_STALE_SECONDS: ${MAIL_WORKER_HEARTBEAT_STALE_SECONDS:-120}
+
+x-backend-service: &backend-service
+  image: danangmap-backend:${APP_VERSION:-0.1.0}
+  pull_policy: never
+  environment: *backend-environment
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  stop_grace_period: 30s
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_DB: danangmap
+      POSTGRES_USER: danangmap
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    shm_size: 256mb
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U danangmap -d danangmap']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    stop_grace_period: 1m
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4.2-alpine
+    environment:
+      REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --maxmemory-policy noeviction --requirepass "$${REDIS_PASSWORD}"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: danangmap
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_MINIO}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend-service
+    command: ['npm', 'run', 'migration:run:prod']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    exclude_from_hc: true
+    restart: 'no'
+
+  api:
+    <<: *backend-service
+    build: *backend-build
+    pull_policy: build
+    command: ['node', 'dist/apps/api/src/main.js']
+    expose:
+      - '4000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  worker:
+    <<: *backend-service
+    command: ['node', 'dist/apps/worker/src/main.js']
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'process.kill(1, 0)']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

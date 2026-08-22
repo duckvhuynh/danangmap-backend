@@ -87,6 +87,7 @@ jobs:
           ref: ${{ env.DANANGMAP_FRONTEND_SHA }}
           path: .crossstack/danangmap-frontend
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:

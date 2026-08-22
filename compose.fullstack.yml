@@ -12,28 +12,127 @@ services:
 
   mailpit:
     ports: !reset []
+    command:
+      [
+        '--smtp-tls-cert',
+        '/certs/cert.pem',
+        '--smtp-tls-key',
+        '/certs/key.pem',
+        '--smtp-require-starttls',
+      ]
+    volumes:
+      - mailpit-tls:/certs:ro
+    depends_on:
+      mailpit-tls:
+        condition: service_completed_successfully
 
-  api:
-    ports: !reset []
-    labels:
-      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
-    environment:
-      COOKIE_SECURE: 'true'
-      FRONTEND_ORIGINS: https://gateway
+  mailpit-tls:
+    image: alpine/openssl@sha256:47f40fac08a77cbdfb02444e543808aa36b9e31e21a261f4d94ffaf0c5c73832
+    profiles: ['fullstack']
+    command:
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-keyout',
+        '/certs/key.pem',
+        '-out',
+        '/certs/cert.pem',
+        '-days',
+        '1',
+        '-subj',
+        '/CN=mailpit',
+        '-addext',
+        'subjectAltName=DNS:mailpit',
+      ]
+    volumes:
+      - mailpit-tls:/certs
+    restart: 'no'
 
-  worker:
+  migrate:
+    build:
+      labels:
+        danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
     labels:
       danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
 
   seed:
+    build:
+      labels:
+        danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
     environment:
       SEED_ROLLBACK_PUBLISHER_PASSWORD: ${SEED_ROLLBACK_PUBLISHER_PASSWORD:-ChangeMe-rollback-publisher-2026!}
+      DANANGMAP_RUN_NONCE: ${DANANGMAP_RUN_NONCE:?DANANGMAP_RUN_NONCE is required}
+
+  api:
+    ports: !reset []
+    build:
+      labels:
+        danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    environment:
+      NODE_ENV: ${DANANGMAP_ASYNC_API_NODE_ENV:-development}
+      ASYNC_PUBLICATION_ENABLED: 'true'
+      PUBLICATION_DISPATCH_INTERVAL_MS: 500
+      PUBLICATION_RECOVERY_INTERVAL_MS: 1000
+      PUBLICATION_WORKER_STALE_SECONDS: 30
+      COOKIE_SECURE: 'true'
+      FRONTEND_ORIGINS: https://gateway
+
+  worker:
+    build:
+      labels:
+        danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    environment:
+      NODE_ENV: ${DANANGMAP_CANONICAL_WORKER_NODE_ENV:-development}
+      ASYNC_PUBLICATION_ENABLED: 'true'
+      PUBLICATION_BUILD_BATCH_SIZE: 1
+      PUBLICATION_BUILD_LEASE_SECONDS: 15
+      PUBLICATION_HEARTBEAT_INTERVAL_MS: 1000
+      PUBLICATION_RECOVERY_INTERVAL_MS: 1000
+      PUBLICATION_WORKER_STALE_SECONDS: 30
+      SMTP_TLS_MODE: starttls
+      SMTP_REJECT_UNAUTHORIZED: 'true'
+      NODE_EXTRA_CA_CERTS: /certs/cert.pem
+    volumes:
+      - mailpit-tls:/certs:ro
+    restart: 'no'
+
+  crash-worker:
+    extends:
+      file: compose.yml
+      service: worker
+    build:
+      labels:
+        danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+      danangmap.test.role: durable-publication-crash-worker
+    environment:
+      NODE_ENV: test
+      ASYNC_PUBLICATION_ENABLED: 'true'
+      PUBLICATION_BUILD_BATCH_SIZE: 1
+      PUBLICATION_BUILD_LEASE_SECONDS: 15
+      PUBLICATION_HEARTBEAT_INTERVAL_MS: 1000
+      PUBLICATION_RECOVERY_INTERVAL_MS: 1000
+      PUBLICATION_WORKER_STALE_SECONDS: 30
+      PUBLICATION_TEST_BARRIER: after_batch_commit
+    restart: 'no'
 
   frontend:
     ports: !reset []
     labels:
-      danangmap.frontend.revision: 244538488ecb4fd26f910c33d4a499ef23a7d040
+      danangmap.frontend.revision: ${DANANGMAP_FRONTEND_SHA:?DANANGMAP_FRONTEND_SHA is required}
     build:
+      labels:
+        danangmap.frontend.revision: ${DANANGMAP_FRONTEND_SHA:?DANANGMAP_FRONTEND_SHA is required}
       args:
         NEXT_PUBLIC_API_BASE_URL: https://gateway
 
@@ -62,25 +161,39 @@ services:
       start_period: 10s
 
   fullstack-smoke:
+    build:
+      labels:
+        danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
     environment:
       FRONTEND_PUBLIC_ORIGIN: https://gateway
       CROSSSTACK_PUBLICATION_LAYER_SLUG: cross-stack-publication
+      DURABLE_PUBLICATION_LAYER_SLUG: durable-publication-activation
+      EXPECT_PUBLICATION_READINESS: degraded
     depends_on:
       gateway:
         condition: service_healthy
 
   fullstack-browser:
     profiles: ['fullstack']
+    labels:
+      danangmap.frontend.revision: ${DANANGMAP_FRONTEND_SHA:?DANANGMAP_FRONTEND_SHA is required}
     build:
       context: ${DANANGMAP_FRONTEND_CONTEXT:-../danangmap-frontend}
       dockerfile: Dockerfile.e2e
       labels:
-        danangmap.frontend.revision: 244538488ecb4fd26f910c33d4a499ef23a7d040
+        danangmap.frontend.revision: ${DANANGMAP_FRONTEND_SHA:?DANANGMAP_FRONTEND_SHA is required}
     environment:
       CI: 'true'
       DANANGMAP_REAL_STACK: 'true'
       DANANGMAP_CMS1_ENABLED: 'true'
       DANANGMAP_HISTORY_ENABLED: 'true'
+      DANANGMAP_ASYNC_PUBLICATION_ENABLED: 'true'
+      DANANGMAP_ACTIVATION_LAYER_SLUG: durable-publication-activation
+      DANANGMAP_EXPECTED_PUBLICATION_FEATURE_TOTAL: '3'
+      DANANGMAP_DURABLE_PUBLICATION_PHASE_DIR: /phase
+      DANANGMAP_DURABLE_PUBLICATION_RUN_NONCE: ${DANANGMAP_RUN_NONCE:?DANANGMAP_RUN_NONCE is required}
       PLAYWRIGHT_BASE_URL: https://gateway
       MAILPIT_BASE_URL: http://mailpit:8025
       DANANGMAP_ADMIN_LOGIN: ${DANANGMAP_ADMIN_LOGIN:-admin}
@@ -114,6 +227,9 @@ services:
       - type: bind
         source: ${DANANGMAP_PLAYWRIGHT_RESULTS_DIR:-./artifacts/fullstack/test-results}
         target: /app/test-results
+      - type: bind
+        source: ${DANANGMAP_PHASE_DIR:?DANANGMAP_PHASE_DIR is required}
+        target: /phase
     depends_on:
       fullstack-smoke:
         condition: service_completed_successfully
@@ -121,6 +237,35 @@ services:
         condition: service_healthy
       mailpit:
         condition: service_healthy
-      worker:
-        condition: service_started
     restart: 'no'
+
+  test:
+    build:
+      labels:
+        danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+
+  publication-barrier:
+    profiles: ['fullstack']
+    build:
+      context: .
+      target: test
+      labels:
+        danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+    labels:
+      danangmap.backend.revision: ${DANANGMAP_BACKEND_SHA:?DANANGMAP_BACKEND_SHA is required}
+      danangmap.test.role: durable-publication-advisory-barrier
+    environment:
+      DATABASE_URL: postgresql://danangmap:danangmap@postgres:5432/danangmap
+      DANANGMAP_PHASE_DIRECTORY: /phase
+      DANANGMAP_RUN_NONCE: ${DANANGMAP_RUN_NONCE:?DANANGMAP_RUN_NONCE is required}
+    command: ['node', 'scripts/hold-publication-barrier.mjs']
+    volumes:
+      - type: bind
+        source: ${DANANGMAP_PHASE_DIR:?DANANGMAP_PHASE_DIR is required}
+        target: /phase
+    restart: 'no'
+
+volumes:
+  mailpit-tls:

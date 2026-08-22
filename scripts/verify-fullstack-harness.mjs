@@ -18,6 +18,16 @@ if (!homepageHtml.includes('__next') && !homepageHtml.includes('/_next/')) {
 
 const readiness = await fetch(`${apiBaseUrl}/health/ready`);
 if (!readiness.ok) throw new Error(`API readiness failed: ${readiness.status}`);
+const readinessBody = await readiness.json();
+const expectedPublicationReadiness = process.env.EXPECT_PUBLICATION_READINESS;
+if (
+  expectedPublicationReadiness &&
+  readinessBody?.checks?.publication !== expectedPublicationReadiness
+) {
+  throw new Error(
+    `Publication readiness expected ${expectedPublicationReadiness}, received ${String(readinessBody?.checks?.publication)}.`,
+  );
+}
 
 const catalog = await fetch(`${apiBaseUrl}/api/v1/public/layers`, {
   headers: { Origin: frontendPublicOrigin },
@@ -34,12 +44,17 @@ const fixtureSlug = process.env.CROSSSTACK_PUBLICATION_LAYER_SLUG;
 if (fixtureSlug && !catalogBody?.data?.some((layer) => layer?.slug === fixtureSlug)) {
   throw new Error('Cross-stack publication fixture is unavailable to the full-stack harness');
 }
+const durableFixtureSlug = process.env.DURABLE_PUBLICATION_LAYER_SLUG;
+if (durableFixtureSlug && !catalogBody?.data?.some((layer) => layer?.slug === durableFixtureSlug)) {
+  throw new Error('Durable publication activation fixture is unavailable to the harness');
+}
 
 console.log(
   JSON.stringify({
     status: 'ok',
     frontend: frontendHealthBody.service,
     api: 'ready',
+    publication: readinessBody?.checks?.publication,
     catalogLayers: catalogBody.data.length,
     demoMode: false,
   }),

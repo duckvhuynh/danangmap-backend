@@ -41,6 +41,7 @@ const ids = {
   activationVersionTwo: '50000000-0000-4000-8000-000000000006',
   activationVersionThree: '50000000-0000-4000-8000-000000000007',
   activationSnapshot: '60000000-0000-4000-8000-000000000004',
+  expiredInvite: '70000000-0000-4000-8000-000000000001',
 } as const;
 
 const schoolGeometry = { type: 'Point', coordinates: [108.24620601721108, 16.047487976029515] };
@@ -120,6 +121,36 @@ function encrypted(value: string): string {
 
 function checksum(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+export function resolveCrossStackExpiredInviteFixture(environment: NodeJS.ProcessEnv): {
+  id: string;
+  tokenHash: string;
+} {
+  if (
+    environment.ALLOW_SEED !== 'true' ||
+    environment.SEED_CROSSSTACK_FIXTURES !== 'true' ||
+    environment.SEED_CROSSSTACK_IDENTITY_FIXTURE !== 'true' ||
+    !['development', 'test'].includes(environment.NODE_ENV ?? '')
+  ) {
+    throw new Error('Cross-stack identity fixture requires explicit local test-seed flags');
+  }
+
+  const token = environment.DANANGMAP_EXPIRED_INVITE_TOKEN?.trim();
+  if (!token || token.length < 32 || token.length > 512 || !/^[A-Za-z0-9_-]+$/u.test(token)) {
+    throw new Error('DANANGMAP_EXPIRED_INVITE_TOKEN must be a valid 32-512 character test token');
+  }
+  const pepper = environment.SESSION_PEPPER;
+  if (!pepper || pepper.length < 32) {
+    throw new Error(
+      'Cross-stack identity fixture requires SESSION_PEPPER with at least 32 characters',
+    );
+  }
+
+  return {
+    id: ids.expiredInvite,
+    tokenHash: createHash('sha256').update(`${token}:${pepper}`).digest('hex'),
+  };
 }
 
 async function seedUsers(
@@ -353,9 +384,29 @@ async function seedCatalog(): Promise<void> {
   if (process.env.SEED_CROSSSTACK_FIXTURES === 'true') {
     await seedCrossStackPublicationFixture();
   }
+  if (process.env.SEED_CROSSSTACK_IDENTITY_FIXTURE === 'true') {
+    await seedCrossStackIdentityFixture();
+  }
   if (process.env.SEED_DURABLE_PUBLICATION_FIXTURE === 'true') {
     await seedDurablePublicationActivationFixture();
   }
+}
+
+async function seedCrossStackIdentityFixture(): Promise<void> {
+  const fixture = resolveCrossStackExpiredInviteFixture(process.env);
+  await AppDataSource.query(
+    `INSERT INTO invites(
+       id,email,username,display_name,role,token_hash,created_by,expires_at,
+       used_at,revoked_at,accepted_user_id,created_at
+     ) VALUES(
+       $1,'expired-invite@danangmap.test','expired-invite','Lời mời đã hết hạn','editor',$2,$3,
+       now() - interval '10 minutes',NULL,NULL,NULL,now() - interval '1 day'
+     )
+     ON CONFLICT(id) DO UPDATE SET
+       token_hash=EXCLUDED.token_hash,expires_at=EXCLUDED.expires_at,
+       used_at=NULL,revoked_at=NULL,accepted_user_id=NULL`,
+    [fixture.id, fixture.tokenHash, ids.admin],
+  );
 }
 
 async function seedCrossStackPublicationFixture(): Promise<void> {

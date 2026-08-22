@@ -67,6 +67,12 @@ if (process.argv.includes('--self-check-activation-policy')) {
   process.exit(0);
 }
 
+if (process.argv.includes('--self-check-execution-count-policy')) {
+  assertBrowserExecutionCountPolicy();
+  console.log('Full-stack browser execution-count policy self-check passed.');
+  process.exit(0);
+}
+
 const activationPolicy = resolveActivationPolicy(process.env);
 
 const frontendContext = resolve(
@@ -122,6 +128,17 @@ async function runFreshStack(run) {
   const resultsRoot = resolve(runRoot, 'test-results');
   const phaseDirectory = resolve(runRoot, 'phase');
   const runNonce = randomBytes(18).toString('hex');
+  const expiredInviteToken = identityTestToken(
+    'DANANGMAP_EXPIRED_INVITE_TOKEN',
+    process.env.DANANGMAP_EXPIRED_INVITE_TOKEN,
+  );
+  const inviteRateLimitToken = identityTestToken(
+    'DANANGMAP_INVITE_RATE_LIMIT_TOKEN',
+    process.env.DANANGMAP_INVITE_RATE_LIMIT_TOKEN,
+  );
+  if (expiredInviteToken === inviteRateLimitToken) {
+    throw new Error('Cross-stack expired and rate-limit invite tokens must be distinct.');
+  }
   await Promise.all(
     [runRoot, reportRoot, resultsRoot, phaseDirectory].map((directory) =>
       mkdir(directory, { recursive: true }),
@@ -148,6 +165,8 @@ async function runFreshStack(run) {
     DANANGMAP_PLAYWRIGHT_RESULTS_DIR: portable(resultsRoot),
     DANANGMAP_PHASE_DIR: portable(phaseDirectory),
     DANANGMAP_RUN_NONCE: runNonce,
+    DANANGMAP_EXPIRED_INVITE_TOKEN: expiredInviteToken,
+    DANANGMAP_INVITE_RATE_LIMIT_TOKEN: inviteRateLimitToken,
     ASYNC_PUBLICATION_ENABLED: 'true',
   };
   const phaseEvidence = {};
@@ -479,9 +498,7 @@ async function runFreshStack(run) {
         controlResults,
       });
     }
-    if (specResults.length !== 9 || specResults.some((result) => result.exitCode !== 0)) {
-      throw new Error('The required four durable phases and five real-stack specs did not pass.');
-    }
+    assertBrowserExecutionResults(specResults);
     checked(
       'docker',
       [
@@ -1576,6 +1593,41 @@ function exactRunCount(value) {
     throw new Error('DANANGMAP_FULLSTACK_RUNS must be exactly 2 for activation acceptance.');
   }
   return parsed;
+}
+
+function identityTestToken(name, configuredValue) {
+  const value = configuredValue?.trim() || randomBytes(32).toString('base64url');
+  if (value.length < 32 || value.length > 512 || !/^[A-Za-z0-9_-]+$/u.test(value)) {
+    throw new Error(`${name} must be a valid 32-512 character test token.`);
+  }
+  return value;
+}
+
+function assertBrowserExecutionResults(results) {
+  const expected = phaseNames.length + remainingSpecs.length;
+  if (results.length !== expected || results.some((result) => result.exitCode !== 0)) {
+    throw new Error(
+      `The required ${phaseNames.length} durable phases and ${remainingSpecs.length} real-stack specs did not pass.`,
+    );
+  }
+}
+
+function assertBrowserExecutionCountPolicy() {
+  const expected = phaseNames.length + remainingSpecs.length;
+  assertBrowserExecutionResults(Array.from({ length: expected }, () => ({ exitCode: 0 })));
+  for (const rejected of [
+    Array.from({ length: expected - 1 }, () => ({ exitCode: 0 })),
+    Array.from({ length: expected }, (_, index) => ({ exitCode: index === expected - 1 ? 1 : 0 })),
+  ]) {
+    let rejectedAsExpected = false;
+    try {
+      assertBrowserExecutionResults(rejected);
+    } catch {
+      rejectedAsExpected = true;
+    }
+    if (!rejectedAsExpected)
+      throw new Error('Browser execution-count policy accepted invalid input.');
+  }
 }
 
 function strictNonNegativeInteger(value, label) {

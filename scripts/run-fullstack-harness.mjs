@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 
-const minimumFrontendSha = 'cbb31e6b7901cd30f2fca8ba81ebe2f24e7e9d7f';
+const minimumFrontendSha = '5edeef861258135b4e165afd2f0b7d5e627fc0d2';
 const activationLayerSlug = 'durable-publication-activation';
 const durableSpec = 'durable-publication-progress.spec.ts';
 const mailpitTlsImage =
@@ -34,6 +34,7 @@ const mailpitCommand = Object.freeze([
 ]);
 const remainingSpecs = [
   'account-import-invite.spec.ts',
+  'attachment-publication.spec.ts',
   'identity-recovery.spec.ts',
   'layer-configuration-create.spec.ts',
   'layer-configuration-lifecycle.spec.ts',

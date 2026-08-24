@@ -74,4 +74,28 @@ describe('buildAttachmentDiff', () => {
     expect(diff.removed).toEqual([]);
     expect(diff.redactedChange).toBe(false);
   });
+
+  it('does not redact visibility flip with simultaneous display order change', () => {
+    const diffPrivateToPublic = buildAttachmentDiff([
+      row({ id: 'same', side: 'base', safePublic: false, displayOrder: 1 }),
+      row({ id: 'same', side: 'current', safePublic: true, displayOrder: 2 }),
+    ]);
+
+    expect(diffPrivateToPublic.added).toEqual([
+      expect.objectContaining({ id: 'same', displayOrder: 2 }),
+    ]);
+    expect(diffPrivateToPublic.removed).toEqual([]);
+    expect(diffPrivateToPublic.redactedChange).toBe(false);
+
+    const diffPublicToPrivate = buildAttachmentDiff([
+      row({ id: 'same', side: 'base', safePublic: true, displayOrder: 1 }),
+      row({ id: 'same', side: 'current', safePublic: false, displayOrder: 2 }),
+    ]);
+
+    expect(diffPublicToPrivate.added).toEqual([]);
+    expect(diffPublicToPrivate.removed).toEqual([
+      expect.objectContaining({ id: 'same', displayOrder: 1 }),
+    ]);
+    expect(diffPublicToPrivate.redactedChange).toBe(false);
+  });
 });

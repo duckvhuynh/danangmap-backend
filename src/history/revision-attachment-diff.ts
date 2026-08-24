@@ -85,12 +85,16 @@ export async function queryRevisionAttachmentDiffSummary(
                 AND (current_id IS NULL OR NOT current_safe) AS public_removed,
               current_id IS NOT NULL AND base_id IS NOT NULL
                 AND current_safe AND base_safe
-                AND current_order IS DISTINCT FROM base_order AS public_reordered,
+                AND current_order IS DISTINCT FROM base_order AS public_reordered
+       FROM compared
+     ), changes_with_redaction AS (
+       SELECT *,
               (current_id IS NULL OR base_id IS NULL
                 OR current_order IS DISTINCT FROM base_order)
                 AND ((current_id IS NOT NULL AND NOT current_safe)
-                  OR (base_id IS NOT NULL AND NOT base_safe)) AS redacted_change
-       FROM compared
+                  OR (base_id IS NOT NULL AND NOT base_safe))
+                AND NOT public_added AND NOT public_removed AS redacted_change
+       FROM changes
      )
      SELECT count(DISTINCT feature_id) FILTER (
               WHERE public_added OR public_removed OR public_reordered OR redacted_change
@@ -99,7 +103,7 @@ export async function queryRevisionAttachmentDiffSummary(
             count(*) FILTER (WHERE public_removed)::integer AS removed,
             count(*) FILTER (WHERE public_reordered)::integer AS reordered,
             count(*) FILTER (WHERE redacted_change)::integer AS "redactedChangeCount"
-     FROM changes`,
+     FROM changes_with_redaction`,
     [currentRevisionId, baseRevisionId],
   )) as Array<{
     featuresModified: number;
@@ -182,8 +186,10 @@ export function buildAttachmentDiff(rows: AttachmentSideRow[]): RevisionAttachme
     const after = current.get(key);
     const before = base.get(key);
     const actualChanged = !after || !before || after.displayOrder !== before.displayOrder;
-    if (after?.safePublic && (!before || !before.safePublic)) added.push(descriptor(after));
-    if (before?.safePublic && (!after || !after.safePublic)) removed.push(descriptor(before));
+    const publicAdded = after?.safePublic && (!before || !before.safePublic);
+    const publicRemoved = before?.safePublic && (!after || !after.safePublic);
+    if (publicAdded) added.push(descriptor(after));
+    if (publicRemoved) removed.push(descriptor(before));
     if (after?.safePublic && before?.safePublic && after.displayOrder !== before.displayOrder) {
       reordered.push({
         id: after.id,
@@ -193,7 +199,12 @@ export function buildAttachmentDiff(rows: AttachmentSideRow[]): RevisionAttachme
         afterDisplayOrder: after.displayOrder,
       });
     }
-    if (actualChanged && ((after && !after.safePublic) || (before && !before.safePublic))) {
+    if (
+      actualChanged &&
+      ((after && !after.safePublic) || (before && !before.safePublic)) &&
+      !publicAdded &&
+      !publicRemoved
+    ) {
       redactedChange = true;
     }
   }

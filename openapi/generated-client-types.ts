@@ -100,6 +100,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/mfa/recovery-codes:regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Replaces every recovery code after password and MFA re-authentication. Codes are returned only to the authenticated owner and never stored in an idempotency receipt. */
+        post: operations["regenerateRecoveryCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf": {
         parameters: {
             query?: never;
@@ -1332,6 +1349,10 @@ export interface components {
         ConfirmMfaEnrollmentDto: {
             code: string;
         };
+        RegenerateRecoveryCodesDto: {
+            password: string;
+            mfaCode: string;
+        };
         ChangePasswordDto: {
             currentPassword: string;
             newPassword: string;
@@ -1888,6 +1909,41 @@ export interface operations {
                                 mfaEnabled: boolean;
                                 mustChangePassword: boolean;
                             };
+                            recoveryCodes: string[];
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    regenerateRecoveryCodes: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegenerateRecoveryCodesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "recovery_codes_regenerated";
                             recoveryCodes: string[];
                         };
                         meta: {

@@ -195,6 +195,7 @@ const AUDIT_ACTION_METADATA_KEYS: Record<string, readonly string[]> = {
   'revision.successor_created': ['sourceRevisionId', 'featureCount'],
   'auth.login_succeeded': ['method'],
   'auth.mfa_enrollment_confirmed': ['recoveryCodeCount'],
+  'auth.mfa_recovery_codes_regenerated': ['recoveryCodeCount'],
   'invite.created': ['delivery', 'assignedRole', 'expiresAt'],
   'invite.revoked': ['reason'],
   'invite.resend_requested': ['replacementInviteId', 'reason', 'expiresAt'],

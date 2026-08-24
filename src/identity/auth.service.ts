@@ -15,6 +15,7 @@ import type {
   CreateUserDto,
   InspectInviteDto,
   LoginDto,
+  RegenerateRecoveryCodesDto,
   VerifyMfaDto,
 } from './auth.dto';
 import {
@@ -305,6 +306,89 @@ export class AuthService {
     });
     if (!result.ok) this.throwInvalidMfa(result.rateLimited);
     return result;
+  }
+
+  async regenerateRecoveryCodes(
+    userId: string,
+    actorRole: string,
+    dto: RegenerateRecoveryCodesDto,
+    metadata: RequestMetadata,
+    idempotencyKey: string,
+  ) {
+    await this.rateLimits.enforceAdminMutation(metadata.ip, userId);
+    return this.dataSource.transaction(async (manager) => {
+      const user = await manager.findOne(UserEntity, {
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user || user.status !== 'active' || user.disabledAt) {
+        throw new AppException(401, 'AUTH_SESSION_EXPIRED', 'Phiên đăng nhập đã hết hạn.');
+      }
+
+      const operation = 'auth.mfa.recovery-codes-regenerate';
+      const claim = await this.idempotency.claim<Record<string, unknown>>(
+        manager,
+        userId,
+        operation,
+        idempotencyKey,
+        this.idempotency.digest({ userId }),
+      );
+      if (!claim.owner) {
+        throw new AppException(
+          409,
+          'RECOVERY_CODES_ALREADY_REGENERATED',
+          'Yêu cầu này đã thay mã khôi phục. Hãy bắt đầu thao tác mới nếu cần tạo lại.',
+        );
+      }
+
+      const passwordValid = user.passwordHash
+        ? await argon2.verify(user.passwordHash, dto.password).catch(() => false)
+        : false;
+      if (!passwordValid) {
+        throw new AppException(401, 'AUTH_INVALID_CREDENTIALS', 'Mật khẩu hiện tại không đúng.');
+      }
+      if (!user.mfaEnabled) {
+        throw new AppException(409, 'AUTH_MFA_REQUIRED', 'Tài khoản chưa đăng ký MFA.');
+      }
+
+      const normalizedMfaCode = this.normalizeRecoveryCode(dto.mfaCode);
+      const mfaValid = /^[A-F0-9]{20}$/.test(normalizedMfaCode)
+        ? await this.consumeRecoveryCode(manager, userId, dto.mfaCode)
+        : await this.verifyUserTotp(manager, user, dto.mfaCode);
+      if (!mfaValid) {
+        throw new AppException(401, 'AUTH_MFA_INVALID', 'Mã xác thực không hợp lệ.');
+      }
+
+      const recoveryCodes = Array.from({ length: 10 }, () => this.generateRecoveryCode());
+      await manager.delete(UserMfaRecoveryCodeEntity, { userId });
+      await manager.insert(
+        UserMfaRecoveryCodeEntity,
+        recoveryCodes.map((rawCode) => ({
+          userId,
+          codeDigest: this.crypto.digest(this.normalizeRecoveryCode(rawCode)),
+          consumedAt: null,
+        })),
+      );
+      await this.insertAudit(
+        manager,
+        userId,
+        actorRole,
+        metadata.requestId,
+        'auth.mfa_recovery_codes_regenerated',
+        'user',
+        userId,
+        { recoveryCodeCount: recoveryCodes.length },
+      );
+      await this.idempotency.complete(
+        manager,
+        userId,
+        operation,
+        idempotencyKey,
+        { status: 'recovery_codes_regenerated', recoveryCodeCount: recoveryCodes.length },
+        200,
+      );
+      return { status: 'recovery_codes_regenerated' as const, recoveryCodes };
+    });
   }
 
   async getSessionCsrf(sessionId: string, presentedToken: unknown): Promise<string> {

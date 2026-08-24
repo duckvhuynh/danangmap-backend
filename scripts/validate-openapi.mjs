@@ -390,7 +390,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     seen.set(operationId, `${method.toUpperCase()} ${path}`);
   }
 }
-if (seen.size !== 91) throw new Error(`Expected 91 OpenAPI operations, received ${seen.size}`);
+if (seen.size !== 92) throw new Error(`Expected 92 OpenAPI operations, received ${seen.size}`);
 const csrfOperation = document.paths?.['/api/v1/auth/csrf']?.get;
 if (csrfOperation?.operationId !== 'getCsrfToken') {
   throw new Error('CSRF GET must use the truthful getCsrfToken operation ID');
@@ -417,6 +417,44 @@ if (!csrfProblem?.properties?.code?.enum?.includes('CSRF_INVALID')) {
 }
 if (!generatedTypes.includes('getCsrfToken: {') || generatedTypes.includes('rotateCsrf: {')) {
   throw new Error('Generated client CSRF operation ID is stale');
+}
+const regenerateRecoveryCodes =
+  document.paths?.['/api/v1/auth/mfa/recovery-codes:regenerate']?.post;
+if (regenerateRecoveryCodes?.operationId !== 'regenerateRecoveryCodes') {
+  throw new Error('Recovery-code regeneration operation is missing');
+}
+for (const header of ['Idempotency-Key', 'X-CSRF-Token']) {
+  if (
+    !regenerateRecoveryCodes.parameters?.some(
+      (parameter) => parameter.name === header && parameter.required,
+    )
+  ) {
+    throw new Error(`Recovery-code regeneration must require ${header}`);
+  }
+}
+const recoveryRequest = resolveSchema(
+  regenerateRecoveryCodes.requestBody?.content?.['application/json']?.schema,
+);
+for (const field of ['password', 'mfaCode']) {
+  if (
+    !recoveryRequest?.required?.includes(field) ||
+    recoveryRequest.properties?.[field]?.writeOnly !== true
+  ) {
+    throw new Error(`Recovery-code regeneration ${field} must be required and write-only`);
+  }
+}
+const recoveryResponse =
+  regenerateRecoveryCodes.responses?.['200']?.content?.['application/json']?.schema?.properties
+    ?.data;
+if (
+  recoveryResponse?.properties?.status?.enum?.[0] !== 'recovery_codes_regenerated' ||
+  recoveryResponse?.properties?.recoveryCodes?.minItems !== 10 ||
+  recoveryResponse?.properties?.recoveryCodes?.maxItems !== 10
+) {
+  throw new Error('Recovery-code regeneration response must return exactly ten one-time codes');
+}
+if (!generatedTypes.includes('regenerateRecoveryCodes: {')) {
+  throw new Error('Generated client recovery-code regeneration operation is stale');
 }
 const readinessChecks =
   operationsById.get('getReadiness')?.responses?.['200']?.content?.['application/json']?.schema

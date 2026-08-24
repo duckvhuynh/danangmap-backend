@@ -31,6 +31,7 @@ import {
   logoutResultSchema,
   mfaEnrollmentConfirmationSchema,
   mfaEnrollmentSchema,
+  recoveryCodesRegenerationSchema,
   passwordChangeResultSchema,
   passwordResetConfirmationSchema,
   passwordResetRequestResultSchema,
@@ -46,6 +47,7 @@ import {
   LoginDto,
   PasswordResetConfirmDto,
   PasswordResetRequestDto,
+  RegenerateRecoveryCodesDto,
   VerifyMfaDto,
 } from './auth.dto';
 import {
@@ -180,6 +182,37 @@ export class AuthController {
     response.cookie(SESSION_COOKIE, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
     this.setCsrfCookie(response, result.csrfToken, 8 * 60 * 60_000);
     return { principal: result.principal, recoveryCodes: result.recoveryCodes };
+  }
+
+  @Post('mfa/recovery-codes\\:regenerate')
+  @HttpCode(200)
+  @UseGuards(SessionGuard, CsrfGuard)
+  @ApiSecurity({ adminSession: [], csrf: [] })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({
+    operationId: 'regenerateRecoveryCodes',
+    description:
+      'Replaces every recovery code after password and MFA re-authentication. Codes are returned only to the authenticated owner and never stored in an idempotency receipt.',
+  })
+  @apiJsonResponse(200, recoveryCodesRegenerationSchema)
+  regenerateRecoveryCodes(
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body() dto: RegenerateRecoveryCodesDto,
+    @Req() request: RequestWithContext,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    return this.auth.regenerateRecoveryCodes(
+      principal.id,
+      principal.role,
+      dto,
+      this.metadata(request),
+      requireIdempotencyKey(idempotencyKey),
+    );
   }
 
   @Get('csrf')

@@ -54,9 +54,9 @@ import {
   CSRF_COOKIE,
   CsrfGuard,
   OptionalAuthGuard,
-  PREAUTH_COOKIE,
+  preauthCookieName,
   PreAuthGuard,
-  SESSION_COOKIE,
+  sessionCookieName,
   SessionGuard,
 } from './auth.guards';
 import { AuthService } from './auth.service';
@@ -66,6 +66,8 @@ import { PasswordSecurityService } from './password-security.service';
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
   private readonly secure: boolean;
+  private readonly sessionCookie: string;
+  private readonly preauthCookie: string;
 
   constructor(
     private readonly auth: AuthService,
@@ -73,6 +75,8 @@ export class AuthController {
     config: ConfigService,
   ) {
     this.secure = config.getOrThrow<boolean>('app.cookieSecure');
+    this.sessionCookie = sessionCookieName(this.secure);
+    this.preauthCookie = preauthCookieName(this.secure);
   }
 
   @Post('login')
@@ -88,7 +92,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.auth.login(dto, this.metadata(request));
-    response.cookie(PREAUTH_COOKIE, result.token, this.cookieOptions(5 * 60_000));
+    response.cookie(this.preauthCookie, result.token, this.cookieOptions(5 * 60_000));
     this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
     return result.data;
   }
@@ -114,7 +118,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.auth.acceptInvite(dto, this.metadata(request));
-    response.cookie(PREAUTH_COOKIE, result.token, this.cookieOptions(5 * 60_000));
+    response.cookie(this.preauthCookie, result.token, this.cookieOptions(5 * 60_000));
     this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
     return result.data;
   }
@@ -139,8 +143,8 @@ export class AuthController {
       dto.code,
       this.metadata(request),
     );
-    response.clearCookie(PREAUTH_COOKIE, this.cookieOptions(0));
-    response.cookie(SESSION_COOKIE, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
+    response.clearCookie(this.preauthCookie, this.cookieOptions(0));
+    response.cookie(this.sessionCookie, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
     this.setCsrfCookie(response, result.csrfToken, 8 * 60 * 60_000);
     return result.principal;
   }
@@ -178,8 +182,8 @@ export class AuthController {
       dto.code,
       this.metadata(request),
     );
-    response.clearCookie(PREAUTH_COOKIE, this.cookieOptions(0));
-    response.cookie(SESSION_COOKIE, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
+    response.clearCookie(this.preauthCookie, this.cookieOptions(0));
+    response.cookie(this.sessionCookie, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
     this.setCsrfCookie(response, result.csrfToken, 8 * 60 * 60_000);
     return { principal: result.principal, recoveryCodes: result.recoveryCodes };
   }
@@ -323,8 +327,8 @@ export class AuthController {
       key,
     );
     if (result.owner && result.sessionToken && result.csrfToken) {
-      response.clearCookie(PREAUTH_COOKIE, this.cookieOptions(0));
-      response.cookie(SESSION_COOKIE, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
+      response.clearCookie(this.preauthCookie, this.cookieOptions(0));
+      response.cookie(this.sessionCookie, result.sessionToken, this.cookieOptions(8 * 60 * 60_000));
       this.setCsrfCookie(response, result.csrfToken, 8 * 60 * 60_000);
     }
     return result.data;
@@ -438,8 +442,8 @@ export class AuthController {
   }
 
   private clearAuthCookies(response: Response): void {
-    response.clearCookie(SESSION_COOKIE, this.cookieOptions(0));
-    response.clearCookie(PREAUTH_COOKIE, this.cookieOptions(0));
+    response.clearCookie(this.sessionCookie, this.cookieOptions(0));
+    response.clearCookie(this.preauthCookie, this.cookieOptions(0));
     response.clearCookie(CSRF_COOKIE, { path: '/' });
   }
 

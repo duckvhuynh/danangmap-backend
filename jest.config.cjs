@@ -13,5 +13,6 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.ts', '!src/database/migrations/**'],
   coverageDirectory: 'coverage',
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/test/jest.setup.ts'],
   testTimeout: 30000,
 };

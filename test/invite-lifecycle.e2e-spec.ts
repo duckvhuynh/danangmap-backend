@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import AppDataSource from '../src/database/data-source';
 import Redis from 'ioredis';
+import { E2E_PREAUTH_COOKIE } from './auth-cookie.helper';
 import { waitForMailpitMessage } from './mailpit.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
@@ -210,7 +211,7 @@ describe('invite inspect and accept HTTP lifecycle', () => {
     await readProblem(rejectedResponse, 400, 'INVITE_INVALID_OR_EXPIRED');
     const acceptedJar = new CookieJar();
     acceptedJar.absorb(acceptedResponse);
-    expect(acceptedJar.get('__Host-danangmap_preauth')).toBeDefined();
+    expect(acceptedJar.get(E2E_PREAUTH_COOKIE)).toBeDefined();
     expect(acceptedJar.get('danangmap_csrf')).toBeDefined();
     const acceptedBody = (await acceptedResponse.json()) as Envelope<{
       status: string;

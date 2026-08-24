@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import AppDataSource from '../src/database/data-source';
+import { E2E_SESSION_COOKIE } from './auth-cookie.helper';
 import { waitForMailpitMessage } from './mailpit.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
@@ -176,7 +177,7 @@ describe('System Admin identity lifecycle HTTP API', () => {
 
   it('paginates and filters safe user detail while denying non-System-Admin access', async () => {
     const list = await fetch(
-      `${apiBaseUrl}/api/v1/admin/users?q=${encodeURIComponent('lifecycle')}&role=editor&status=active&limit=1`,
+      `${apiBaseUrl}/api/v1/admin/users?q=${encodeURIComponent(targetUsername)}&role=editor&status=active&limit=1`,
       { headers: { Cookie: adminJar.header() } },
     );
     expect(list.status).toBe(200);
@@ -215,7 +216,7 @@ describe('System Admin identity lifecycle HTTP API', () => {
     const targetToken = targetSessionTokens.values().next().value as string;
     expect((await fetch(`${apiBaseUrl}/api/v1/admin/users/${targetUserId}`)).status).toBe(401);
     const denied = await fetch(`${apiBaseUrl}/api/v1/admin/users`, {
-      headers: { Cookie: `__Host-danangmap_session=${targetToken}` },
+      headers: { Cookie: `${E2E_SESSION_COOKIE}=${targetToken}` },
     });
     await expectProblem(denied, 403, 'ROLE_FORBIDDEN');
 
@@ -299,7 +300,7 @@ describe('System Admin identity lifecycle HTTP API', () => {
     expect(
       (
         await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
-          headers: { Cookie: `__Host-danangmap_session=${oldToken}` },
+          headers: { Cookie: `${E2E_SESSION_COOKIE}=${oldToken}` },
         })
       ).status,
     ).toBe(401);
@@ -575,7 +576,7 @@ async function createSession(
 async function sessionMe(token: string): Promise<number> {
   return (
     await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
-      headers: { Cookie: `__Host-danangmap_session=${token}` },
+      headers: { Cookie: `${E2E_SESSION_COOKIE}=${token}` },
     })
   ).status;
 }

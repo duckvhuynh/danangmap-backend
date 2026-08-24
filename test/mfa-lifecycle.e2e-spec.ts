@@ -1,5 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import AppDataSource from '../src/database/data-source';
+import { E2E_PREAUTH_COOKIE, E2E_SESSION_COOKIE } from './auth-cookie.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 const allowedOrigin = 'http://localhost:3000';
@@ -120,7 +121,7 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
   });
 
   it('enrolls, confirms and consumes MFA factors exactly once', async () => {
-    const staleJar = new CookieJar({ '__Host-danangmap_session': 'expired-browser-cookie' });
+    const staleJar = new CookieJar({ [E2E_SESSION_COOKIE]: 'expired-browser-cookie' });
     const publicCsrf = await getCsrfToken(staleJar);
     expect(publicCsrf.response.status).toBe(200);
     expect(publicCsrf.response.headers.get('cache-control')).toBe('private, no-store');
@@ -163,15 +164,15 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
     expect([tabACsrf.token, tabBCsrf.token]).toEqual([loginCsrf, loginCsrf]);
     expect(await sessionCsrfHash(preauthSession.id)).toBe(preauthSession.csrfHash);
 
-    const preauthCookie = enrollmentJar.jar.get('__Host-danangmap_preauth')!;
+    const preauthCookie = enrollmentJar.jar.get(E2E_PREAUTH_COOKIE)!;
     for (const invalidJar of [
-      new CookieJar({ '__Host-danangmap_preauth': preauthCookie }),
+      new CookieJar({ [E2E_PREAUTH_COOKIE]: preauthCookie }),
       new CookieJar({
-        '__Host-danangmap_preauth': preauthCookie,
+        [E2E_PREAUTH_COOKIE]: preauthCookie,
         danangmap_csrf: 'malformed-token',
       }),
       new CookieJar({
-        '__Host-danangmap_preauth': preauthCookie,
+        [E2E_PREAUTH_COOKIE]: preauthCookie,
         danangmap_csrf: 'C'.repeat(32),
       }),
     ]) {
@@ -181,7 +182,7 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
 
     const foreignPreauth = await loginWithPassword(login, password);
     const crossSessionJar = new CookieJar({
-      '__Host-danangmap_preauth': preauthCookie,
+      [E2E_PREAUTH_COOKIE]: preauthCookie,
       danangmap_csrf: foreignPreauth.jar.get('danangmap_csrf')!,
     });
     await expectProblem(await requestCsrf(crossSessionJar), 403, 'CSRF_INVALID');
@@ -215,7 +216,7 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
     );
     await expectProblem(wrongTokenEnroll, 403, 'CSRF_INVALID');
     const wrongPreauthCookie = new CookieJar({
-      '__Host-danangmap_preauth': 'not-a-valid-preauth-session',
+      [E2E_PREAUTH_COOKIE]: 'not-a-valid-preauth-session',
       danangmap_csrf: enrollmentJar.jar.get('danangmap_csrf')!,
     });
     const wrongCookieConfirm = await postWithCsrf(

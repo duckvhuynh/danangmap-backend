@@ -2,6 +2,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { Queue } from 'bullmq';
 import AppDataSource from '../src/database/data-source';
 import { PUBLICATION_QUEUE } from '../src/jobs/jobs.constants';
+import { E2E_PREAUTH_COOKIE, E2E_SESSION_COOKIE } from './auth-cookie.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 const frontendOrigin = 'http://localhost:3000';
@@ -675,31 +676,31 @@ async function login(user: (typeof users)[keyof typeof users]): Promise<Actor> {
     body: JSON.stringify({ login: user.login, password: user.password }),
   });
   expect(loginResponse.status).toBe(200);
-  const preauth = cookieValue(loginResponse, '__Host-danangmap_preauth');
+  const preauth = cookieValue(loginResponse, E2E_PREAUTH_COOKIE);
   const preauthCsrf = cookieValue(loginResponse, 'danangmap_csrf');
   const verify = await fetch(`${apiBaseUrl}/api/v1/auth/mfa/verify`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Cookie: `__Host-danangmap_preauth=${preauth}; danangmap_csrf=${preauthCsrf}`,
+      Cookie: `${E2E_PREAUTH_COOKIE}=${preauth}; danangmap_csrf=${preauthCsrf}`,
       Origin: frontendOrigin,
       'X-CSRF-Token': preauthCsrf,
     },
     body: JSON.stringify({ method: 'totp', code: totp(mfaSecret) }),
   });
   expect(verify.status).toBe(200);
-  const session = cookieValue(verify, '__Host-danangmap_session');
+  const session = cookieValue(verify, E2E_SESSION_COOKIE);
   const sessionCsrf = cookieValue(verify, 'danangmap_csrf');
   const stableCsrf = await fetch(`${apiBaseUrl}/api/v1/auth/csrf`, {
     headers: {
-      Cookie: `__Host-danangmap_session=${session}; danangmap_csrf=${sessionCsrf}`,
+      Cookie: `${E2E_SESSION_COOKIE}=${session}; danangmap_csrf=${sessionCsrf}`,
     },
   });
   expect(stableCsrf.status).toBe(200);
   const token = (await json<Envelope<{ csrfToken: string }>>(stableCsrf)).data.csrfToken;
   return {
     id: user.id,
-    cookie: `__Host-danangmap_session=${session}; danangmap_csrf=${token}`,
+    cookie: `${E2E_SESSION_COOKIE}=${session}; danangmap_csrf=${token}`,
     csrf: token,
   };
 }

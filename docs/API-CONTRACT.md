@@ -33,7 +33,7 @@ ETag collection được tính từ toàn bộ state ảnh hưởng representati
 
 ### 1.3 Cookie admin
 
-- `__Host-danangmap_session`: opaque random value, HttpOnly, Secure, SameSite=Lax, Path=/.
+- `__Host-danangmap_session`: opaque random value, HttpOnly, Secure, SameSite=Lax, Path=/. Local HTTP development with `COOKIE_SECURE=false` uses the unprefixed `danangmap_session` / `danangmap_preauth` names because browsers reject `__Host-` cookies without `Secure`; production keeps the prefixed names.
 - `danangmap_csrf`: token CSRF không HttpOnly để frontend đọc và echo qua `X-CSRF-Token`; không phải credential.
 - Login trước MFA chỉ tạo pre-auth cookie hạn ngắn, không có quyền admin.
 - API không trả session/MFA secret trong JSON ngoài TOTP enrollment URI tại đúng bước enrollment; URI chỉ hiển thị một lần và không được log/lưu Dexie.

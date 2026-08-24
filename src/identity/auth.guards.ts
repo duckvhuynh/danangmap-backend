@@ -14,21 +14,36 @@ import { ROLES_KEY } from './auth.decorators';
 
 export const SESSION_COOKIE = '__Host-danangmap_session';
 export const PREAUTH_COOKIE = '__Host-danangmap_preauth';
+export const DEVELOPMENT_SESSION_COOKIE = 'danangmap_session';
+export const DEVELOPMENT_PREAUTH_COOKIE = 'danangmap_preauth';
 export const CSRF_COOKIE = 'danangmap_csrf';
+
+export function sessionCookieName(secure: boolean): string {
+  return secure ? SESSION_COOKIE : DEVELOPMENT_SESSION_COOKIE;
+}
+
+export function preauthCookieName(secure: boolean): string {
+  return secure ? PREAUTH_COOKIE : DEVELOPMENT_PREAUTH_COOKIE;
+}
 
 @Injectable()
 export class SessionGuard implements CanActivate {
+  private readonly cookieName: string;
+
   constructor(
     @InjectRepository(AdminSessionEntity)
     private readonly sessions: Repository<AdminSessionEntity>,
     @InjectRepository(UserEntity)
     private readonly users: Repository<UserEntity>,
     private readonly crypto: CryptoService,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.cookieName = sessionCookieName(config.getOrThrow<boolean>('app.cookieSecure'));
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithContext>();
-    const rawToken = request.cookies?.[SESSION_COOKIE] as string | undefined;
+    const rawToken = request.cookies?.[this.cookieName] as string | undefined;
     if (!rawToken) throw new UnauthorizedException('Phiên đăng nhập đã hết hạn.');
     const session = await this.sessions.findOneBy({
       tokenHash: this.crypto.digest(rawToken),
@@ -54,15 +69,20 @@ export class SessionGuard implements CanActivate {
 
 @Injectable()
 export class PreAuthGuard implements CanActivate {
+  private readonly cookieName: string;
+
   constructor(
     @InjectRepository(AdminSessionEntity)
     private readonly sessions: Repository<AdminSessionEntity>,
     private readonly crypto: CryptoService,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.cookieName = preauthCookieName(config.getOrThrow<boolean>('app.cookieSecure'));
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithContext>();
-    const rawToken = request.cookies?.[PREAUTH_COOKIE] as string | undefined;
+    const rawToken = request.cookies?.[this.cookieName] as string | undefined;
     if (!rawToken) throw new UnauthorizedException('MFA challenge đã hết hạn.');
     const session = await this.sessions.findOneBy({
       tokenHash: this.crypto.digest(rawToken),
@@ -84,18 +104,26 @@ export class PreAuthGuard implements CanActivate {
 
 @Injectable()
 export class OptionalAuthGuard implements CanActivate {
+  private readonly sessionCookieName: string;
+  private readonly preauthCookieName: string;
+
   constructor(
     @InjectRepository(AdminSessionEntity)
     private readonly sessions: Repository<AdminSessionEntity>,
     @InjectRepository(UserEntity)
     private readonly users: Repository<UserEntity>,
     private readonly crypto: CryptoService,
-  ) {}
+    config: ConfigService,
+  ) {
+    const secure = config.getOrThrow<boolean>('app.cookieSecure');
+    this.sessionCookieName = sessionCookieName(secure);
+    this.preauthCookieName = preauthCookieName(secure);
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithContext>();
-    const authenticatedToken = request.cookies?.[SESSION_COOKIE] as string | undefined;
-    const preauthToken = request.cookies?.[PREAUTH_COOKIE] as string | undefined;
+    const authenticatedToken = request.cookies?.[this.sessionCookieName] as string | undefined;
+    const preauthToken = request.cookies?.[this.preauthCookieName] as string | undefined;
     const candidates: Array<{
       token: string;
       kind: AdminSessionEntity['kind'];

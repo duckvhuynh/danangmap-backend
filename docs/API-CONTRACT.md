@@ -238,32 +238,37 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 
 ### 3.1 Route summary
 
-| Method    | Route                                  | Auth/role                          | Mô tả                                                               |
-| --------- | -------------------------------------- | ---------------------------------- | ------------------------------------------------------------------- |
-| GET       | `/auth/csrf`                           | public/pre-auth/auth               | Cấp hoặc lấy token CSRF hiện tại; không rotate trong cùng session   |
-| POST      | `/auth/login`                          | public + CSRF                      | Xác minh username/email + password                                  |
-| POST      | `/auth/mfa/verify`                     | pre-auth + CSRF                    | Xác minh TOTP/recovery code, tạo session                            |
-| POST      | `/auth/mfa/enroll`                     | pre-auth + CSRF                    | Bắt đầu enroll TOTP; URI chỉ trả một lần cho pre-auth đó            |
-| POST      | `/auth/mfa/enroll/confirm`             | pre-auth + CSRF                    | Xác nhận TOTP lần đầu, trả recovery codes một lần                   |
-| POST      | `/auth/mfa/recovery-codes:regenerate`  | authenticated                      | Xác minh password + MFA rồi thay toàn bộ recovery codes             |
-| GET       | `/auth/me`                             | authenticated                      | Principal hiện tại                                                  |
-| POST      | `/auth/logout`                         | authenticated                      | Thu hồi phiên hiện tại                                              |
-| POST      | `/auth/sessions:revoke-all`            | authenticated + CSRF + idempotency | Thu hồi mọi session, gồm session đang gọi                           |
-| POST      | `/auth/password/change`                | authenticated + CSRF + idempotency | Đổi password, rotate session hiện tại và revoke các session còn lại |
-| POST      | `/auth/password/reset:request`         | public + idempotency               | Luôn trả generic `202`, không tiết lộ account tồn tại               |
-| POST      | `/auth/password/reset:confirm`         | public + CSRF                      | Đặt password bằng token một lần chỉ nhận trong body                 |
-| POST      | `/auth/invites:inspect`                | public                             | Inspect invite an toàn, không tiêu thụ token                        |
-| POST      | `/auth/invites:accept`                 | public                             | Đặt password, tiêu thụ invite và chuyển sang MFA enroll             |
-| GET/POST  | `/admin/users`                         | System Admin                       | Danh sách/tạo user                                                  |
-| GET/PATCH | `/admin/users/{userId}`                | System Admin                       | Xem/cập nhật/khóa user                                              |
-| POST      | `/admin/invites`                       | System Admin                       | Tạo invite                                                          |
-| POST      | `/admin/invites/{inviteId}:revoke`     | System Admin                       | Thu hồi invite                                                      |
-| POST      | `/admin/users/{userId}/mfa:reset`      | System Admin                       | Thu hồi MFA/session và bắt buộc re-enroll                           |
-| POST      | `/admin/user-imports`                  | System Admin                       | Upload và inspect danh sách user                                    |
-| GET       | `/admin/user-imports/{jobId}`          | System Admin                       | Theo dõi inspect/validate/apply                                     |
-| POST      | `/admin/user-imports/{jobId}:validate` | System Admin                       | Dry-run duplicate/validation                                        |
-| POST      | `/admin/user-imports/{jobId}:apply`    | System Admin                       | Tạo account invite/inactive idempotent                              |
-| GET       | `/admin/user-imports/{jobId}/report`   | System Admin                       | Tải report đã lọc                                                   |
+| Method    | Route                                               | Auth/role                          | Mô tả                                                               |
+| --------- | --------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| GET       | `/auth/csrf`                                        | public/pre-auth/auth               | Cấp hoặc lấy token CSRF hiện tại; không rotate trong cùng session   |
+| POST      | `/auth/login`                                       | public + CSRF                      | Xác minh username/email + password                                  |
+| POST      | `/auth/mfa/verify`                                  | pre-auth + CSRF                    | Xác minh TOTP/recovery code, tạo session                            |
+| POST      | `/auth/mfa/enroll`                                  | pre-auth + CSRF                    | Bắt đầu enroll TOTP; URI chỉ trả một lần cho pre-auth đó            |
+| POST      | `/auth/mfa/enroll/confirm`                          | pre-auth + CSRF                    | Xác nhận TOTP lần đầu, trả recovery codes một lần                   |
+| POST      | `/auth/mfa/recovery-codes:regenerate`               | authenticated                      | Xác minh password + MFA rồi thay toàn bộ recovery codes             |
+| GET       | `/auth/me`                                          | authenticated                      | Principal hiện tại                                                  |
+| POST      | `/auth/logout`                                      | authenticated                      | Thu hồi phiên hiện tại                                              |
+| POST      | `/auth/sessions:revoke-all`                         | authenticated + CSRF + idempotency | Thu hồi mọi session, gồm session đang gọi                           |
+| POST      | `/auth/password/change`                             | authenticated + CSRF + idempotency | Đổi password, rotate session hiện tại và revoke các session còn lại |
+| POST      | `/auth/password/reset:request`                      | public + idempotency               | Luôn trả generic `202`, không tiết lộ account tồn tại               |
+| POST      | `/auth/password/reset:confirm`                      | public + CSRF                      | Đặt password bằng token một lần chỉ nhận trong body                 |
+| POST      | `/auth/invites:inspect`                             | public                             | Inspect invite an toàn, không tiêu thụ token                        |
+| POST      | `/auth/invites:accept`                              | public                             | Đặt password, tiêu thụ invite và chuyển sang MFA enroll             |
+| GET/POST  | `/admin/users`                                      | System Admin                       | Danh sách/tạo user                                                  |
+| GET/PATCH | `/admin/users/{userId}`                             | System Admin                       | Xem/cập nhật/khóa user                                              |
+| POST      | `/admin/invites`                                    | System Admin                       | Tạo invite                                                          |
+| GET       | `/admin/invites`                                    | System Admin                       | Danh sách invite theo cursor/search/status/role                     |
+| POST      | `/admin/invites/{inviteId}:revoke`                  | System Admin                       | Thu hồi invite                                                      |
+| POST      | `/admin/invites/{inviteId}:resend`                  | System Admin + CSRF + ETag         | Thay invite cũ bằng credential mới và gửi mail                      |
+| POST      | `/admin/users/{userId}/sessions/{sessionId}:revoke` | System Admin + CSRF + ETag         | Thu hồi một session của user đích                                   |
+| POST      | `/admin/users/{userId}/sessions:revoke-all`         | System Admin + CSRF + ETag         | Thu hồi mọi session của user đích                                   |
+| POST      | `/admin/users/{userId}/mfa:reset`                   | System Admin                       | Thu hồi MFA/session và bắt buộc re-enroll                           |
+| POST      | `/admin/users/{userId}/password-reset:request`      | System Admin + CSRF + ETag         | Gửi mail reset, không trả credential                                |
+| POST      | `/admin/user-imports`                               | System Admin                       | Upload và inspect danh sách user                                    |
+| GET       | `/admin/user-imports/{jobId}`                       | System Admin                       | Theo dõi inspect/validate/apply                                     |
+| POST      | `/admin/user-imports/{jobId}:validate`              | System Admin                       | Dry-run duplicate/validation                                        |
+| POST      | `/admin/user-imports/{jobId}:apply`                 | System Admin                       | Tạo account invite/inactive idempotent                              |
+| GET       | `/admin/user-imports/{jobId}/report`                | System Admin                       | Tải report đã lọc                                                   |
 
 ### 3.2 Login và MFA
 
@@ -368,7 +373,7 @@ Hai confirm đồng thời chỉ có một request thành công. Replay TOTP cù
 
 Regenerate recovery codes yêu cầu body `{ "password": "<redacted>", "mfaCode": "000000" }`; response trả mảng recovery code đúng một lần, đồng thời vô hiệu toàn bộ code cũ. System Admin reset MFA không nhận/biết secret hoặc recovery code của user; command revoke toàn bộ session và lần login sau trả `mfaEnrollmentRequired=true`.
 
-### 3.3 Tạo user
+### 3.3 Tạo và quản trị user
 
 `POST /api/v1/admin/users`
 
@@ -384,6 +389,12 @@ Regenerate recovery codes yêu cầu body `{ "password": "<redacted>", "mfaCode"
 
 `role`: đúng một trong `system_admin|editor|reviewer|publisher`. `delivery=invite` gửi link thiết lập mật khẩu. `delivery=manual` yêu cầu field `temporaryPassword`, đặt `mustChangePassword=true` và truyền mật khẩu qua kênh vận hành an toàn; API không bao giờ trả lại password. Guard trung tâm trả `403 PASSWORD_CHANGE_REQUIRED` cho mọi route admin/domain cho đến khi user đổi mật khẩu; chỉ các route auth tối thiểu cần để xem principal, lấy CSRF, đổi mật khẩu và logout được phép trong trạng thái này.
 
+`GET /api/v1/admin/users` hỗ trợ `q`, `role`, `status`, `cursor`, `limit` và trả directory an toàn. `GET /api/v1/admin/users/{userId}` trả hồ sơ cùng summary MFA, session, invite và password-reset; response có strong `ETag` dạng `"user-{uuid}-v{lockVersion}"`. Representation không chứa password hash, session token/hash, MFA secret, recovery code/digest, invite/reset token hay encrypted mail payload.
+
+`PATCH /api/v1/admin/users/{userId}` nhận full hoặc partial `{ "displayName", "role", "status", "reason" }`. Đổi role/status bắt buộc `reason`; đổi role, disable hoặc reactivate revoke toàn bộ authenticated/pre-auth session trong cùng transaction. System Admin cuối cùng ở trạng thái active không thể bị demote/disable. Các security mutation nhắm chính actor bị chặn để actor dùng self-service flow tương ứng.
+
+Các mutation quản trị user/invite mới bắt buộc cookie session, CSRF + Origin, UUID `Idempotency-Key` và `If-Match` vừa nhận từ detail/list. Thiếu validator trả `428 ETAG_REQUIRED`; stale/malformed trả `412 ETAG_MISMATCH`; validation trả `422`; command đồng thời chỉ một effect và replay cùng key/body trả receipt cũ. Rate limit trả `429` theo actor/target và không tiết lộ credential.
+
 `POST /api/v1/admin/invites`
 
 ```json
@@ -398,7 +409,11 @@ Regenerate recovery codes yêu cầu body `{ "password": "<redacted>", "mfaCode"
 
 Response `202` trả invite ID/status/expiry nhưng không trả raw token. Token được mail adapter gửi qua outbox có retry; retry command cùng `Idempotency-Key` không tạo nhiều invite/mail. Revoke và tạo invite mới làm token cũ vô hiệu.
 
+`GET /api/v1/admin/invites` hỗ trợ `q`, `status=pending|expired|revoked|accepted`, `role`, cursor và limit. `POST /api/v1/admin/invites/{inviteId}:resend` nhận `{ "expiresInHours", "reason" }`, revoke và scrub mail credential cũ, tạo replacement invite mới rồi enqueue đúng một mail. Response `202` chỉ trả identity/status/expiry/mail status/ETag của replacement; token cũ không inspect/accept được và token mới không xuất hiện trong response/audit/log.
+
 `POST /api/v1/admin/users/{userId}/mfa:reset` nhận `{ "reason": "Thiết bị MFA đã mất." }`; reason bắt buộc, response trả `mfaEnrollmentRequired=true` và số session đã revoke, không trả secret/code.
+
+`POST /api/v1/admin/users/{userId}/sessions/{sessionId}:revoke` và `POST /api/v1/admin/users/{userId}/sessions:revoke-all` nhận `reason`, chỉ cập nhật session thuộc đúng target và trả số session đã revoke cùng ETag mới. `POST /api/v1/admin/users/{userId}/password-reset:request` enqueue mail transactionally, trả `202` với outbox identity/status/expiry an toàn nhưng không trả reset token. System Admin không thể generate recovery code thay user.
 
 Import user dùng multipart `file`, format CSV/XLSX, cột tối thiểu `email,username,displayName,role`; không cho import password/MFA secret. Mặc định tối đa 5 MiB/5.000 dòng. Validate không tạo account; apply yêu cầu `Idempotency-Key` và body `{ "validRowPolicy": "invite" }`, tạo account hợp lệ ở trạng thái invite/inactive và giữ report lỗi.
 

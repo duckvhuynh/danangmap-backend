@@ -231,6 +231,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateAdminUser"];
+        trace?: never;
+    };
     "/api/v1/admin/invites": {
         parameters: {
             query?: never;
@@ -238,7 +254,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["listAdminInvites"];
         put?: never;
         post: operations["createInvite"];
         delete?: never;
@@ -257,6 +273,86 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["revokeInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invites/{inviteId}:resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resendAdminInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/sessions/{sessionId}:revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokeAdminUserSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/sessions:revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokeAllAdminUserSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/mfa:reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resetAdminUserMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/password-reset:request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["requestAdminUserPasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1250,6 +1346,16 @@ export interface components {
             password: string;
             passwordConfirmation: string;
         };
+        UpdateUserDto: {
+            displayName?: string;
+            /** @enum {string} */
+            role?: "system_admin" | "editor" | "reviewer" | "publisher";
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            reason?: string;
+            /** @default false */
+            unlock: boolean;
+        };
         CreateUserDto: {
             /** @example editor@example.gov.vn */
             email: string;
@@ -1274,6 +1380,14 @@ export interface components {
             role: "system_admin" | "editor" | "reviewer" | "publisher";
             /** @default 72 */
             expiresInHours: number;
+        };
+        ResendInviteDto: {
+            reason: string;
+            /** @default 72 */
+            expiresInHours: number;
+        };
+        AdminReasonDto: {
+            reason: string;
         };
         CreateLayerGroupDto: {
             /** @example government */
@@ -2060,7 +2174,13 @@ export interface operations {
     };
     listUsers: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                role?: "system_admin" | "editor" | "reviewer" | "publisher";
+                status?: "active" | "inactive" | "disabled" | "invited";
+                cursor?: string;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2086,6 +2206,24 @@ export interface operations {
                             status: "active" | "inactive" | "disabled" | "invited";
                             mfaEnabled: boolean;
                             mustChangePassword: boolean;
+                            /** Format: date-time */
+                            disabledAt: string | null;
+                            /** Format: date-time */
+                            lockedUntil: string | null;
+                            lockVersion: number;
+                            etag: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            security: {
+                                activeSessionCount: number;
+                                /** Format: date-time */
+                                latestSessionCreatedAt: string | null;
+                                recoveryCodesRemaining: number;
+                                pendingInviteCount: number;
+                                pendingPasswordReset: boolean;
+                            };
                         }[];
                         meta: {
                             requestId: string;
@@ -2147,6 +2285,271 @@ export interface operations {
                         };
                         meta: {
                             requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            username: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            /** @enum {string} */
+                            status: "active" | "inactive" | "disabled" | "invited";
+                            mustChangePassword: boolean;
+                            /** Format: date-time */
+                            disabledAt: string | null;
+                            /** Format: date-time */
+                            lockedUntil: string | null;
+                            failedLoginCount: number;
+                            lockVersion: number;
+                            etag: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            mfa: {
+                                enabled: boolean;
+                                /** @enum {string} */
+                                status: "not_enrolled" | "pending" | "verified";
+                                /** Format: date-time */
+                                verifiedAt: string | null;
+                                recoveryCodesRemaining: number;
+                                recoveryCodesConsumed: number;
+                            };
+                            sessions: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "preauth" | "authenticated";
+                                /** @enum {string} */
+                                status: "active" | "expired" | "revoked";
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                expiresAt: string;
+                                /** Format: date-time */
+                                revokedAt: string | null;
+                                userAgent: string | null;
+                            }[];
+                            invites: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "pending" | "expired" | "revoked" | "accepted";
+                                /** Format: date-time */
+                                expiresAt: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                mailStatus: string | null;
+                                etag: string;
+                            }[];
+                            passwordResets: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "pending" | "expired" | "revoked" | "used";
+                                /** Format: date-time */
+                                expiresAt: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                mailStatus: string | null;
+                            }[];
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    updateAdminUser: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            username: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            /** @enum {string} */
+                            status: "active" | "inactive" | "disabled" | "invited";
+                            mustChangePassword: boolean;
+                            /** Format: date-time */
+                            disabledAt: string | null;
+                            /** Format: date-time */
+                            lockedUntil: string | null;
+                            failedLoginCount: number;
+                            lockVersion: number;
+                            etag: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            mfa: {
+                                enabled: boolean;
+                                /** @enum {string} */
+                                status: "not_enrolled" | "pending" | "verified";
+                                /** Format: date-time */
+                                verifiedAt: string | null;
+                                recoveryCodesRemaining: number;
+                                recoveryCodesConsumed: number;
+                            };
+                            sessions: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "preauth" | "authenticated";
+                                /** @enum {string} */
+                                status: "active" | "expired" | "revoked";
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                expiresAt: string;
+                                /** Format: date-time */
+                                revokedAt: string | null;
+                                userAgent: string | null;
+                            }[];
+                            invites: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "pending" | "expired" | "revoked" | "accepted";
+                                /** Format: date-time */
+                                expiresAt: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                mailStatus: string | null;
+                                etag: string;
+                            }[];
+                            passwordResets: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                status: "pending" | "expired" | "revoked" | "used";
+                                /** Format: date-time */
+                                expiresAt: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                mailStatus: string | null;
+                            }[];
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    listAdminInvites: {
+        parameters: {
+            query?: {
+                q?: string;
+                status?: "pending" | "expired" | "revoked" | "accepted";
+                role?: "system_admin" | "editor" | "reviewer" | "publisher";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            username: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            /** @enum {string} */
+                            status: "pending" | "expired" | "revoked" | "accepted";
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: date-time */
+                            usedAt: string | null;
+                            /** Format: date-time */
+                            revokedAt: string | null;
+                            /** Format: uuid */
+                            acceptedUserId: string | null;
+                            /** Format: uuid */
+                            supersedesInviteId: string | null;
+                            mailStatus: string | null;
+                            lockVersion: number;
+                            etag: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        meta: {
+                            requestId: string;
+                            nextCursor: string | null;
+                            hasMore: boolean;
+                            limit: number;
                         };
                     };
                 };
@@ -2222,6 +2625,249 @@ export interface operations {
                             status: "revoked";
                             /** Format: date-time */
                             revokedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    resendAdminInvite: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                inviteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendInviteDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: email */
+                            email: string;
+                            username: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            role: "editor" | "reviewer" | "publisher" | "system_admin";
+                            /** @enum {string} */
+                            status: "pending";
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: uuid */
+                            supersedesInviteId: string;
+                            /** @enum {string} */
+                            mailStatus: "pending";
+                            lockVersion: number;
+                            etag: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    revokeAdminUserSession: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                userId: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            userId: string;
+                            /** @enum {string} */
+                            status: "sessions_revoked";
+                            /** @enum {string} */
+                            scope: "one" | "all";
+                            /** Format: uuid */
+                            sessionId: string | null;
+                            revokedCount: number;
+                            etag: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    revokeAllAdminUserSessions: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            userId: string;
+                            /** @enum {string} */
+                            status: "sessions_revoked";
+                            /** @enum {string} */
+                            scope: "one" | "all";
+                            /** Format: uuid */
+                            sessionId: string | null;
+                            revokedCount: number;
+                            etag: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    resetAdminUserMfa: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            userId: string;
+                            /** @enum {string} */
+                            status: "mfa_reset";
+                            /** @enum {boolean} */
+                            mfaEnrollmentRequired: true;
+                            sessionsRevoked: number;
+                            etag: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    requestAdminUserPasswordReset: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReasonDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            userId: string;
+                            /** @enum {string} */
+                            status: "accepted";
+                            /** @enum {string} */
+                            deliveryStatus: "pending";
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: uuid */
+                            mailOutboxId: string;
+                            etag: string;
                         };
                         meta: {
                             requestId: string;

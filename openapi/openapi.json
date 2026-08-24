@@ -1297,7 +1297,65 @@
     "/api/v1/admin/users": {
       "get": {
         "operationId": "listUsers",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 2,
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "system_admin",
+                "editor",
+                "reviewer",
+                "publisher"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "active",
+                "inactive",
+                "disabled",
+                "invited"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -1314,6 +1372,7 @@
                       "type": "array",
                       "items": {
                         "type": "object",
+                        "additionalProperties": false,
                         "required": [
                           "id",
                           "email",
@@ -1322,7 +1381,14 @@
                           "role",
                           "status",
                           "mfaEnabled",
-                          "mustChangePassword"
+                          "mustChangePassword",
+                          "disabledAt",
+                          "lockedUntil",
+                          "lockVersion",
+                          "etag",
+                          "createdAt",
+                          "updatedAt",
+                          "security"
                         ],
                         "properties": {
                           "id": {
@@ -1362,6 +1428,65 @@
                           },
                           "mustChangePassword": {
                             "type": "boolean"
+                          },
+                          "disabledAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "lockedUntil": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "lockVersion": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "etag": {
+                            "type": "string",
+                            "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "security": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "activeSessionCount",
+                              "latestSessionCreatedAt",
+                              "recoveryCodesRemaining",
+                              "pendingInviteCount",
+                              "pendingPasswordReset"
+                            ],
+                            "properties": {
+                              "activeSessionCount": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "latestSessionCreatedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              },
+                              "recoveryCodesRemaining": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "pendingInviteCount": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "pendingPasswordReset": {
+                                "type": "boolean"
+                              }
+                            }
                           }
                         }
                       }
@@ -1568,7 +1693,708 @@
         },
         "security": [
           {
+            "adminSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}": {
+      "get": {
+        "operationId": "getAdminUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "email",
+                        "username",
+                        "displayName",
+                        "role",
+                        "status",
+                        "mustChangePassword",
+                        "disabledAt",
+                        "lockedUntil",
+                        "failedLoginCount",
+                        "lockVersion",
+                        "etag",
+                        "createdAt",
+                        "updatedAt",
+                        "mfa",
+                        "sessions",
+                        "invites",
+                        "passwordResets"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "username": {
+                          "type": "string"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "editor",
+                            "reviewer",
+                            "publisher",
+                            "system_admin"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "inactive",
+                            "disabled",
+                            "invited"
+                          ]
+                        },
+                        "mustChangePassword": {
+                          "type": "boolean"
+                        },
+                        "disabledAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "lockedUntil": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "failedLoginCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "lockVersion": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "etag": {
+                          "type": "string",
+                          "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "mfa": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "enabled",
+                            "status",
+                            "verifiedAt",
+                            "recoveryCodesRemaining",
+                            "recoveryCodesConsumed"
+                          ],
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "not_enrolled",
+                                "pending",
+                                "verified"
+                              ]
+                            },
+                            "verifiedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "recoveryCodesRemaining": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "recoveryCodesConsumed": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        },
+                        "sessions": {
+                          "type": "array",
+                          "maxItems": 50,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "kind",
+                              "status",
+                              "createdAt",
+                              "expiresAt",
+                              "revokedAt",
+                              "userAgent"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "preauth",
+                                  "authenticated"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "expired",
+                                  "revoked"
+                                ]
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "revokedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              },
+                              "userAgent": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "invites": {
+                          "type": "array",
+                          "maxItems": 20,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "status",
+                              "expiresAt",
+                              "createdAt",
+                              "mailStatus",
+                              "etag"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "expired",
+                                  "revoked",
+                                  "accepted"
+                                ]
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "mailStatus": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "etag": {
+                                "type": "string",
+                                "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                              }
+                            }
+                          }
+                        },
+                        "passwordResets": {
+                          "type": "array",
+                          "maxItems": 10,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "status",
+                              "expiresAt",
+                              "createdAt",
+                              "mailStatus"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "expired",
+                                  "revoked",
+                                  "used"
+                                ]
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "mailStatus": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
             "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      },
+      "patch": {
+        "operationId": "updateAdminUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "email",
+                        "username",
+                        "displayName",
+                        "role",
+                        "status",
+                        "mustChangePassword",
+                        "disabledAt",
+                        "lockedUntil",
+                        "failedLoginCount",
+                        "lockVersion",
+                        "etag",
+                        "createdAt",
+                        "updatedAt",
+                        "mfa",
+                        "sessions",
+                        "invites",
+                        "passwordResets"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "username": {
+                          "type": "string"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "editor",
+                            "reviewer",
+                            "publisher",
+                            "system_admin"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "inactive",
+                            "disabled",
+                            "invited"
+                          ]
+                        },
+                        "mustChangePassword": {
+                          "type": "boolean"
+                        },
+                        "disabledAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "lockedUntil": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "failedLoginCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "lockVersion": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "etag": {
+                          "type": "string",
+                          "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "mfa": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "enabled",
+                            "status",
+                            "verifiedAt",
+                            "recoveryCodesRemaining",
+                            "recoveryCodesConsumed"
+                          ],
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "not_enrolled",
+                                "pending",
+                                "verified"
+                              ]
+                            },
+                            "verifiedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            },
+                            "recoveryCodesRemaining": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "recoveryCodesConsumed": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        },
+                        "sessions": {
+                          "type": "array",
+                          "maxItems": 50,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "kind",
+                              "status",
+                              "createdAt",
+                              "expiresAt",
+                              "revokedAt",
+                              "userAgent"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "preauth",
+                                  "authenticated"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "expired",
+                                  "revoked"
+                                ]
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "revokedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              },
+                              "userAgent": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "invites": {
+                          "type": "array",
+                          "maxItems": 20,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "status",
+                              "expiresAt",
+                              "createdAt",
+                              "mailStatus",
+                              "etag"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "expired",
+                                  "revoked",
+                                  "accepted"
+                                ]
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "mailStatus": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "etag": {
+                                "type": "string",
+                                "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                              }
+                            }
+                          }
+                        },
+                        "passwordResets": {
+                          "type": "array",
+                          "maxItems": 10,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "status",
+                              "expiresAt",
+                              "createdAt",
+                              "mailStatus"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "expired",
+                                  "revoked",
+                                  "used"
+                                ]
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "mailStatus": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": [],
+            "csrf": []
           }
         ],
         "summary": "",
@@ -1680,6 +2506,226 @@
         },
         "security": [
           {
+            "adminSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      },
+      "get": {
+        "operationId": "listAdminInvites",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 2,
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "pending",
+                "expired",
+                "revoked",
+                "accepted"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "system_admin",
+                "editor",
+                "reviewer",
+                "publisher"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "email",
+                          "username",
+                          "displayName",
+                          "role",
+                          "status",
+                          "expiresAt",
+                          "usedAt",
+                          "revokedAt",
+                          "acceptedUserId",
+                          "supersedesInviteId",
+                          "mailStatus",
+                          "lockVersion",
+                          "etag",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "username": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "editor",
+                              "reviewer",
+                              "publisher",
+                              "system_admin"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "expired",
+                              "revoked",
+                              "accepted"
+                            ]
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "usedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "revokedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          },
+                          "acceptedUserId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "supersedesInviteId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "mailStatus": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "lockVersion": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "etag": {
+                            "type": "string",
+                            "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "requestId",
+                        "nextCursor",
+                        "hasMore",
+                        "limit"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "nextCursor": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 200
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
             "adminSession": []
           }
         ],
@@ -1775,7 +2821,738 @@
         },
         "security": [
           {
-            "adminSession": []
+            "adminSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/invites/{inviteId}:resend": {
+      "post": {
+        "operationId": "resendAdminInvite",
+        "parameters": [
+          {
+            "name": "inviteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendInviteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "email",
+                        "username",
+                        "displayName",
+                        "role",
+                        "status",
+                        "expiresAt",
+                        "supersedesInviteId",
+                        "mailStatus",
+                        "lockVersion",
+                        "etag"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "username": {
+                          "type": "string"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "editor",
+                            "reviewer",
+                            "publisher",
+                            "system_admin"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending"
+                          ]
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "supersedesInviteId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "mailStatus": {
+                          "type": "string",
+                          "enum": [
+                            "pending"
+                          ]
+                        },
+                        "lockVersion": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "etag": {
+                          "type": "string",
+                          "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}/sessions/{sessionId}:revoke": {
+      "post": {
+        "operationId": "revokeAdminUserSession",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "userId",
+                        "status",
+                        "scope",
+                        "sessionId",
+                        "revokedCount",
+                        "etag"
+                      ],
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "sessions_revoked"
+                          ]
+                        },
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "one",
+                            "all"
+                          ]
+                        },
+                        "sessionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "revokedCount": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "etag": {
+                          "type": "string",
+                          "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}/sessions:revoke-all": {
+      "post": {
+        "operationId": "revokeAllAdminUserSessions",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "userId",
+                        "status",
+                        "scope",
+                        "sessionId",
+                        "revokedCount",
+                        "etag"
+                      ],
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "sessions_revoked"
+                          ]
+                        },
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "one",
+                            "all"
+                          ]
+                        },
+                        "sessionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "revokedCount": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "etag": {
+                          "type": "string",
+                          "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}/mfa:reset": {
+      "post": {
+        "operationId": "resetAdminUserMfa",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "userId",
+                        "status",
+                        "mfaEnrollmentRequired",
+                        "sessionsRevoked",
+                        "etag"
+                      ],
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "mfa_reset"
+                          ]
+                        },
+                        "mfaEnrollmentRequired": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "sessionsRevoked": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "etag": {
+                          "type": "string",
+                          "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}/password-reset:request": {
+      "post": {
+        "operationId": "requestAdminUserPasswordReset",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "userId",
+                        "status",
+                        "deliveryStatus",
+                        "expiresAt",
+                        "mailOutboxId",
+                        "etag"
+                      ],
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "accepted"
+                          ]
+                        },
+                        "deliveryStatus": {
+                          "type": "string",
+                          "enum": [
+                            "pending"
+                          ]
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "mailOutboxId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "etag": {
+                          "type": "string",
+                          "pattern": "^\"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*\"$"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": [],
+            "csrf": []
           }
         ],
         "summary": "",
@@ -21781,6 +23558,41 @@
           "passwordConfirmation"
         ]
       },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "system_admin",
+              "editor",
+              "reviewer",
+              "publisher"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "unlock": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "CreateUserDto": {
         "type": "object",
         "properties": {
@@ -21868,6 +23680,38 @@
           "username",
           "displayName",
           "role"
+        ]
+      },
+      "ResendInviteDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "expiresInHours": {
+            "type": "integer",
+            "default": 72,
+            "minimum": 1,
+            "maximum": 168
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "AdminReasonDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "CreateLayerGroupDto": {

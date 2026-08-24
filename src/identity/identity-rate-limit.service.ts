@@ -47,6 +47,18 @@ export class IdentityRateLimitService implements OnApplicationShutdown {
     return this.consume('password_reset_confirm', ip, token, 20, 5, 5 * 60);
   }
 
+  enforceAdminMutation(ip: string | undefined, actorId: string): Promise<void> {
+    return this.consume('admin_mutation', ip, actorId, 240, 120, 60);
+  }
+
+  enforceAdminCredentialDelivery(
+    ip: string | undefined,
+    actorId: string,
+    targetId: string,
+  ): Promise<void> {
+    return this.consume('admin_credential_delivery', ip, `${actorId}:${targetId}`, 30, 5, 15 * 60);
+  }
+
   async onApplicationShutdown(): Promise<void> {
     if (this.redis.status === 'end') return;
     if (this.redis.status === 'wait') {

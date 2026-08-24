@@ -9,6 +9,7 @@ import {
   SessionGuard,
 } from './auth.guards';
 import { AuthService } from './auth.service';
+import { AdminIdentityService } from './admin-identity.service';
 import { UsersController } from './users.controller';
 import { IdentityRateLimitService } from './identity-rate-limit.service';
 import { PasswordSecurityService } from './password-security.service';
@@ -37,6 +38,7 @@ import {
   controllers: [AuthController, UsersController],
   providers: [
     AuthService,
+    AdminIdentityService,
     IdentityRateLimitService,
     PasswordSecurityService,
     SessionGuard,

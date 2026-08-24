@@ -105,11 +105,11 @@ export class AuthService {
     metadata: RequestMetadata,
   ) {
     const result = await this.dataSource.transaction(async (manager) => {
-      await this.lockActivePreauth(manager, preauthSessionId, userId);
       const user = await manager.findOne(UserEntity, {
         where: { id: userId },
-        lock: { mode: 'pessimistic_read' },
+        lock: { mode: 'pessimistic_write' },
       });
+      await this.lockActivePreauth(manager, preauthSessionId, userId);
       if (!user?.mfaEnabled) {
         throw new AppException(401, 'AUTH_MFA_REQUIRED', 'Tài khoản cần đăng ký MFA.');
       }
@@ -145,11 +145,11 @@ export class AuthService {
 
   async startMfaEnrollment(userId: string, preauthSessionId: string, metadata: RequestMetadata) {
     return this.dataSource.transaction(async (manager) => {
-      await this.lockActivePreauth(manager, preauthSessionId, userId);
       const user = await manager.findOne(UserEntity, {
         where: { id: userId },
         lock: { mode: 'pessimistic_write' },
       });
+      await this.lockActivePreauth(manager, preauthSessionId, userId);
       if (!user || user.status !== 'active' || user.disabledAt) {
         throw new AppException(401, 'AUTH_SESSION_EXPIRED', 'MFA challenge đã hết hạn.');
       }
@@ -223,11 +223,11 @@ export class AuthService {
     metadata: RequestMetadata,
   ) {
     const result = await this.dataSource.transaction(async (manager) => {
-      await this.lockActivePreauth(manager, preauthSessionId, userId);
       const user = await manager.findOne(UserEntity, {
         where: { id: userId },
         lock: { mode: 'pessimistic_write' },
       });
+      await this.lockActivePreauth(manager, preauthSessionId, userId);
       if (!user || user.status !== 'active' || user.disabledAt) {
         throw new AppException(401, 'AUTH_SESSION_EXPIRED', 'MFA challenge đã hết hạn.');
       }

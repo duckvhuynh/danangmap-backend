@@ -119,6 +119,9 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 
 - [ ] **VS-029 — Backend:** User/role/session migration và deterministic Editor/Reviewer/Publisher/System Admin seed. Mapping: `B-008`, `B-056`.
   - Acceptance: một primary role; session revoke fields; seed idempotent.
+- [x] **VS-029A — Backend:** System Admin user/invite security lifecycle API. Mapping: `B-012`, `B-013`, `B-014`, tracking backend `#31`.
+  - Evidence: 91-operation OpenAPI; 18 migrations chạy từ fresh PostGIS; unit 99/99, integration 67/67 và E2E 50/50 pass (4 test publication async skip có chủ đích). Concurrency TOTP/admin mutation dùng lock order `user → session → factor`; real Postgres/Redis/Mailpit phủ 401/403/409/412/422/428/429, session invalidation, mail replacement và credential/audit redaction.
+  - Acceptance: cursor/search/filter directory; safe user security detail; ETag/idempotent role/status/session/MFA/reset/invite-resend commands; last-admin/self-target guards; atomic session invalidation; redacted audit/mail.
 - [x] **VS-030 — Backend:** RBAC guard và separation policy predicates. Mapping: `B-016`, `B-017`. Evidence: canonical stack đã merge vào `main` tại `059e240`; real HTTP role/SoD deny matrix và hai fresh-volume exact-SHA browser journey xanh trong run `32561792134`.
   - Acceptance: allow/deny tests gồm self-review, prior participant publish và System Admin bypass.
 - [x] **VS-031 — Backend:** Draft create, feature mutation và optimistic ETag. Mapping: `B-026`, `B-027`. Evidence: spatial core + real domain replay tests through backend `e62c478`; create layer/feature one effect, original ETag/result survives service restart.

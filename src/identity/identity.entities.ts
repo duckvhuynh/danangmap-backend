@@ -29,6 +29,7 @@ export class UserEntity {
   @Column({ name: 'failed_login_count', type: 'integer', default: 0 }) failedLoginCount: number;
   @Column({ name: 'locked_until', type: 'timestamptz', nullable: true }) lockedUntil: Date | null;
   @Column({ name: 'disabled_at', type: 'timestamptz', nullable: true }) disabledAt: Date | null;
+  @Column({ name: 'lock_version', type: 'integer', default: 1 }) lockVersion: number;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;
 }
@@ -95,7 +96,11 @@ export class InviteEntity {
   @Column({ name: 'used_at', type: 'timestamptz', nullable: true }) usedAt: Date | null;
   @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true }) revokedAt: Date | null;
   @Column({ name: 'accepted_user_id', type: 'uuid', nullable: true }) acceptedUserId: string | null;
+  @Column({ name: 'supersedes_invite_id', type: 'uuid', nullable: true }) supersedesInviteId:
+    string | null;
+  @Column({ name: 'lock_version', type: 'integer', default: 1 }) lockVersion: number;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;
 }
 
 @Entity({ name: 'password_reset_tokens' })

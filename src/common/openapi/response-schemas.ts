@@ -221,6 +221,277 @@ export const userListMetaSchema: SchemaObject = {
   },
 };
 
+const identityEtagSchema: SchemaObject = {
+  type: 'string',
+  pattern: '^"(?:user|invite)-[0-9a-f-]{36}-v[1-9]\\d*"$',
+};
+
+export const adminUserListItemSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'email',
+    'username',
+    'displayName',
+    'role',
+    'status',
+    'mfaEnabled',
+    'mustChangePassword',
+    'disabledAt',
+    'lockedUntil',
+    'lockVersion',
+    'etag',
+    'createdAt',
+    'updatedAt',
+    'security',
+  ],
+  properties: {
+    ...authPrincipalSchema.properties,
+    disabledAt: { ...dateTime, nullable: true },
+    lockedUntil: { ...dateTime, nullable: true },
+    lockVersion: { type: 'integer', minimum: 1 },
+    etag: identityEtagSchema,
+    createdAt: dateTime,
+    updatedAt: dateTime,
+    security: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'activeSessionCount',
+        'latestSessionCreatedAt',
+        'recoveryCodesRemaining',
+        'pendingInviteCount',
+        'pendingPasswordReset',
+      ],
+      properties: {
+        activeSessionCount: { type: 'integer', minimum: 0 },
+        latestSessionCreatedAt: { ...dateTime, nullable: true },
+        recoveryCodesRemaining: { type: 'integer', minimum: 0 },
+        pendingInviteCount: { type: 'integer', minimum: 0 },
+        pendingPasswordReset: { type: 'boolean' },
+      },
+    },
+  },
+};
+
+const adminSessionSummarySchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'kind', 'status', 'createdAt', 'expiresAt', 'revokedAt', 'userAgent'],
+  properties: {
+    id: uuid,
+    kind: { type: 'string', enum: ['preauth', 'authenticated'] },
+    status: { type: 'string', enum: ['active', 'expired', 'revoked'] },
+    createdAt: dateTime,
+    expiresAt: dateTime,
+    revokedAt: { ...dateTime, nullable: true },
+    userAgent: nullableString,
+  },
+};
+
+const adminUserInviteSummarySchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'status', 'expiresAt', 'createdAt', 'mailStatus', 'etag'],
+  properties: {
+    id: uuid,
+    status: { type: 'string', enum: ['pending', 'expired', 'revoked', 'accepted'] },
+    expiresAt: dateTime,
+    createdAt: dateTime,
+    mailStatus: { type: 'string', nullable: true },
+    etag: identityEtagSchema,
+  },
+};
+
+const adminPasswordResetSummarySchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'status', 'expiresAt', 'createdAt', 'mailStatus'],
+  properties: {
+    id: uuid,
+    status: { type: 'string', enum: ['pending', 'expired', 'revoked', 'used'] },
+    expiresAt: dateTime,
+    createdAt: dateTime,
+    mailStatus: { type: 'string', nullable: true },
+  },
+};
+
+export const adminUserDetailSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'email',
+    'username',
+    'displayName',
+    'role',
+    'status',
+    'mustChangePassword',
+    'disabledAt',
+    'lockedUntil',
+    'failedLoginCount',
+    'lockVersion',
+    'etag',
+    'createdAt',
+    'updatedAt',
+    'mfa',
+    'sessions',
+    'invites',
+    'passwordResets',
+  ],
+  properties: {
+    id: uuid,
+    email: { type: 'string', format: 'email' },
+    username: { type: 'string' },
+    displayName: { type: 'string' },
+    role: { type: 'string', enum: ['editor', 'reviewer', 'publisher', 'system_admin'] },
+    status: { type: 'string', enum: ['active', 'inactive', 'disabled', 'invited'] },
+    mustChangePassword: { type: 'boolean' },
+    disabledAt: { ...dateTime, nullable: true },
+    lockedUntil: { ...dateTime, nullable: true },
+    failedLoginCount: { type: 'integer', minimum: 0 },
+    lockVersion: { type: 'integer', minimum: 1 },
+    etag: identityEtagSchema,
+    createdAt: dateTime,
+    updatedAt: dateTime,
+    mfa: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'enabled',
+        'status',
+        'verifiedAt',
+        'recoveryCodesRemaining',
+        'recoveryCodesConsumed',
+      ],
+      properties: {
+        enabled: { type: 'boolean' },
+        status: { type: 'string', enum: ['not_enrolled', 'pending', 'verified'] },
+        verifiedAt: { ...dateTime, nullable: true },
+        recoveryCodesRemaining: { type: 'integer', minimum: 0 },
+        recoveryCodesConsumed: { type: 'integer', minimum: 0 },
+      },
+    },
+    sessions: { type: 'array', maxItems: 50, items: adminSessionSummarySchema },
+    invites: { type: 'array', maxItems: 20, items: adminUserInviteSummarySchema },
+    passwordResets: { type: 'array', maxItems: 10, items: adminPasswordResetSummarySchema },
+  },
+};
+
+export const adminInviteSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'email',
+    'username',
+    'displayName',
+    'role',
+    'status',
+    'expiresAt',
+    'usedAt',
+    'revokedAt',
+    'acceptedUserId',
+    'supersedesInviteId',
+    'mailStatus',
+    'lockVersion',
+    'etag',
+    'createdAt',
+    'updatedAt',
+  ],
+  properties: {
+    id: uuid,
+    email: { type: 'string', format: 'email' },
+    username: { type: 'string' },
+    displayName: { type: 'string' },
+    role: { type: 'string', enum: ['editor', 'reviewer', 'publisher', 'system_admin'] },
+    status: { type: 'string', enum: ['pending', 'expired', 'revoked', 'accepted'] },
+    expiresAt: dateTime,
+    usedAt: { ...dateTime, nullable: true },
+    revokedAt: { ...dateTime, nullable: true },
+    acceptedUserId: { ...uuid, nullable: true },
+    supersedesInviteId: { ...uuid, nullable: true },
+    mailStatus: { type: 'string', nullable: true },
+    lockVersion: { type: 'integer', minimum: 1 },
+    etag: identityEtagSchema,
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+};
+
+export const adminInviteResendResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'email',
+    'username',
+    'displayName',
+    'role',
+    'status',
+    'expiresAt',
+    'supersedesInviteId',
+    'mailStatus',
+    'lockVersion',
+    'etag',
+  ],
+  properties: {
+    id: uuid,
+    email: { type: 'string', format: 'email' },
+    username: { type: 'string' },
+    displayName: { type: 'string' },
+    role: { type: 'string', enum: ['editor', 'reviewer', 'publisher', 'system_admin'] },
+    status: { type: 'string', enum: ['pending'] },
+    expiresAt: dateTime,
+    supersedesInviteId: uuid,
+    mailStatus: { type: 'string', enum: ['pending'] },
+    lockVersion: { type: 'integer', minimum: 1 },
+    etag: identityEtagSchema,
+  },
+};
+
+export const adminSessionRevocationResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['userId', 'status', 'scope', 'sessionId', 'revokedCount', 'etag'],
+  properties: {
+    userId: uuid,
+    status: { type: 'string', enum: ['sessions_revoked'] },
+    scope: { type: 'string', enum: ['one', 'all'] },
+    sessionId: { ...uuid, nullable: true },
+    revokedCount: { type: 'integer', minimum: 1 },
+    etag: identityEtagSchema,
+  },
+};
+
+export const adminMfaResetResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['userId', 'status', 'mfaEnrollmentRequired', 'sessionsRevoked', 'etag'],
+  properties: {
+    userId: uuid,
+    status: { type: 'string', enum: ['mfa_reset'] },
+    mfaEnrollmentRequired: { type: 'boolean', enum: [true] },
+    sessionsRevoked: { type: 'integer', minimum: 0 },
+    etag: identityEtagSchema,
+  },
+};
+
+export const adminPasswordResetRequestResultSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['userId', 'status', 'deliveryStatus', 'expiresAt', 'mailOutboxId', 'etag'],
+  properties: {
+    userId: uuid,
+    status: { type: 'string', enum: ['accepted'] },
+    deliveryStatus: { type: 'string', enum: ['pending'] },
+    expiresAt: dateTime,
+    mailOutboxId: uuid,
+    etag: identityEtagSchema,
+  },
+};
+
 export const loginResultSchema: SchemaObject = {
   type: 'object',
   required: ['status', 'mfaEnrollmentRequired', 'challengeExpiresAt'],

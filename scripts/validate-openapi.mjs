@@ -41,9 +41,17 @@ const strictlyTypedResponseOperations = new Set([
   'getCsrfToken',
   'getCurrentUser',
   'listUsers',
+  'getAdminUser',
+  'updateAdminUser',
   'createUser',
   'createInvite',
   'revokeInvite',
+  'listAdminInvites',
+  'resendAdminInvite',
+  'revokeAdminUserSession',
+  'revokeAllAdminUserSessions',
+  'resetAdminUserMfa',
+  'requestAdminUserPasswordReset',
   'listLayerGroups',
   'createLayerGroup',
   'listAdminLayers',
@@ -104,6 +112,36 @@ const parameterContracts = {
     ['header', 'X-CSRF-Token', true],
   ],
   revokeInvite: [
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  updateAdminUser: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  resendAdminInvite: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  revokeAdminUserSession: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  revokeAllAdminUserSessions: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  resetAdminUserMfa: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  requestAdminUserPasswordReset: [
+    ['header', 'If-Match', true],
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
@@ -214,7 +252,20 @@ const parameterContracts = {
 };
 const preauthCsrfOperations = new Set(['verifyMfa', 'startMfaEnrollment', 'confirmMfaEnrollment']);
 const publicCsrfOperations = new Set(['login', 'acceptInvite', 'confirmPasswordReset']);
-const authenticatedCsrfOperations = new Set(['changePassword', 'revokeAllSessions', 'logout']);
+const authenticatedCsrfOperations = new Set([
+  'changePassword',
+  'revokeAllSessions',
+  'logout',
+  'createUser',
+  'createInvite',
+  'revokeInvite',
+  'updateAdminUser',
+  'resendAdminInvite',
+  'revokeAdminUserSession',
+  'revokeAllAdminUserSessions',
+  'resetAdminUserMfa',
+  'requestAdminUserPasswordReset',
+]);
 const resolveSchema = (schema) => {
   if (!schema?.$ref) return schema;
   const prefix = '#/components/schemas/';
@@ -339,7 +390,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     seen.set(operationId, `${method.toUpperCase()} ${path}`);
   }
 }
-if (seen.size !== 83) throw new Error(`Expected 83 OpenAPI operations, received ${seen.size}`);
+if (seen.size !== 91) throw new Error(`Expected 91 OpenAPI operations, received ${seen.size}`);
 const csrfOperation = document.paths?.['/api/v1/auth/csrf']?.get;
 if (csrfOperation?.operationId !== 'getCsrfToken') {
   throw new Error('CSRF GET must use the truthful getCsrfToken operation ID');

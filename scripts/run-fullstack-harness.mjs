@@ -40,6 +40,7 @@ const remainingSpecs = [
   'layer-configuration-lifecycle.spec.ts',
   'publication-history-rollback.spec.ts',
   'spatial-publication.spec.ts',
+  'system-admin-security-lifecycle.spec.ts',
 ];
 const realStackSpecs = [durableSpec, ...remainingSpecs];
 const phaseNames = ['queue', 'progress', 'crashed', 'terminal'];

@@ -34,6 +34,14 @@ services:
     extends:
       file: compose.yml
       service: api
+    environment:
+      # Canonical Docker tests upload from another service on this network. Host-run
+      # browser tests can override this with DANANGMAP_E2E_MINIO_PUBLIC_ENDPOINT=localhost.
+      MINIO_PUBLIC_ENDPOINT: ${DANANGMAP_E2E_MINIO_PUBLIC_ENDPOINT:-minio}
+      MINIO_PUBLIC_PORT: 9000
+      MINIO_PUBLIC_USE_SSL: 'false'
+      MINIO_PUBLIC_PATH_STYLE: 'true'
+      MINIO_REGION: us-east-1
 
   mailpit:
     image: axllent/mailpit:v1.30.7

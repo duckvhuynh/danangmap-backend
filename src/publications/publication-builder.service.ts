@@ -109,7 +109,7 @@ export class PublicationBuilderService {
   ): Promise<void> {
     if (
       context.actorStatus !== 'active' ||
-      context.actorRole !== 'publisher' ||
+      !['publisher', 'system_admin'].includes(context.actorRole) ||
       context.actorDisabledAt !== null
     ) {
       throw new PublicationBuildError('PUBLICATION_ACTOR_INELIGIBLE');

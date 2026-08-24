@@ -39,6 +39,7 @@ interface Envelope<T> {
 describe('attachment HTTP authorization matrix', () => {
   let actors: Record<keyof typeof users, Actor>;
   let editorAttachmentId: string | undefined;
+  let adminAttachmentId: string | undefined;
 
   beforeAll(async () => {
     if (!AppDataSource.isInitialized) await AppDataSource.initialize();
@@ -55,12 +56,13 @@ describe('attachment HTTP authorization matrix', () => {
 
   afterAll(async () => {
     if (AppDataSource.isInitialized) {
-      if (editorAttachmentId) {
+      for (const attachmentId of [editorAttachmentId, adminAttachmentId]) {
+        if (!attachmentId) continue;
         await AppDataSource.query(
           `DELETE FROM attachments WHERE id=$1 AND NOT EXISTS (
              SELECT 1 FROM feature_version_attachments WHERE attachment_id=$1
            )`,
-          [editorAttachmentId],
+          [attachmentId],
         );
       }
       await AppDataSource.destroy();
@@ -110,7 +112,24 @@ describe('attachment HTTP authorization matrix', () => {
     expect(deleted.status).toBe(200);
   });
 
-  it.each(['systemAdmin', 'reviewer', 'publisher'] as const)(
+  it('allows System Admin to use Editor attachment capabilities', async () => {
+    const created = await mutation(
+      actors.systemAdmin,
+      'POST',
+      '/api/v1/admin/uploads',
+      uploadBody(),
+    );
+    expect(created.status).toBe(201);
+    adminAttachmentId = (await json<Envelope<{ attachmentId: string }>>(created)).data.attachmentId;
+    const deleted = await mutation(
+      actors.systemAdmin,
+      'DELETE',
+      `/api/v1/admin/attachments/${adminAttachmentId}`,
+    );
+    expect(deleted.status).toBe(200);
+  });
+
+  it.each(['reviewer', 'publisher'] as const)(
     'denies every attachment mutation to %s',
     async (role) => {
       const actor = actors[role];

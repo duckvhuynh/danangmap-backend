@@ -173,7 +173,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 - [ ] **VS-038 — QA/Frontend:** Playwright published read path. Mapping: `Q-011`.
   - Acceptance: `/` direct map, catalog, toggle, Point/Polygon, detail, Street/Light, list, mobile sheet, no URL state.
 - [ ] **VS-039 — QA/Cross-repo:** Playwright controlled publication path. Mapping: `Q-005`, `Q-015`.
-  - Partial evidence: exact-SHA browser runs tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040` chứng minh three actors, Editor approve deny và public generation chỉ đổi sau publish success; backend API suite bao phủ participant-publish/System Admin bypass. Còn thiếu assertion browser trực tiếp cho toàn bộ participant-publish/admin-bypass deny trước khi đánh dấu Done; tracking: backend issue `#11`.
+  - Partial evidence: exact-SHA browser runs tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040` chứng minh three actors, Editor approve deny và public generation chỉ đổi sau publish success; backend API suite bao phủ participant-publish. System Admin nay kế thừa content capability nhưng vẫn bị participant-history policy chặn khi đã edit/review revision đích.
 - [ ] **VS-040 — QA/Cross-repo:** Failure-path assertions và artifact capture.
   - Acceptance: PostGIS unavailable readiness fail; API problem envelope; public partial layer failure; publication build fail giữ snapshot; screenshots/traces lưu khi test fail.
 - [x] **VS-041 — QA/Cross-repo:** Re-run Docker E2E từ môi trường sạch.

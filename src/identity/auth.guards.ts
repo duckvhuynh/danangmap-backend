@@ -153,7 +153,10 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
     if (!roles?.length) return true;
-    if (!principal || !roles.includes(principal.role as UserRole)) {
+    if (
+      !principal ||
+      (principal.role !== 'system_admin' && !roles.includes(principal.role as UserRole))
+    ) {
       throw new AppException(403, 'ROLE_FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này.');
     }
     return true;

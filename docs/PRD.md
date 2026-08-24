@@ -35,7 +35,7 @@ DanangMap v2 phải trở thành một **Spatial CMS** phục vụ hai mặt:
 - Không dùng MongoDB trong MVP; metadata động được lưu bằng PostgreSQL JSONB.
 - Mapbox chỉ cung cấp basemap `street` và `light`; không có satellite trong MVP.
 - Không lưu hoặc chia sẻ camera/layer/feature state qua query string URL.
-- Vai trò nội dung tách biệt: Editor, Reviewer, Publisher. System Admin không được bỏ qua workflow nội dung.
+- Vai trò nội dung tách biệt: Editor, Reviewer, Publisher. System Admin kế thừa năng lực của cả ba vai trò, nhưng vẫn chịu state machine và separation-of-duties theo lịch sử participant.
 - Tài khoản do System Admin tạo thủ công, gửi invite hoặc nhập hàng loạt; MFA thuộc MVP.
 - Circle chuẩn chỉ có một tâm `Point` và `radius_m` theo mét. MultiPoint, MultiLineString và MultiPolygon được hỗ trợ cho các geometry tương ứng, không dùng MultiPoint làm circle.
 - Admin mobile chỉ xem, comment, approve hoặc request changes. Publish, rollback, import, sửa schema/style, draw và edit chỉ được thực hiện trên desktop.
@@ -77,7 +77,7 @@ API, schema, Docker, CI và deployment được thiết kế để bổ sung l�
 - Satellite, terrain, 3D buildings và Mapbox Directions.
 - Hợp đồng/SDK/SLA API dành cho bên thứ ba. Public endpoint vẫn có thể được gọi ngoài trình duyệt; “chỉ frontend DanangMap” là phạm vi client được hỗ trợ, không phải bảo đảm access-control bằng CORS.
 - Phân quyền Editor theo layer hoặc đơn vị.
-- Lập lịch xuất bản, nhiều cấp duyệt hoặc System Admin bypass workflow.
+- Lập lịch xuất bản, nhiều cấp duyệt hoặc bypass state/separation-of-duties, kể cả bằng System Admin.
 - Merge nhiều active draft trên cùng một layer.
 - Sao lưu/khôi phục dữ liệu do nền tảng quản lý.
 - MongoDB.
@@ -91,7 +91,7 @@ API, schema, Docker, CI và deployment được thiết kế để bổ sung l�
 | Editor | “Khi dữ liệu thay đổi, tôi muốn vẽ, sửa hoặc import vào bản nháp mà không làm thay đổi dữ liệu đang công khai.” |
 | Reviewer | “Khi nhận bản nháp, tôi muốn xem diff, lỗi hình học và metadata để yêu cầu sửa hoặc phê duyệt.” |
 | Publisher | “Khi revision đã được duyệt, tôi muốn xuất bản nguyên tử, có audit và có thể rollback publication.” |
-| System Admin | “Tôi muốn quản lý identity, MFA, role, session, cấu hình hệ thống và xem audit, nhưng không sửa nội dung lớp hoặc bỏ qua chuỗi duyệt.” |
+| System Admin | “Tôi muốn quản lý toàn bộ hệ thống và có thể thực hiện tác vụ nội dung khi cần, nhưng mọi transition vẫn phải hợp lệ và không được tự duyệt/tự publish revision mình đã tham gia.” |
 | Vận hành | “Tôi muốn biết API, worker và storage có khỏe không, migration có an toàn không và bản phát hành có thể rollback ở mức ứng dụng.” |
 
 ## 7. Thuật ngữ miền
@@ -179,7 +179,7 @@ API, schema, Docker, CI và deployment được thiết kế để bổ sung l�
 - Invite và password reset được gửi qua mail adapter/SMTP có retry, template và audit; token bí mật không xuất hiện trong log hoặc event payload.
 - Mọi mutation dùng cookie phải kiểm tra CSRF token được bind với session và Origin/Referer allow-list.
 - Role hệ thống: Editor, Reviewer, Publisher, System Admin; mỗi tài khoản có đúng một role chính tại một thời điểm. Đổi role phải revoke session và separation-of-duties vẫn xét toàn bộ lịch sử participant của revision.
-- System Admin chỉ quản lý identity/system/session và xem audit toàn hệ thống; role này không kế thừa quyền sửa layer/schema/feature, review hoặc publish.
+- System Admin kế thừa năng lực Editor/Reviewer/Publisher trên mọi layer và có thêm quyền identity/system/audit toàn hệ thống. Việc kế thừa không bỏ qua trạng thái revision, ETag, CSRF, idempotency hoặc separation-of-duties.
 - Admin session dùng cookie HttpOnly, Secure, SameSite phù hợp; không lưu access token trong `localStorage` hay Dexie.
 
 ### 8.7 Attachment và field private
@@ -241,7 +241,7 @@ Các endpoint geocode/reverse geocode, nearby, find place và directions đượ
 1. System Admin tạo, invite hoặc import tài khoản.
 2. Mail adapter gửi invite/reset link một lần; người nhận đặt mật khẩu, đăng ký MFA và nhận recovery codes.
 3. System Admin gán role, thu hồi session hoặc vô hiệu hóa tài khoản.
-4. Mọi thao tác được audit; System Admin vẫn không được bypass content workflow.
+4. Mọi thao tác được audit; System Admin có thể thực hiện mọi capability nhưng vẫn không được bypass state/separation-of-duties của content workflow.
 
 ## 10. Yêu cầu chức năng có thể truy vết
 
@@ -300,7 +300,7 @@ Các endpoint geocode/reverse geocode, nearby, find place và directions đượ
 - **FR-WFL-002:** Tác giả revision không được review revision đó; Reviewer không được publish; Publisher không được publish revision mà mình từng tham gia với tư cách Editor hoặc Reviewer, kể cả sau khi đổi role.
 - **FR-WFL-003:** Chỉ approved revision được publish; đổi active snapshot phải nguyên tử.
 - **FR-WFL-004:** Rollback chỉ dùng snapshot đã publish trước và bắt buộc có lý do.
-- **FR-WFL-005:** System Admin không có quyền bypass workflow nội dung chỉ nhờ role quản trị.
+- **FR-WFL-005:** System Admin được phép gọi capability Editor/Reviewer/Publisher, nhưng không được bypass state machine hoặc separation-of-duties chỉ nhờ role quản trị.
 - **FR-WFL-006:** Auth, role, content workflow và publication phải được audit append-only.
 - **FR-WFL-007:** Request changes phải tạo successor draft mới và giữ revision đã submit bất biến; response/audit phải liên kết predecessor/successor.
 

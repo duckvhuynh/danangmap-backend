@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { AppException } from '../common/http/app.exception';
-import { canonicalPublicFieldSql } from '../common/public-field.policy';
+import {
+  canonicalPublicFieldSql,
+  canonicalPublicRenderableFieldSql,
+} from '../common/public-field.policy';
 import { GeoServiceAdapter, type GeoBias } from './geo-service.adapter';
 
 interface PublishedLayerRow {
@@ -61,7 +64,7 @@ export class PublicApiService {
       `SELECT id,key,label,description,type,icon,required,searchable,filterable,sortable,
               default_value AS "defaultValue",validation,options,display_order AS "displayOrder"
        FROM layer_fields field
-       WHERE revision_id=$1 AND ${canonicalPublicFieldSql('field')}
+       WHERE revision_id=$1 AND ${canonicalPublicRenderableFieldSql('field')}
        ORDER BY display_order,id`,
       [row.revisionId],
     )) as Record<string, unknown>[];
@@ -159,12 +162,37 @@ export class PublicApiService {
     )) as PublicFeatureRow[];
     const row = rows[0];
     if (!row) throw new AppException(404, 'FEATURE_NOT_FOUND', 'Không tìm thấy đối tượng.');
+    const attachments = (await this.dataSource.query(
+      `SELECT attachment.id,link.field_key AS "fieldKey",link.display_order AS "displayOrder",
+              attachment.file_name AS "fileName",attachment.content_type AS "contentType",
+              attachment.size_bytes AS "sizeBytes",attachment.status
+       FROM feature_version_attachments link
+       JOIN attachments attachment ON attachment.id=link.attachment_id AND attachment.status='clean'
+       JOIN layer_fields field ON field.revision_id=$2 AND field.key=link.field_key
+         AND field.public=true AND field.sensitive=false AND field.type IN ('image','attachment')
+       WHERE link.feature_version_id=$1
+       ORDER BY link.field_key,link.display_order,attachment.id`,
+      [row.versionId, layer.revisionId],
+    )) as Array<{
+      id: string;
+      fieldKey: string;
+      displayOrder: number;
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+      status: string;
+    }>;
     const data = {
       type: 'Feature',
       id: row.id,
       geometry: row.geometry,
       properties: row.properties,
-      attachments: [],
+      attachments: attachments.map((attachment) => ({
+        ...attachment,
+        displayOrder: Number(attachment.displayOrder),
+        sizeBytes: Number(attachment.sizeBytes),
+        url: `/api/v1/public/attachments/${attachment.id}`,
+      })),
       meta: {
         layerSlug: slug,
         snapshotId: layer.snapshotId,
@@ -388,7 +416,7 @@ export class PublicApiService {
             WHERE field.revision_id=r.id AND ${canonicalPublicFieldSql('field')}
               AND field.searchable=true ORDER BY field.display_order,field.id) AS "searchFields",
           ARRAY(SELECT field.key FROM layer_fields field
-            WHERE field.revision_id=r.id AND ${canonicalPublicFieldSql('field')}
+            WHERE field.revision_id=r.id AND ${canonicalPublicRenderableFieldSql('field')}
             ORDER BY field.display_order,field.id) AS "publicFields"
        FROM layer_publications lp
        JOIN layers l ON l.id=lp.layer_id AND l.archived_at IS NULL

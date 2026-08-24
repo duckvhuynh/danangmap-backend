@@ -153,13 +153,15 @@ export class PublicationActivationService {
          VALUES($1,'publishing','published',$2,$3)`,
         [job.revision_id, job.requested_by, job.release_note],
       );
+      const publisherRole = await this.actorRole(manager, job.requested_by);
       await manager.query(
         `INSERT INTO audit_logs(
            actor_id,actor_role,action,resource_type,resource_id,request_id,
            before_digest,after_digest,metadata
-         ) VALUES($1,'publisher','revision.published','layer_revision',$2,$3,$4,$5,$6::jsonb)`,
+         ) VALUES($1,$2,'revision.published','layer_revision',$3,$4,$5,$6,$7::jsonb)`,
         [
           job.requested_by,
+          publisherRole,
           job.revision_id,
           job.request_id,
           this.crypto.checksum(
@@ -272,7 +274,7 @@ export class PublicationActivationService {
     if (
       !actor ||
       actor.status !== 'active' ||
-      actor.role !== 'publisher' ||
+      !['publisher', 'system_admin'].includes(actor.role) ||
       actor.disabled_at !== null
     ) {
       throw new PublicationActivationInvariantError('PUBLICATION_ACTOR_INELIGIBLE');

@@ -419,7 +419,10 @@ export class ImportsService {
         .where('job.id=:id', { id })
         .getOne();
       if (!job) throw new AppException(404, 'IMPORT_NOT_FOUND', 'Không tìm thấy import.');
-      if (actor.role !== 'editor' || job.actorId !== actor.id) {
+      if (
+        !['editor', 'system_admin'].includes(actor.role) ||
+        (actor.role !== 'system_admin' && job.actorId !== actor.id)
+      ) {
         throw new AppException(403, 'IMPORT_FORBIDDEN', 'Bạn không có quyền xem import này.');
       }
       const priorApply = job.mapping.apply as
@@ -581,7 +584,10 @@ export class ImportsService {
   private async ownedJob(id: string, actor: NonNullable<RequestWithContext['principal']>) {
     const job = await this.jobs.findOneBy({ id });
     if (!job) throw new AppException(404, 'IMPORT_NOT_FOUND', 'Không tìm thấy import.');
-    if (actor.role !== 'editor' || job.actorId !== actor.id) {
+    if (
+      !['editor', 'system_admin'].includes(actor.role) ||
+      (actor.role !== 'system_admin' && job.actorId !== actor.id)
+    ) {
       throw new AppException(403, 'IMPORT_FORBIDDEN', 'Bạn không có quyền xem import này.');
     }
     return job;

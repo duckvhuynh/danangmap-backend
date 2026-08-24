@@ -26,3 +26,11 @@ export function canonicalPublicFieldSql(alias: string): string {
   const types = CANONICAL_PUBLIC_FIELD_TYPES.map((type) => `'${type}'`).join(',');
   return `${alias}.public=true AND ${alias}.sensitive=false AND ${alias}.type=ANY(ARRAY[${types}]::text[])`;
 }
+
+export function canonicalPublicRenderableFieldSql(alias: string): string {
+  if (!/^[a-z][a-z0-9_]*$/.test(alias)) {
+    throw new Error('Canonical public field SQL alias is invalid.');
+  }
+  const scalar = canonicalPublicFieldSql(alias);
+  return `(${scalar} OR (${alias}.public=true AND ${alias}.sensitive=false AND ${alias}.type IN ('image','attachment')))`;
+}

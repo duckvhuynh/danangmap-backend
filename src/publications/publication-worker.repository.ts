@@ -49,6 +49,7 @@ export interface PublicationBuildContext {
   vertexCount: number;
   invalidFeatureCount: number;
   missingRequiredCount: number;
+  invalidAttachmentCount: number;
   publicFieldKeys: string[];
 }
 
@@ -148,6 +149,7 @@ export class PublicationWorkerRepository {
                 aggregate.vertex_count AS "vertexCount",
                 aggregate.invalid_feature_count AS "invalidFeatureCount",
                 aggregate.missing_required_count AS "missingRequiredCount",
+                aggregate.invalid_attachment_count AS "invalidAttachmentCount",
                 ARRAY(
                   SELECT field.key FROM layer_fields field
                   WHERE field.revision_id=revision.id AND ${canonicalPublicFieldSql('field')}
@@ -169,7 +171,7 @@ export class PublicationWorkerRepository {
                     OR (version.geometry_kind='circle' AND COALESCE(version.radius_m,0)<=0)
                     OR (version.geometry_kind<>'circle' AND version.radius_m IS NOT NULL)
                   )::integer AS invalid_feature_count,
-                  COALESCE((
+                   COALESCE((
                     SELECT count(*)::integer
                     FROM revision_features required_feature
                     JOIN feature_versions required_version
@@ -181,7 +183,51 @@ export class PublicationWorkerRepository {
                         NOT (required_version.properties ? required_field.key)
                         OR required_version.properties->required_field.key='null'::jsonb
                       )
-                  ),0)::integer AS missing_required_count
+                   ),0)::integer AS missing_required_count,
+                   COALESCE((
+                     SELECT count(*)::integer
+                     FROM revision_features attachment_feature
+                     JOIN feature_versions attachment_version
+                       ON attachment_version.id=attachment_feature.feature_version_id
+                     JOIN layer_fields attachment_field
+                       ON attachment_field.revision_id=revision.id
+                       AND attachment_field.type IN ('image','attachment')
+                     WHERE attachment_feature.revision_id=revision.id AND (
+                       (attachment_field.required AND NOT EXISTS (
+                         SELECT 1 FROM feature_version_attachments required_link
+                         JOIN attachments required_attachment
+                           ON required_attachment.id=required_link.attachment_id
+                         WHERE required_link.feature_version_id=attachment_version.id
+                           AND required_link.field_key=attachment_field.key
+                           AND required_attachment.status='clean'
+                           AND required_attachment.object_key IS NOT NULL
+                       )) OR
+                       COALESCE(attachment_version.properties->attachment_field.key,'[]'::jsonb)
+                         IS DISTINCT FROM COALESCE((
+                           SELECT jsonb_agg(link.attachment_id ORDER BY link.display_order,link.attachment_id)
+                           FROM feature_version_attachments link
+                           JOIN attachments linked_attachment ON linked_attachment.id=link.attachment_id
+                           WHERE link.feature_version_id=attachment_version.id
+                             AND link.field_key=attachment_field.key
+                             AND linked_attachment.status='clean'
+                             AND linked_attachment.object_key IS NOT NULL
+                         ),'[]'::jsonb)
+                     )
+                   ),0)::integer + COALESCE((
+                     SELECT count(*)::integer
+                     FROM revision_features linked_feature
+                     JOIN feature_version_attachments linked
+                       ON linked.feature_version_id=linked_feature.feature_version_id
+                     LEFT JOIN attachments linked_attachment ON linked_attachment.id=linked.attachment_id
+                     LEFT JOIN layer_fields linked_field
+                       ON linked_field.revision_id=revision.id AND linked_field.key=linked.field_key
+                     WHERE linked_feature.revision_id=revision.id AND (
+                       linked_attachment.status IS DISTINCT FROM 'clean'
+                       OR linked_attachment.object_key IS NULL
+                       OR linked_field.type IS NULL
+                       OR linked_field.type NOT IN ('image','attachment')
+                     )
+                   ),0)::integer AS invalid_attachment_count
            FROM revision_features member
            JOIN features feature ON feature.id=member.feature_id
            JOIN feature_versions version ON version.id=member.feature_version_id

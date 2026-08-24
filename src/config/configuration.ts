@@ -34,9 +34,26 @@ export const configuration = () => ({
     endpoint: process.env.MINIO_ENDPOINT ?? 'localhost',
     port: Number(process.env.MINIO_PORT ?? 9000),
     useSsl: process.env.MINIO_USE_SSL === 'true',
+    publicEndpoint: process.env.MINIO_PUBLIC_ENDPOINT ?? process.env.MINIO_ENDPOINT ?? 'localhost',
+    publicPort: Number(process.env.MINIO_PUBLIC_PORT ?? process.env.MINIO_PORT ?? 9000),
+    publicUseSsl:
+      (process.env.MINIO_PUBLIC_USE_SSL ?? process.env.MINIO_USE_SSL ?? 'false') === 'true',
+    publicPathStyle: process.env.MINIO_PUBLIC_PATH_STYLE !== 'false',
+    region: process.env.MINIO_REGION ?? 'us-east-1',
     accessKey: process.env.MINIO_ACCESS_KEY,
     secretKey: process.env.MINIO_SECRET_KEY,
     bucket: process.env.MINIO_BUCKET ?? 'danangmap',
+  },
+  attachments: {
+    uploadTtlSeconds: Number(process.env.ATTACHMENT_UPLOAD_TTL_SECONDS ?? 600),
+    orphanRetentionHours: Number(process.env.ATTACHMENT_ORPHAN_RETENTION_HOURS ?? 24),
+    sweepIntervalMs: Number(process.env.ATTACHMENT_SWEEP_INTERVAL_MS ?? 60_000),
+    scannerMode:
+      process.env.ATTACHMENT_SCANNER_MODE ??
+      (process.env.NODE_ENV === 'production' ? 'clamav' : 'deterministic'),
+    clamavHost: process.env.CLAMAV_HOST ?? 'localhost',
+    clamavPort: Number(process.env.CLAMAV_PORT ?? 3310),
+    scanTimeoutMs: Number(process.env.ATTACHMENT_SCAN_TIMEOUT_MS ?? 30_000),
   },
   geoService: {
     baseUrl: process.env.GEO_SERVICE_BASE_URL ?? '',

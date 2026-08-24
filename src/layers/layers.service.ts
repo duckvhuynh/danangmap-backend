@@ -44,6 +44,17 @@ interface FeatureRow {
   updated_at: Date;
 }
 
+interface FeatureAttachmentRow {
+  versionId: string;
+  id: string;
+  fieldKey: string;
+  displayOrder: number;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  status: string;
+}
+
 @Injectable()
 export class LayersService {
   constructor(
@@ -300,7 +311,8 @@ export class LayersService {
       `,
       [revisionId, bbox, limit],
     )) as FeatureRow[];
-    return rows.map((row) => this.featureDto(row));
+    const attachments = await this.attachmentsForVersions(rows.map((row) => row.version_id));
+    return rows.map((row) => this.featureDto(row, attachments.get(row.version_id) ?? []));
   }
 
   async createFeature(
@@ -445,10 +457,37 @@ export class LayersService {
     const geometry = dto.geometry ?? current.geometry;
     const kind = dto.geometryKind ?? current.geometry_kind;
     const radiusM = dto.radiusM !== undefined ? dto.radiusM : current.radius_m;
-    const properties = dto.properties ?? current.properties;
+    const currentAttachments = await this.attachmentsForVersion(current.version_id);
+    const attachmentFields = context.fields.filter((field) =>
+      ['image', 'attachment'].includes(field.type),
+    );
+    const properties = structuredClone(dto.properties ?? current.properties);
+    for (const field of attachmentFields) {
+      const canonicalIds = currentAttachments
+        .filter((attachment) => attachment.fieldKey === field.key)
+        .sort(
+          (left, right) =>
+            left.displayOrder - right.displayOrder || left.id.localeCompare(right.id),
+        )
+        .map((attachment) => attachment.id);
+      if (
+        dto.properties &&
+        Object.hasOwn(dto.properties, field.key) &&
+        JSON.stringify(dto.properties[field.key]) !== JSON.stringify(canonicalIds)
+      ) {
+        throw new AppException(
+          422,
+          'SCHEMA_VIOLATION',
+          `Field tệp đính kèm ${field.key} chỉ được thay đổi qua attachment API.`,
+        );
+      }
+      properties[field.key] = canonicalIds;
+    }
     this.assertGeometryAllowed(context.revision.allowedGeometryKinds, kind);
     await this.geometry.validate(geometry, kind, radiusM);
-    this.schema.validateProperties(context.fields as unknown as LayerFieldDto[], properties);
+    this.schema.validateProperties(context.fields as unknown as LayerFieldDto[], properties, {
+      allowMaterializedAttachments: true,
+    });
     return this.dataSource.transaction(async (manager) => {
       const locked = await this.lockRevision(manager, revisionId, expectedVersion);
       const versionRows = (await manager.query(
@@ -464,11 +503,18 @@ export class LayersService {
           kind,
           JSON.stringify(properties),
           radiusM ?? null,
-          this.featureChecksum(geometry, properties, radiusM),
+          this.featureChecksum(geometry, properties, radiusM, currentAttachments),
           actor.id,
         ],
       )) as Array<{ id: string; created_at: Date }>;
       const version = versionRows[0]!;
+      await manager.query(
+        `INSERT INTO feature_version_attachments(
+           feature_version_id,attachment_id,field_key,display_order
+         ) SELECT $1,attachment_id,field_key,display_order
+           FROM feature_version_attachments WHERE feature_version_id=$2`,
+        [version.id, current.version_id],
+      );
       await manager.update(
         RevisionFeatureEntity,
         { revisionId, featureId },
@@ -496,15 +542,18 @@ export class LayersService {
         versionId: version.id,
       });
       return {
-        feature: this.featureDto({
-          ...current,
-          geometry,
-          geometry_kind: kind,
-          radius_m: radiusM ?? null,
-          properties,
-          version_id: version.id,
-          updated_at: version.created_at,
-        }),
+        feature: this.featureDto(
+          {
+            ...current,
+            geometry,
+            geometry_kind: kind,
+            radius_m: radiusM ?? null,
+            properties,
+            version_id: version.id,
+            updated_at: version.created_at,
+          },
+          currentAttachments,
+        ),
         serverCursor: Buffer.from(String(locked.cursorSeq)).toString('base64url'),
         etag: revisionEtag(revisionId, locked.lockVersion),
       };
@@ -636,29 +685,57 @@ export class LayersService {
     geometry: Record<string, unknown>,
     properties: Record<string, unknown>,
     radiusM?: number | null,
+    attachments: FeatureAttachmentRow[] = [],
   ): string {
     return this.crypto.checksum(
       JSON.stringify({
         geometry,
-        properties: this.sortObject(properties),
+        properties: this.canonical(properties),
         radiusM: radiusM ?? null,
+        attachments: attachments
+          .map((attachment) => ({
+            id: attachment.id,
+            fieldKey: attachment.fieldKey,
+            displayOrder: attachment.displayOrder,
+          }))
+          .sort(
+            (left, right) =>
+              left.fieldKey.localeCompare(right.fieldKey) ||
+              left.displayOrder - right.displayOrder ||
+              left.id.localeCompare(right.id),
+          ),
       }),
     );
   }
 
-  private sortObject(value: Record<string, unknown>): Record<string, unknown> {
-    return Object.fromEntries(
-      Object.entries(value).sort(([left], [right]) => left.localeCompare(right)),
-    );
+  private canonical(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((item) => this.canonical(item));
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, item]) => [key, this.canonical(item)]),
+      );
+    }
+    return value;
   }
 
-  private featureDto(row: FeatureRow) {
+  private featureDto(row: FeatureRow, attachments: FeatureAttachmentRow[] = []) {
     return {
       type: 'Feature',
       id: row.id,
       geometry: row.geometry,
       properties: row.properties,
-      attachments: [],
+      attachments: attachments.map((attachment) => ({
+        id: attachment.id,
+        fieldKey: attachment.fieldKey,
+        displayOrder: Number(attachment.displayOrder),
+        fileName: attachment.fileName,
+        contentType: attachment.contentType,
+        sizeBytes: Number(attachment.sizeBytes),
+        status: attachment.status,
+        url: null,
+      })),
       meta: {
         geometryKind: row.geometry_kind,
         radiusM: row.radius_m,
@@ -668,6 +745,35 @@ export class LayersService {
         updatedAt: row.updated_at.toISOString(),
       },
     };
+  }
+
+  private async attachmentsForVersion(versionId: string): Promise<FeatureAttachmentRow[]> {
+    const result = await this.attachmentsForVersions([versionId]);
+    return result.get(versionId) ?? [];
+  }
+
+  private async attachmentsForVersions(
+    versionIds: string[],
+  ): Promise<Map<string, FeatureAttachmentRow[]>> {
+    if (!versionIds.length) return new Map();
+    const rows = (await this.dataSource.query(
+      `SELECT link.feature_version_id AS "versionId",attachment.id,
+              link.field_key AS "fieldKey",link.display_order AS "displayOrder",
+              attachment.file_name AS "fileName",attachment.content_type AS "contentType",
+              attachment.size_bytes AS "sizeBytes",attachment.status
+       FROM feature_version_attachments link
+       JOIN attachments attachment ON attachment.id=link.attachment_id
+       WHERE link.feature_version_id=ANY($1::uuid[])
+       ORDER BY link.feature_version_id,link.field_key,link.display_order,attachment.id`,
+      [versionIds],
+    )) as FeatureAttachmentRow[];
+    const result = new Map<string, FeatureAttachmentRow[]>();
+    for (const row of rows) {
+      const values = result.get(row.versionId) ?? [];
+      values.push(row);
+      result.set(row.versionId, values);
+    }
+    return result;
   }
 
   private sanitizeStyle(style: LayerStyleDto): Record<string, unknown> {

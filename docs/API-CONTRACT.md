@@ -127,9 +127,11 @@ Validation error `details.violations`:
 |     429 | Rate limit                                                                         |
 |     503 | Dependency bắt buộc chưa sẵn sàng; search external thường degraded 200 thay vì 503 |
 
+Trong mọi bảng route bên dưới, `System Admin` thỏa mọi yêu cầu role nội dung `Editor`, `Reviewer` hoặc `Publisher`. Quyền kế thừa không bỏ qua ownership của resource, state machine, CSRF, ETag, idempotency hoặc separation-of-duties; System Admin từng `edit|review` revision vẫn không được publish/rollback revision đó.
+
 ### 1.7 Mã lỗi chuẩn
 
-`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_CHANGE_REQUIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `CONFIG_IMPACT_BLOCKED`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `PUBLICATION_BASE_STALE`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NOT_READY`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
+`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_CHANGE_REQUIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `CONFIG_IMPACT_BLOCKED`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `PUBLICATION_BASE_STALE`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NAME_INVALID`, `ATTACHMENT_TYPE_UNSUPPORTED`, `ATTACHMENT_UPLOAD_INCOMPLETE`, `ATTACHMENT_UPLOAD_EXPIRED`, `ATTACHMENT_SIZE_MISMATCH`, `ATTACHMENT_MIME_MISMATCH`, `ATTACHMENT_CHECKSUM_MISMATCH`, `ATTACHMENT_NOT_READY`, `ATTACHMENT_ALREADY_BOUND`, `ATTACHMENT_OWNERSHIP_CONFLICT`, `ATTACHMENT_ORDER_INVALID`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
 
 ## 2. DTO dùng chung
 
@@ -460,28 +462,28 @@ Hai request concurrent cùng key/payload chỉ có một effect; chỉ response 
 
 ### 4.1 Route summary
 
-| Method | Route | Role | Mô tả |
-|---|---|---|---|
-| GET | `/admin/layer-groups` | mọi admin | Liệt kê group theo display order |
-| POST | `/admin/layer-groups` | Editor | Tạo group |
-| GET | `/admin/layer-groups/{groupId}` | mọi admin | Chi tiết group + ETag |
-| PATCH | `/admin/layer-groups/{groupId}` | Editor | Sửa metadata/order |
-| POST | `/admin/layer-groups:reorder` | Editor | Atomically reorder group theo collection ETag |
-| POST | `/admin/layer-groups/{groupId}:archive` | Editor | Archive group, không xóa layer |
-| GET | `/admin/layers` | mọi admin | Liệt kê layer |
-| POST | `/admin/layers` | Editor | Tạo layer + draft đầu tiên |
-| GET | `/admin/layers/{layerId}` | mọi admin | Chi tiết layer |
-| PATCH | `/admin/layers/{layerId}` | Editor | Đổi group/order/default visibility theo resource ETag |
-| POST | `/admin/layers:reorder` | Editor | Atomically reorder layer theo collection ETag |
-| POST | `/admin/layers/{layerId}:archive` | Editor | Archive mềm |
-| POST | `/admin/layers/{layerId}:unarchive` | Editor | Bỏ archive mềm nếu group tham chiếu còn active |
-| GET | `/admin/layers/{layerId}/revisions` | mọi admin | Lịch sử revision |
-| POST | `/admin/layers/{layerId}/drafts` | Editor | Tạo draft từ snapshot active |
-| GET | `/admin/revisions/{revisionId}` | mọi admin | Chi tiết revision |
-| POST | `/admin/revisions/{revisionId}/config:impact` | Editor | Preview ảnh hưởng của một full configuration replacement, không mutation |
-| PUT | `/admin/revisions/{revisionId}/config` | Editor | Atomically thay toàn bộ cấu hình của draft revision |
-| GET | `/admin/revisions/{revisionId}/workspace` | mọi admin | Metadata sync workspace |
-| GET | `/admin/revisions/{revisionId}/features` | mọi admin | Feature theo bbox/cursor |
+| Method | Route                                         | Role      | Mô tả                                                                    |
+| ------ | --------------------------------------------- | --------- | ------------------------------------------------------------------------ |
+| GET    | `/admin/layer-groups`                         | mọi admin | Liệt kê group theo display order                                         |
+| POST   | `/admin/layer-groups`                         | Editor    | Tạo group                                                                |
+| GET    | `/admin/layer-groups/{groupId}`               | mọi admin | Chi tiết group + ETag                                                    |
+| PATCH  | `/admin/layer-groups/{groupId}`               | Editor    | Sửa metadata/order                                                       |
+| POST   | `/admin/layer-groups:reorder`                 | Editor    | Atomically reorder group theo collection ETag                            |
+| POST   | `/admin/layer-groups/{groupId}:archive`       | Editor    | Archive group, không xóa layer                                           |
+| GET    | `/admin/layers`                               | mọi admin | Liệt kê layer                                                            |
+| POST   | `/admin/layers`                               | Editor    | Tạo layer + draft đầu tiên                                               |
+| GET    | `/admin/layers/{layerId}`                     | mọi admin | Chi tiết layer                                                           |
+| PATCH  | `/admin/layers/{layerId}`                     | Editor    | Đổi group/order/default visibility theo resource ETag                    |
+| POST   | `/admin/layers:reorder`                       | Editor    | Atomically reorder layer theo collection ETag                            |
+| POST   | `/admin/layers/{layerId}:archive`             | Editor    | Archive mềm                                                              |
+| POST   | `/admin/layers/{layerId}:unarchive`           | Editor    | Bỏ archive mềm nếu group tham chiếu còn active                           |
+| GET    | `/admin/layers/{layerId}/revisions`           | mọi admin | Lịch sử revision                                                         |
+| POST   | `/admin/layers/{layerId}/drafts`              | Editor    | Tạo draft từ snapshot active                                             |
+| GET    | `/admin/revisions/{revisionId}`               | mọi admin | Chi tiết revision                                                        |
+| POST   | `/admin/revisions/{revisionId}/config:impact` | Editor    | Preview ảnh hưởng của một full configuration replacement, không mutation |
+| PUT    | `/admin/revisions/{revisionId}/config`        | Editor    | Atomically thay toàn bộ cấu hình của draft revision                      |
+| GET    | `/admin/revisions/{revisionId}/workspace`     | mọi admin | Metadata sync workspace                                                  |
+| GET    | `/admin/revisions/{revisionId}/features`      | mọi admin | Feature theo bbox/cursor                                                 |
 
 ### 4.2 Tạo layer
 
@@ -788,13 +790,13 @@ Logout chủ động trả `meta.recoveryAction="delete"`; frontend xóa các re
 
 | Method | Route                                                                           | Role       | Mô tả                                                         |
 | ------ | ------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------- |
-| POST   | `/admin/uploads`                                                                | Editor     | Tạo upload intent cho feature attachment                      |
+| POST   | `/admin/uploads`                                                                | Editor/System Admin | Tạo upload intent cho feature attachment               |
 | POST   | `/admin/uploads/{uploadId}:complete`                                            | chủ upload | Xác nhận upload/checksum                                      |
 | GET    | `/admin/attachments/{attachmentId}`                                             | admin      | Metadata/status                                               |
-| DELETE | `/admin/attachments/{attachmentId}`                                             | chủ/Editor | Xóa object chưa bind                                          |
-| POST   | `/admin/revisions/{revisionId}/features/{featureId}/attachments:bind`           | Editor     | Bind attachment vào field versioned                           |
-| PATCH  | `/admin/revisions/{revisionId}/features/{featureId}/attachments:reorder`        | Editor     | Đổi display order và tạo feature version mới                  |
-| DELETE | `/admin/revisions/{revisionId}/features/{featureId}/attachments/{attachmentId}` | Editor     | Unbind và tạo feature version mới                             |
+| DELETE | `/admin/attachments/{attachmentId}`                                             | chủ upload | Xóa object chưa bind                                          |
+| POST   | `/admin/revisions/{revisionId}/features/{featureId}/attachments:bind`           | Editor/System Admin | Bind attachment vào field versioned                    |
+| PATCH  | `/admin/revisions/{revisionId}/features/{featureId}/attachments:reorder`        | Editor/System Admin | Đổi display order và tạo feature version mới           |
+| DELETE | `/admin/revisions/{revisionId}/features/{featureId}/attachments/{attachmentId}` | Editor/System Admin | Unbind và tạo feature version mới                      |
 | GET    | `/public/attachments/{attachmentId}`                                            | public     | Đọc attachment chỉ khi thuộc field public của snapshot active |
 
 `POST /api/v1/admin/uploads`
@@ -809,9 +811,9 @@ Logout chủ động trả `meta.recoveryAction="delete"`; frontend xóa các re
 }
 ```
 
-Response có upload URL MinIO TTL ngắn và required headers; ví dụ tài liệu không ghi URL thật. Complete chỉ thành công khi size/checksum/MIME khớp. Binary không đi qua Dexie lâu dài.
+Response có presigned `PUT` URL MinIO TTL mặc định 600 giây và đúng tập required headers; URL chứa quarantine key bất khả đoán do server sinh nhưng không phải public delivery URL. Client upload đúng bytes/MIME rồi gọi `:complete`; response `202` chuyển object sang `pending`, worker kiểm tra lại checksum và malware scan trước khi copy sang immutable final key và chuyển `clean`. `ATTACHMENT_UPLOAD_INCOMPLETE` có thể retry trong TTL; mismatch/expired bị reject. Binary không đi qua Dexie lâu dài.
 
-Bind yêu cầu `If-Match` và body:
+Bind/reorder/unbind yêu cầu `If-Match`, UUID `Idempotency-Key`, CSRF và body tương ứng. Bind body:
 
 ```json
 {
@@ -821,7 +823,7 @@ Bind yêu cầu `If-Match` và body:
 }
 ```
 
-Field phải có type `image|attachment`, object phải finalized và policy scan hợp lệ. Bind/unbind/reorder tạo `feature_version_attachments` mới cùng feature version; không sửa association của version cũ. Canonical field value là danh sách attachment ID có thứ tự được materialize từ association, không nhận raw object key/URL từ `properties`. Feature response trả `attachments[]` gồm ID, fieldKey, displayOrder, fileName, contentType, sizeBytes và trạng thái; public projection chỉ trả association thuộc field `public=true` của active snapshot. Attachment orphan chưa từng bind được worker xóa sau retention cấu hình; object từng được snapshot tham chiếu không được hard-delete bởi cleanup.
+Field phải có type `image|attachment`; field `image` chỉ nhận raster image đã allowlist và object bắt buộc `clean`. Bind/unbind/reorder tạo `feature_version_attachments` mới cùng feature version; không sửa association của version cũ. Canonical field value là danh sách attachment ID có thứ tự được materialize từ association, không nhận raw object key/URL từ `properties`. Feature response trả `attachments[]` gồm ID, fieldKey, displayOrder, fileName, contentType, sizeBytes và trạng thái; public projection chỉ trả association `clean` thuộc field `public=true`, `sensitive=false` của active snapshot. Public binary route re-authorize mỗi request, hỗ trợ ETag/304, trả `nosniff` và `Content-Disposition`; raw MinIO key/final URL không xuất hiện trong metadata. Attachment orphan chưa từng bind được worker xóa sau retention cấu hình; object từng được bất kỳ feature version nào tham chiếu không bị hard-delete bởi cleanup.
 
 ## 7. Import dữ liệu không gian
 
@@ -1068,7 +1070,7 @@ Ngay trước khi đổi status/snapshot/pointer, publish phải lock layer và 
 }
 ```
 
-Rollback bắt buộc `If-Match: <activePointerEtag>`, `Idempotency-Key`, CSRF, reason và `clientIntent="desktop"`; thiếu hoặc gửi intent khác trả `400 BAD_REQUEST` trước mọi domain mutation. Target phải là snapshot `published` đã từng active (`activatedAt != null`), không phải snapshot hiện hành. Publisher đã từng `edit|review` revision đích bị `403 SEPARATION_OF_DUTIES`, kể cả sau khi đổi role; System Admin không bypass.
+Rollback bắt buộc `If-Match: <activePointerEtag>`, `Idempotency-Key`, CSRF, reason và `clientIntent="desktop"`; thiếu hoặc gửi intent khác trả `400 BAD_REQUEST` trước mọi domain mutation. Target phải là snapshot `published` đã từng active (`activatedAt != null`), không phải snapshot hiện hành. Publisher hoặc System Admin đã từng `edit|review` revision đích bị `403 SEPARATION_OF_DUTIES`, kể cả sau khi đổi role.
 
 Rollback tạo publication event mới, đổi pointer atomically, tăng generation, ghi bounded audit và trả publication-pointer ETag mới; không thay đổi/xóa snapshot lịch sử. Stale pointer trả `412 ETAG_MISMATCH` và không tạo snapshot/audit/receipt thành công. Sau commit, admin refetch publication history bằng history ETag và public client revalidate catalog/data bằng public ETag/generation, không dùng lẫn hai ETag domain.
 
@@ -1156,7 +1158,7 @@ Public API là **supported-client-only** cho frontend DanangMap trong MVP: compa
 }
 ```
 
-Layer detail thêm `fields` nhưng chỉ gồm field thuộc canonical public allowlist: `public=true`, `sensitive=false` và type scalar an toàn hiện được hỗ trợ. `image|attachment` cùng type mới chưa có serializer an toàn bị loại khỏi schema, popup, filter, search, GeoJSON và MVT cho tới khi backend #29 cung cấp association serializer; raw object key/URL trong `properties` không bao giờ là public data. Catalog sắp xếp theo group/layer `displayOrder`; layer ungrouped có `group=null`. `sourceKind` là `geojson|mvt|hybrid`; `hybrid` cho phép frontend chọn theo zoom/bbox theo policy catalog. URL là relative supported-client URL, không phải public-access guarantee. Response có ETag theo catalog generation và `Cache-Control` phù hợp.
+Layer detail thêm `fields` gồm field `public=true`, `sensitive=false`: scalar type theo canonical allowlist và `image|attachment` theo association serializer. `image|attachment` chỉ xuất hiện trong schema/detail; không được dùng làm popup scalar, filter, search, GeoJSON hoặc MVT property. Raw object key/URL trong `properties` không bao giờ là public data. Catalog sắp xếp theo group/layer `displayOrder`; layer ungrouped có `group=null`. `sourceKind` là `geojson|mvt|hybrid`; `hybrid` cho phép frontend chọn theo zoom/bbox theo policy catalog. URL là relative supported-client URL, không phải public-access guarantee. Response có ETag theo catalog generation và `Cache-Control` phù hợp.
 
 ### 9.3 GeoJSON
 
@@ -1178,7 +1180,7 @@ Layer detail thêm `fields` nhưng chỉ gồm field thuộc canonical public al
 
 - Tối đa 5.000 feature hoặc 10 MiB trước nén.
 - Query quá rộng trả 400 `QUERY_TOO_BROAD` cùng đề nghị bbox nhỏ hơn/dùng MVT.
-- Properties private/sensitive/image/attachment và type chưa được canonical allowlist bị loại bằng cùng policy ở builder/checksum và serializer như defense-in-depth.
+- Properties private/sensitive/image/attachment và type chưa được scalar allowlist bị loại bằng cùng policy ở builder/checksum và serializer như defense-in-depth; image/attachment chỉ được trả qua `attachments[]` ở feature detail.
 
 ### 9.4 Feature detail
 
@@ -1191,7 +1193,18 @@ Layer detail thêm `fields` nhưng chỉ gồm field thuộc canonical public al
     "id": "0192a6bc-7e70-7ef5-9cc2-5773f77276a9",
     "geometry": { "type": "Point", "coordinates": [108.2208, 16.0678] },
     "properties": { "name": "Trụ sở mẫu", "address": "Đà Nẵng" },
-    "attachments": [],
+    "attachments": [
+      {
+        "id": "0192a8ff-4969-7561-9b3f-9b987e6e2c10",
+        "fieldKey": "images",
+        "displayOrder": 0,
+        "fileName": "tru-so.jpg",
+        "contentType": "image/jpeg",
+        "sizeBytes": 483920,
+        "status": "clean",
+        "url": "/api/v1/public/attachments/0192a8ff-4969-7561-9b3f-9b987e6e2c10"
+      }
+    ],
     "meta": {
       "layerSlug": "administrative-offices",
       "snapshotId": "0192a810-1902-7891-8a56-61534d66dc92",
@@ -1203,7 +1216,7 @@ Layer detail thêm `fields` nhưng chỉ gồm field thuộc canonical public al
 }
 ```
 
-Response có ETag từ `(snapshotId, featureVersionId)`; `If-None-Match` khớp trả 304 không body. Feature không thuộc active snapshot trả 404. Checkpoint hiện chỉ serialize canonical scalar properties; `attachments=[]` là marker chưa khả dụng, không phải bằng chứng không có attachment.
+Response có ETag từ `(snapshotId, featureVersionId)`; `If-None-Match` khớp trả 304 không body. Feature không thuộc active snapshot trả 404. `properties` chỉ chứa canonical scalar values; `attachments` là projection association riêng và chỉ chứa object `clean` thuộc field public/non-sensitive của active snapshot. Mảng rỗng tại endpoint này có nghĩa feature hiện không có attachment công khai hợp lệ.
 
 ### 9.5 MVT
 
@@ -1366,7 +1379,7 @@ Filter audit: `actorId`, `action`, `resourceType`, `resourceId`, `from`, `to`, c
 
 `GET /admin/audit-events` chỉ System Admin được gọi. Editor/Reviewer/Publisher chỉ đọc `/admin/layers/{layerId}/audit-events` và `/admin/revisions/{revisionId}/workflow-events`; scope này là content history theo contract, không tạo per-layer RBAC mới. Metadata đi qua action/resource allow-list theo role; password, token, secret, cookie, TOTP, recovery code, encrypted payload, private property value và object key không bao giờ được serialize. Cursor dùng cặp `(occurredAt,id)` để ổn định khi nhiều event trùng timestamp.
 
-Audit và workflow history là immutable read model. Mutation create/update/delete feature và import apply đều ghi participation `edit`; review/publish ghi participation tương ứng. Actor từng edit hoặc review không được publish/rollback revision đó sau khi đổi role, và System Admin không có workflow bypass. Deny/replay/stale path không được tạo success audit event thứ hai.
+Audit và workflow history là immutable read model. Mutation create/update/delete feature và import apply đều ghi participation `edit`; review/publish ghi participation tương ứng. Actor từng edit hoặc review không được publish/rollback revision đó sau khi đổi role. System Admin kế thừa mọi capability nhưng không bypass participant history. Deny/replay/stale path không được tạo success audit event thứ hai.
 
 Event có cardinality lớn chỉ lưu count và digest canonical SHA-256; không lưu raw ID arrays, feature/property values hoặc full catalog snapshots. Catalog update/reorder/archive và revision config replacement ghi `beforeDigest`/`afterDigest`; idempotent replay không tạo audit event thứ hai. Digest phục vụ integrity/reconciliation, không phải cơ chế khôi phục dữ liệu.
 
@@ -1432,29 +1445,29 @@ Con số là baseline cấu hình, phải load-test trước production. 429 lu�
 
 ## 14. Contract/acceptance matrix
 
-| Contract          | Test bắt buộc                                                                                                                                                                                                                                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Cookie session    | Không có token trong JSON/localStorage; cookie đúng flags; revoke-all gồm caller, xóa cookie và retry tuần tự bằng cookie cũ trả 401                                                                                                                                                                                     |
-| MFA               | Không vào `/admin/*` bằng pre-auth; TOTP/recovery replay bị chặn                                                                                                                                                                                                                                                         |
-| Account lifecycle | Invite inspect/accept/expiry/replay; `mustChangePassword` chặn route domain; password change rotate current/revoke others; reset request generic 202 và token body-only; confirm/revoke-all concurrency + old-cookie 401; recovery-code regenerate; admin MFA reset/re-enroll; user-import inspect/validate/apply/report |
-| RBAC | Mỗi admin route có allow test và deny test cho ba role còn lại |
-| Separation | Create/update/delete/import ghi edit participation; actor đổi role vẫn không self-review/publish/rollback revision đã tham gia; System Admin không config/upload content hoặc workflow bypass |
-| ETag | Runtime + OpenAPI có ETag cho mọi versioned lifecycle response; layer-list ETag đổi khi latest revision đổi; history resource, active publication pointer và public cache là ba domain riêng; mutation thiếu `If-Match` → 428, stale → 412; rollback success trả pointer ETag mới rồi public revalidate bằng public ETag/generation |
-| Idempotency | Retry cùng key/payload cùng response; khác payload → 409 |
-| Dexie batch | UUID mapping ổn định, partial conflict đúng mutation, cursor expiry có recovery URL |
-| Dexie recovery | `origin=recovery` được audit; conflict explicit; logout delete; expiry lock; không server lease; sensitive/offlineCache policy |
-| Geometry | Cả 6 GeoJSON type + Point-only circle/radiusM; cấm GeometryCollection/Z/M/invalid polygon; 100.000 vertex và 64 KiB property boundaries |
-| Layer config | Group→layer lock order và archive/create/move/unarchive race không để dangling archived-group reference; value-aware bounded impact + atomic full config replacement; strict ETag/idempotency/audit digest; published immutability; draft vắng mặt public |
-| Import | MIME spoof, exact 25 MiB, `.json` sniff, 100.000 record, 2.000.000 vertex, 250 MiB expanded, XLSX sheet/column, 20.000 DB issue, 3 mode, skip invalid, retry/cancel |
-| Workflow | DB chỉ cho một open chain qua `draft`, `in_review`, `approved`, `publishing`; cross-path successor race chỉ một winner; chín history endpoint đúng OpenAPI; durable async path default-off có queued/building/measured progress, lease recovery và final atomic pointer switch; flag false giữ synchronous terminal path; stale base/build failure không đổi pointer; participant history deny; rollback target từng active và tăng generation |
-| Lifecycle guards | Table-driven deny cho Reviewer/Publisher/System Admin, CSRF 403, thiếu If-Match 428, idempotency mismatch 409; real Postgres race fixtures và OpenAPI ETag-header assertions xanh |
-| Audit/history | Global System Admin-only, layer content-role scope, immutable cursor page, action metadata allow-list; high-cardinality metadata chỉ count + canonical SHA-256 digest với before/after digest; replay/stale không tạo success event thứ hai; không raw IDs/value/private data |
-| Privacy | Field private vắng mặt trong catalog/detail/search/GeoJSON/MVT/attachment |
-| Combined search | Normalize fixtures, timeout/retry/breaker, partial 200, không leak raw provider |
-| Attachment | Upload/finalize, bind/unbind/reorder tạo feature version mới, orphan cleanup không xóa object snapshot tham chiếu; diff trả `ATTACHMENT_CONTRACT_PENDING` cho tới backend #29 |
-| MVT | Full catalog source descriptor, source layer `features`, generation URL immutable, unknown generation 404, empty tile HTTP 200 valid MVT, bbox/query SQL có spatial index |
-| Feature/search | Detail ETag/304; polygon/multipolygon search position dùng `ST_PointOnSurface` |
-| Error | Mọi lỗi theo envelope và có request ID; không stack trace/secret |
+| Contract          | Test bắt buộc                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cookie session    | Không có token trong JSON/localStorage; cookie đúng flags; revoke-all gồm caller, xóa cookie và retry tuần tự bằng cookie cũ trả 401                                                                                                                                                                                                                                                                                                           |
+| MFA               | Không vào `/admin/*` bằng pre-auth; TOTP/recovery replay bị chặn                                                                                                                                                                                                                                                                                                                                                                               |
+| Account lifecycle | Invite inspect/accept/expiry/replay; `mustChangePassword` chặn route domain; password change rotate current/revoke others; reset request generic 202 và token body-only; confirm/revoke-all concurrency + old-cookie 401; recovery-code regenerate; admin MFA reset/re-enroll; user-import inspect/validate/apply/report                                                                                                                       |
+| RBAC              | Mỗi admin route có allow test và deny test cho ba role còn lại                                                                                                                                                                                                                                                                                                                                                                                 |
+| Separation        | Create/update/delete/import ghi edit participation; actor đổi role vẫn không self-review/publish/rollback revision đã tham gia; System Admin config/upload được nhưng không bypass participant history                                                                                                                                                                                                                                        |
+| ETag              | Runtime + OpenAPI có ETag cho mọi versioned lifecycle response; layer-list ETag đổi khi latest revision đổi; history resource, active publication pointer và public cache là ba domain riêng; mutation thiếu `If-Match` → 428, stale → 412; rollback success trả pointer ETag mới rồi public revalidate bằng public ETag/generation                                                                                                            |
+| Idempotency       | Retry cùng key/payload cùng response; khác payload → 409                                                                                                                                                                                                                                                                                                                                                                                       |
+| Dexie batch       | UUID mapping ổn định, partial conflict đúng mutation, cursor expiry có recovery URL                                                                                                                                                                                                                                                                                                                                                            |
+| Dexie recovery    | `origin=recovery` được audit; conflict explicit; logout delete; expiry lock; không server lease; sensitive/offlineCache policy                                                                                                                                                                                                                                                                                                                 |
+| Geometry          | Cả 6 GeoJSON type + Point-only circle/radiusM; cấm GeometryCollection/Z/M/invalid polygon; 100.000 vertex và 64 KiB property boundaries                                                                                                                                                                                                                                                                                                        |
+| Layer config      | Group→layer lock order và archive/create/move/unarchive race không để dangling archived-group reference; value-aware bounded impact + atomic full config replacement; strict ETag/idempotency/audit digest; published immutability; draft vắng mặt public                                                                                                                                                                                      |
+| Import            | MIME spoof, exact 25 MiB, `.json` sniff, 100.000 record, 2.000.000 vertex, 250 MiB expanded, XLSX sheet/column, 20.000 DB issue, 3 mode, skip invalid, retry/cancel                                                                                                                                                                                                                                                                            |
+| Workflow          | DB chỉ cho một open chain qua `draft`, `in_review`, `approved`, `publishing`; cross-path successor race chỉ một winner; chín history endpoint đúng OpenAPI; durable async path default-off có queued/building/measured progress, lease recovery và final atomic pointer switch; flag false giữ synchronous terminal path; stale base/build failure không đổi pointer; participant history deny; rollback target từng active và tăng generation |
+| Lifecycle guards  | Table-driven deny cho Reviewer/Publisher, System Admin allow, CSRF 403, thiếu If-Match 428, idempotency mismatch 409; real Postgres race fixtures và OpenAPI ETag-header assertions xanh                                                                                                                                                                                                                                                       |
+| Audit/history     | Global System Admin-only, layer content-role scope, immutable cursor page, action metadata allow-list; high-cardinality metadata chỉ count + canonical SHA-256 digest với before/after digest; replay/stale không tạo success event thứ hai; không raw IDs/value/private data                                                                                                                                                                  |
+| Privacy           | Field private vắng mặt trong catalog/detail/search/GeoJSON/MVT/attachment                                                                                                                                                                                                                                                                                                                                                                      |
+| Combined search   | Normalize fixtures, timeout/retry/breaker, partial 200, không leak raw provider                                                                                                                                                                                                                                                                                                                                                                |
+| Attachment        | Upload/finalize, bind/unbind/reorder tạo feature version mới, orphan cleanup không xóa object snapshot tham chiếu; diff trả `ATTACHMENT_CONTRACT_PENDING` cho tới backend #29                                                                                                                                                                                                                                                                  |
+| MVT               | Full catalog source descriptor, source layer `features`, generation URL immutable, unknown generation 404, empty tile HTTP 200 valid MVT, bbox/query SQL có spatial index                                                                                                                                                                                                                                                                      |
+| Feature/search    | Detail ETag/304; polygon/multipolygon search position dùng `ST_PointOnSurface`                                                                                                                                                                                                                                                                                                                                                                 |
+| Error             | Mọi lỗi theo envelope và có request ID; không stack trace/secret                                                                                                                                                                                                                                                                                                                                                                               |
 
 ## 15. Versioning và tương thích
 

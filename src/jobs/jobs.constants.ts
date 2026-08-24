@@ -15,3 +15,8 @@ export const MAIL_SWEEP_SCHEDULER = 'identity-mail-sweep';
 
 export const PUBLICATION_QUEUE = 'publication-builds';
 export const PUBLICATION_BUILD_JOB = 'build-publication';
+
+export const ATTACHMENT_QUEUE = 'attachment-security';
+export const ATTACHMENT_SCAN_JOB = 'scan-attachment';
+export const ATTACHMENT_SWEEP_JOB = 'sweep-attachments';
+export const ATTACHMENT_SWEEP_SCHEDULER = 'attachment-security-sweep';

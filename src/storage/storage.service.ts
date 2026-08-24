@@ -5,6 +5,7 @@ import { Client } from 'minio';
 @Injectable()
 export class StorageService implements OnModuleInit {
   readonly client: Client;
+  readonly publicClient: Client;
   readonly bucket: string;
 
   constructor(config: ConfigService) {
@@ -13,8 +14,18 @@ export class StorageService implements OnModuleInit {
       endPoint: config.getOrThrow<string>('minio.endpoint'),
       port: config.getOrThrow<number>('minio.port'),
       useSSL: config.getOrThrow<boolean>('minio.useSsl'),
+      region: config.getOrThrow<string>('minio.region'),
       accessKey: config.getOrThrow<string>('minio.accessKey'),
       secretKey: config.getOrThrow<string>('minio.secretKey'),
+    });
+    this.publicClient = new Client({
+      endPoint: config.getOrThrow<string>('minio.publicEndpoint'),
+      port: config.getOrThrow<number>('minio.publicPort'),
+      useSSL: config.getOrThrow<boolean>('minio.publicUseSsl'),
+      accessKey: config.getOrThrow<string>('minio.accessKey'),
+      secretKey: config.getOrThrow<string>('minio.secretKey'),
+      pathStyle: config.getOrThrow<boolean>('minio.publicPathStyle'),
+      region: config.getOrThrow<string>('minio.region'),
     });
   }
 
@@ -39,6 +50,20 @@ export class StorageService implements OnModuleInit {
 
   async remove(key: string): Promise<void> {
     await this.client.removeObject(this.bucket, key);
+  }
+
+  async removeIfPresent(key: string | null): Promise<void> {
+    if (!key) return;
+    try {
+      await this.remove(key);
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (!['NoSuchKey', 'NotFound', 'NoSuchObject'].includes(code ?? '')) throw error;
+    }
+  }
+
+  async presignedPut(key: string, expiresSeconds: number): Promise<string> {
+    return this.publicClient.presignedPutObject(this.bucket, key, expiresSeconds);
   }
 
   async ping(): Promise<void> {

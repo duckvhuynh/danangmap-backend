@@ -5,11 +5,6 @@ const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 const frontendOrigin = 'http://localhost:3000';
 const mfaSecret = process.env.SEED_MFA_SECRET ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 const users = {
-  systemAdmin: {
-    id: '00000000-0000-4000-8000-000000000001',
-    login: 'admin',
-    password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe-Admin-2026!',
-  },
   editor: {
     id: '00000000-0000-4000-8000-000000000002',
     login: 'editor',
@@ -46,7 +41,6 @@ describe('Dynamic layer configuration HTTP E2E', () => {
   let editor: AuthenticatedActor;
   let reviewer: AuthenticatedActor;
   let publisher: AuthenticatedActor;
-  let systemAdmin: AuthenticatedActor;
 
   beforeAll(async () => {
     if (!AppDataSource.isInitialized) await AppDataSource.initialize();
@@ -54,11 +48,10 @@ describe('Dynamic layer configuration HTTP E2E', () => {
       'UPDATE user_mfa_methods SET last_used_time_step=NULL WHERE user_id=ANY($1::uuid[])',
       [Object.values(users).map((user) => user.id)],
     );
-    [editor, reviewer, publisher, systemAdmin] = await Promise.all([
+    [editor, reviewer, publisher] = await Promise.all([
       login(users.editor),
       login(users.reviewer),
       login(users.publisher),
-      login(users.systemAdmin),
     ]);
   });
 
@@ -144,7 +137,7 @@ describe('Dynamic layer configuration HTTP E2E', () => {
 
     const layerSlug = `cms-mixed-${suffix}`;
     const layerPayload = mixedLayerPayload(layerSlug, group.id);
-    for (const actor of [reviewer, publisher, systemAdmin]) {
+    for (const actor of [reviewer, publisher]) {
       await expectProblem(
         mutate(actor, '/api/v1/admin/layers', layerPayload, undefined, {
           idempotencyKey: randomUUID(),

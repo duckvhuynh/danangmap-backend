@@ -24,9 +24,19 @@ x-backend-environment: &backend-environment
   MINIO_ENDPOINT: minio
   MINIO_PORT: 9000
   MINIO_USE_SSL: 'false'
+  MINIO_PUBLIC_ENDPOINT: localhost
+  MINIO_PUBLIC_PORT: 9000
+  MINIO_PUBLIC_USE_SSL: 'false'
+  MINIO_PUBLIC_PATH_STYLE: 'true'
+  MINIO_REGION: us-east-1
   MINIO_ACCESS_KEY: danangmap
   MINIO_SECRET_KEY: danangmap-local-secret
   MINIO_BUCKET: danangmap
+  ATTACHMENT_UPLOAD_TTL_SECONDS: 600
+  ATTACHMENT_ORPHAN_RETENTION_HOURS: 24
+  ATTACHMENT_SWEEP_INTERVAL_MS: 60000
+  ATTACHMENT_SCANNER_MODE: deterministic
+  ATTACHMENT_SCAN_TIMEOUT_MS: 30000
   SESSION_PEPPER: local-only-session-pepper-change-in-production
   FIELD_ENCRYPTION_KEY: local-only-field-encryption-key-change-in-production
   FRONTEND_ORIGINS: http://localhost:3000

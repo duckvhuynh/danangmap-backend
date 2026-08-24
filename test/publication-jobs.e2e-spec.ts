@@ -7,11 +7,6 @@ const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 const frontendOrigin = 'http://localhost:3000';
 const mfaSecret = process.env.SEED_MFA_SECRET ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 const users = {
-  systemAdmin: {
-    id: '00000000-0000-4000-8000-000000000001',
-    login: 'admin',
-    password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe-Admin-2026!',
-  },
   editor: {
     id: '00000000-0000-4000-8000-000000000002',
     login: 'editor',
@@ -78,7 +73,6 @@ describeAsync('durable publication admission HTTP E2E', () => {
       login(users.editor),
       login(users.reviewer),
       login(users.publisher),
-      login(users.systemAdmin),
     ]);
     publisher = actors[2]!;
     queue = new Queue(PUBLICATION_QUEUE, {
@@ -135,8 +129,8 @@ describeAsync('durable publication admission HTTP E2E', () => {
           name: 'private-name-http-canary',
           address: 'private-address-http-canary',
           public_code: 'public-http-code',
-          documents: ['storage-key-http-canary'],
-          photo: ['image-key-http-canary'],
+          documents: [],
+          photo: [],
         }),
         'source-http-canary-checksum',
         users.editor.id,
@@ -253,7 +247,7 @@ describeAsync('durable publication admission HTTP E2E', () => {
 
   it('enforces role and separation-of-duties admission without stranded receipts', async () => {
     const body = { releaseNote: 'Role matrix', clientIntent: 'desktop' };
-    for (const actor of [actors[0]!, actors[1]!, actors[3]!]) {
+    for (const actor of [actors[0]!, actors[1]!]) {
       await expectProblem(
         post(actor, `/api/v1/admin/revisions/${revisionId}:publish`, body),
         403,
@@ -502,7 +496,7 @@ describeAsync('durable publication admission HTTP E2E', () => {
     const detail = (await json<Envelope<Record<string, unknown>>>(detailResponse)).data as {
       fields: Array<{ key: string }>;
     };
-    expect(detail.fields.map((field) => field.key)).toEqual(['public_code']);
+    expect(detail.fields.map((field) => field.key)).toEqual(['public_code', 'documents', 'photo']);
     expectNoPublicHttpCanaries(detail);
 
     const featuresResponse = await fetch(

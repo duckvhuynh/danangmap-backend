@@ -25,6 +25,7 @@ const rawOperations = new Set([
   'getReadiness',
   'listPublicFeatures',
   'getPublicTile',
+  'getPublicAttachment',
 ]);
 const strictlyTypedResponseOperations = new Set([
   'login',
@@ -80,6 +81,13 @@ const strictlyTypedResponseOperations = new Set([
   'listLayerAuditEvents',
   'listRevisionWorkflowEvents',
   'rollbackLayer',
+  'createAttachmentUpload',
+  'completeAttachmentUpload',
+  'getAdminAttachment',
+  'deleteUnboundAttachment',
+  'bindFeatureAttachment',
+  'reorderFeatureAttachments',
+  'unbindFeatureAttachment',
 ]);
 const parameterContracts = {
   login: [['header', 'X-CSRF-Token', true]],
@@ -184,6 +192,25 @@ const parameterContracts = {
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
   ],
+  createAttachmentUpload: [['header', 'X-CSRF-Token', true]],
+  completeAttachmentUpload: [['header', 'X-CSRF-Token', true]],
+  deleteUnboundAttachment: [['header', 'X-CSRF-Token', true]],
+  bindFeatureAttachment: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  reorderFeatureAttachments: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  unbindFeatureAttachment: [
+    ['header', 'If-Match', true],
+    ['header', 'Idempotency-Key', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  getPublicAttachment: [['header', 'If-None-Match', false]],
 };
 const preauthCsrfOperations = new Set(['verifyMfa', 'startMfaEnrollment', 'confirmMfaEnrollment']);
 const publicCsrfOperations = new Set(['login', 'acceptInvite', 'confirmPasswordReset']);
@@ -312,7 +339,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     seen.set(operationId, `${method.toUpperCase()} ${path}`);
   }
 }
-if (seen.size !== 75) throw new Error(`Expected 75 OpenAPI operations, received ${seen.size}`);
+if (seen.size !== 83) throw new Error(`Expected 83 OpenAPI operations, received ${seen.size}`);
 const csrfOperation = document.paths?.['/api/v1/auth/csrf']?.get;
 if (csrfOperation?.operationId !== 'getCsrfToken') {
   throw new Error('CSRF GET must use the truthful getCsrfToken operation ID');

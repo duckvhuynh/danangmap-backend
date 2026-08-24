@@ -34,6 +34,14 @@ services:
     extends:
       file: compose.yml
       service: api
+    environment:
+      # Canonical Docker tests upload from another service on this network. Host-run
+      # browser tests can override this with DANANGMAP_E2E_MINIO_PUBLIC_ENDPOINT=localhost.
+      MINIO_PUBLIC_ENDPOINT: ${DANANGMAP_E2E_MINIO_PUBLIC_ENDPOINT:-minio}
+      MINIO_PUBLIC_PORT: 9000
+      MINIO_PUBLIC_USE_SSL: 'false'
+      MINIO_PUBLIC_PATH_STYLE: 'true'
+      MINIO_REGION: us-east-1
 
   mailpit:
     image: axllent/mailpit:v1.30.7
@@ -89,9 +97,19 @@ services:
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: 'false'
+      MINIO_PUBLIC_ENDPOINT: minio
+      MINIO_PUBLIC_PORT: 9000
+      MINIO_PUBLIC_USE_SSL: 'false'
+      MINIO_PUBLIC_PATH_STYLE: 'true'
+      MINIO_REGION: us-east-1
       MINIO_ACCESS_KEY: danangmap
       MINIO_SECRET_KEY: danangmap-local-secret
       MINIO_BUCKET: danangmap
+      ATTACHMENT_UPLOAD_TTL_SECONDS: 600
+      ATTACHMENT_ORPHAN_RETENTION_HOURS: 1
+      ATTACHMENT_SWEEP_INTERVAL_MS: 10000
+      ATTACHMENT_SCANNER_MODE: deterministic
+      ATTACHMENT_SCAN_TIMEOUT_MS: 30000
       SESSION_PEPPER: local-only-session-pepper-change-in-production
       FIELD_ENCRYPTION_KEY: local-only-field-encryption-key-change-in-production
       FRONTEND_ORIGINS: http://localhost:3000
@@ -102,6 +120,9 @@ services:
       SEED_REVIEWER_PASSWORD: ChangeMe-Reviewer-2026!
       SEED_PUBLISHER_PASSWORD: ChangeMe-Publisher-2026!
       SEED_MFA_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+      ALLOW_SEED: 'true'
+      SEED_CROSSSTACK_FIXTURES: 'true'
+      DANANGMAP_E2E_AUTH_RESET: 'true'
       GEO_SERVICE_BASE_URL: ''
       DANANGMAP_RUN_NONCE: ${DANANGMAP_RUN_NONCE:-integration-durable-publication}
       API_BASE_URL: http://api:4000

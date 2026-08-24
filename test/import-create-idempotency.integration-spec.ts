@@ -125,7 +125,7 @@ describe('Import upload idempotency integration', () => {
         ...actor,
         role: 'system_admin',
       }),
-    ).rejects.toMatchObject({ status: 403, code: 'IMPORT_FORBIDDEN' });
+    ).resolves.toMatchObject({ id: replay.id, revisionId });
   });
 
   it('retries an existing failed BullMQ job without attempting a duplicate add', async () => {

@@ -153,20 +153,17 @@ describe('Controlled publication HTTP E2E', () => {
 
   it('keeps a draft private, enforces role separation, and publishes exactly one generation', async () => {
     const groupKey = randomUUID();
-    await expectProblem(
-      mutate(
-        systemAdmin,
-        '/api/v1/admin/layer-groups',
-        {
-          slug: `workflow-denied-${randomUUID().slice(0, 8)}`,
-          title: 'System Admin không được tạo group',
-        },
-        undefined,
-        { idempotencyKey: randomUUID() },
-      ),
-      403,
-      'ROLE_FORBIDDEN',
+    const adminGroup = await mutate(
+      systemAdmin,
+      '/api/v1/admin/layer-groups',
+      {
+        slug: `workflow-admin-${randomUUID().slice(0, 8)}`,
+        title: 'System Admin authoring capability',
+      },
+      201,
+      { idempotencyKey: randomUUID() },
     );
+    groupIds.push((await json<Envelope<{ id: string }>>(adminGroup)).data.id);
     const groupSlug = `workflow-group-${randomUUID().slice(0, 8)}`;
     const createGroup = await mutate(
       editor,
@@ -317,11 +314,15 @@ describe('Controlled publication HTTP E2E', () => {
     await expectPublicMissing(layerSlug);
 
     await expectProblem(
-      mutate(systemAdmin, `/api/v1/admin/revisions/${revisionId}:submit`, {
-        summary: 'System Admin không được bypass nội dung',
-      }),
-      403,
-      'ROLE_FORBIDDEN',
+      mutate(
+        systemAdmin,
+        `/api/v1/admin/revisions/${randomUUID()}:submit`,
+        { summary: 'System Admin có quyền submit nhưng revision không tồn tại' },
+        undefined,
+        { idempotencyKey: randomUUID() },
+      ),
+      404,
+      'NOT_FOUND',
     );
     const submitKey = randomUUID();
     const submit = await mutate(
@@ -385,13 +386,6 @@ describe('Controlled publication HTTP E2E', () => {
       403,
       'ROLE_FORBIDDEN',
     );
-    await expectProblem(
-      mutate(systemAdmin, `/api/v1/admin/revisions/${revisionId}:publish`, {
-        releaseNote: 'System Admin không được publish',
-      }),
-      403,
-      'ROLE_FORBIDDEN',
-    );
     await AppDataSource.query(
       `INSERT INTO revision_participants(revision_id,user_id,participation_type)
        VALUES($1,$2,'edit') ON CONFLICT DO NOTHING`,
@@ -416,7 +410,7 @@ describe('Controlled publication HTTP E2E', () => {
 
     const publishKey = randomUUID();
     const publish = await mutate(
-      publisher,
+      systemAdmin,
       `/api/v1/admin/revisions/${revisionId}:publish`,
       { releaseNote: 'Công bố generation đầu tiên' },
       202,
@@ -427,8 +421,15 @@ describe('Controlled publication HTTP E2E', () => {
     ).data;
     firstSnapshotId = publication.snapshotId;
     expect(publication).toMatchObject({ generation: 1, status: 'completed' });
+    const [publishAudit] = (await AppDataSource.query(
+      `SELECT actor_role AS "actorRole" FROM audit_logs
+       WHERE action='revision.published' AND resource_id=$1
+       ORDER BY occurred_at DESC,id DESC LIMIT 1`,
+      [revisionId],
+    )) as Array<{ actorRole: string }>;
+    expect(publishAudit?.actorRole).toBe('system_admin');
     const publishReplay = await mutate(
-      publisher,
+      systemAdmin,
       `/api/v1/admin/revisions/${revisionId}:publish`,
       { releaseNote: 'Công bố generation đầu tiên' },
       202,

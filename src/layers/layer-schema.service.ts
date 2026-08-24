@@ -83,7 +83,11 @@ export class LayerSchemaService {
     this.validateStyleAndRender(kinds, style, renderConfig);
   }
 
-  validateProperties(fields: LayerFieldDto[], properties: Record<string, unknown>): void {
+  validateProperties(
+    fields: LayerFieldDto[],
+    properties: Record<string, unknown>,
+    options: { allowMaterializedAttachments?: boolean } = {},
+  ): void {
     const byKey = new Map(fields.map((field) => [field.key, field]));
     for (const key of Object.keys(properties)) {
       if (!byKey.has(key)) {
@@ -98,6 +102,31 @@ export class LayerSchemaService {
       if (value == null) continue;
       if (!this.matchesType(field.type, value)) {
         throw new AppException(422, 'SCHEMA_VIOLATION', `Sai kiểu dữ liệu: ${field.key}`);
+      }
+      if (field.type === 'image' || field.type === 'attachment') {
+        const values = value as unknown[];
+        if (
+          values.some(
+            (item) =>
+              typeof item !== 'string' ||
+              !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                item,
+              ),
+          )
+        ) {
+          throw new AppException(
+            422,
+            'SCHEMA_VIOLATION',
+            `Field tệp đính kèm ${field.key} chỉ nhận attachment ID hợp lệ.`,
+          );
+        }
+        if (values.length > 0 && !options.allowMaterializedAttachments) {
+          throw new AppException(
+            422,
+            'SCHEMA_VIOLATION',
+            `Field tệp đính kèm ${field.key} chỉ được thay đổi qua attachment API.`,
+          );
+        }
       }
       this.assertConstraints(field, value);
     }

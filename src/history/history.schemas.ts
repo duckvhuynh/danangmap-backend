@@ -1,5 +1,6 @@
 import { ApiResponse } from '@nestjs/swagger';
 import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
+import { attachmentStatusSchema } from '../common/openapi/response-schemas';
 
 const uuid: SchemaObject = { type: 'string', format: 'uuid' };
 const dateTime: SchemaObject = { type: 'string', format: 'date-time' };
@@ -262,14 +263,68 @@ const changedKeysSchema: SchemaObject = {
   items: { type: 'string' },
 };
 
-const attachmentDiffUnavailableSchema: SchemaObject = {
+const attachmentDiffDescriptorSchema: SchemaObject = {
   type: 'object',
   additionalProperties: false,
-  required: ['available', 'status', 'reasonCode'],
+  required: ['id', 'fieldKey', 'displayOrder', 'fileName', 'contentType', 'sizeBytes', 'status'],
   properties: {
-    available: { type: 'boolean', enum: [false] },
-    status: { type: 'string', enum: ['unavailable'] },
-    reasonCode: { type: 'string', enum: ['ATTACHMENT_CONTRACT_PENDING'] },
+    id: uuid,
+    fieldKey: { type: 'string' },
+    displayOrder: { type: 'integer', minimum: 0, maximum: 100000 },
+    fileName: { type: 'string' },
+    contentType: { type: 'string' },
+    sizeBytes: { type: 'integer', minimum: 1, maximum: 25 * 1024 * 1024 },
+    status: attachmentStatusSchema,
+  },
+};
+
+const attachmentDiffSummarySchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'available',
+    'featuresModified',
+    'added',
+    'removed',
+    'reordered',
+    'redactedChangeCount',
+  ],
+  properties: {
+    available: { type: 'boolean', enum: [true] },
+    featuresModified: { type: 'integer', minimum: 0 },
+    added: { type: 'integer', minimum: 0 },
+    removed: { type: 'integer', minimum: 0 },
+    reordered: { type: 'integer', minimum: 0 },
+    redactedChangeCount: { type: 'integer', minimum: 0 },
+  },
+};
+
+const attachmentDiffEntrySchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['available', 'changed', 'added', 'removed', 'reordered', 'redactedChange'],
+  properties: {
+    available: { type: 'boolean', enum: [true] },
+    changed: { type: 'boolean' },
+    added: { type: 'array', maxItems: 500, items: attachmentDiffDescriptorSchema },
+    removed: { type: 'array', maxItems: 500, items: attachmentDiffDescriptorSchema },
+    reordered: {
+      type: 'array',
+      maxItems: 500,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'fieldKey', 'fileName', 'beforeDisplayOrder', 'afterDisplayOrder'],
+        properties: {
+          id: uuid,
+          fieldKey: { type: 'string' },
+          fileName: { type: 'string' },
+          beforeDisplayOrder: { type: 'integer', minimum: 0, maximum: 100000 },
+          afterDisplayOrder: { type: 'integer', minimum: 0, maximum: 100000 },
+        },
+      },
+    },
+    redactedChange: { type: 'boolean' },
   },
 };
 
@@ -316,7 +371,7 @@ export const revisionDiffSchema: SchemaObject = {
         publicFieldKeysChanged: changedKeysSchema,
       },
     },
-    attachments: attachmentDiffUnavailableSchema,
+    attachments: attachmentDiffSummarySchema,
     schema: {
       type: 'object',
       additionalProperties: false,
@@ -390,7 +445,7 @@ export const revisionDiffSchema: SchemaObject = {
               changedKeys: changedKeysSchema,
             },
           },
-          attachments: attachmentDiffUnavailableSchema,
+          attachments: attachmentDiffEntrySchema,
           redactedChange: { type: 'boolean' },
         },
       },

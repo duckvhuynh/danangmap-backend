@@ -44,6 +44,7 @@ interface Fixture {
   snapshot1: string;
   snapshot2: string;
   neverActivatedSnapshot: string;
+  attachmentIds: string[];
 }
 
 interface Envelope<T> {
@@ -126,6 +127,11 @@ describe('Publication, revision and audit history HTTP E2E', () => {
              (SELECT id FROM layer_revisions WHERE layer_id=ANY($1::uuid[]))`,
           [layers],
         );
+        if (fixture?.attachmentIds.length) {
+          await manager.query(`DELETE FROM attachments WHERE id=ANY($1::uuid[])`, [
+            fixture.attachmentIds,
+          ]);
+        }
         await manager.query(
           `DELETE FROM layer_fields WHERE revision_id IN
              (SELECT id FROM layer_revisions WHERE layer_id=ANY($1::uuid[]))`,
@@ -183,13 +189,18 @@ describe('Publication, revision and audit history HTTP E2E', () => {
     expect(diffBody.data.hasMore).toBe(true);
     expect(diffBody.data.nextCursor).toBeTruthy();
     expect(diffBody.data.attachments).toEqual({
-      available: false,
-      status: 'unavailable',
-      reasonCode: 'ATTACHMENT_CONTRACT_PENDING',
+      available: true,
+      featuresModified: 1,
+      added: 1,
+      removed: 1,
+      reordered: 1,
+      redactedChangeCount: 2,
     });
     expect(JSON.stringify(diffBody.data)).not.toContain('private-before');
     expect(JSON.stringify(diffBody.data)).not.toContain('private-after');
     expect(JSON.stringify(diffBody.data)).not.toContain('storage-key');
+    expect(JSON.stringify(diffBody.data)).not.toContain('history-storage');
+    expect(JSON.stringify(diffBody.data)).not.toContain('history-quarantine');
     expect(JSON.stringify(diffBody.data)).not.toContain('Checksum');
 
     const secondDiff = await get(
@@ -207,6 +218,44 @@ describe('Publication, revision and audit history HTTP E2E', () => {
       after: { name: 'after' },
       changedKeys: ['name'],
     });
+    expect(modified.attachments).toEqual({
+      available: true,
+      changed: true,
+      added: [
+        expect.objectContaining({
+          id: fixture.attachmentIds[2],
+          fieldKey: 'documents',
+          displayOrder: 2,
+          fileName: 'added-public.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 13,
+          status: 'clean',
+        }),
+      ],
+      removed: [
+        expect.objectContaining({
+          id: fixture.attachmentIds[1],
+          fieldKey: 'documents',
+          displayOrder: 1,
+          fileName: 'removed-public.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 12,
+          status: 'clean',
+        }),
+      ],
+      reordered: [
+        {
+          id: fixture.attachmentIds[0],
+          fieldKey: 'documents',
+          fileName: 'shared-public.pdf',
+          beforeDisplayOrder: 0,
+          afterDisplayOrder: 1,
+        },
+      ],
+      redactedChange: true,
+    });
+    expect(modified.redactedChange).toBe(true);
+    expect(JSON.stringify(modified.attachments)).not.toContain('private-attachment');
     expect(entries.some((entry) => entry.geometry.afterPreviewMode === 'bbox')).toBe(true);
 
     const publications = await get(
@@ -826,6 +875,7 @@ async function createFixture(): Promise<Fixture> {
     snapshot1: randomUUID(),
     snapshot2: randomUUID(),
     neverActivatedSnapshot: randomUUID(),
+    attachmentIds: [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()],
   };
   await AppDataSource.transaction(async (manager) => {
     const suffix = randomUUID().slice(0, 8);
@@ -863,7 +913,8 @@ async function createFixture(): Promise<Fixture> {
         `INSERT INTO layer_fields(revision_id,key,label,type,public,sensitive,offline_cache,display_order)
          VALUES($1,'name','Name','text',true,false,true,1),
                ($1,'secret','Secret','text',false,true,false,2),
-               ($1,'documents','Documents','attachment',true,false,true,3)`,
+               ($1,'documents','Documents','attachment',true,false,true,3),
+               ($1,'private_documents','Private documents','attachment',false,true,false,4)`,
         [revisionId],
       );
     }
@@ -925,6 +976,42 @@ async function createFixture(): Promise<Fixture> {
         ids.otherFeature,
         versions[4],
       ],
+    );
+    await manager.query(
+      `INSERT INTO attachments(
+         id,quarantine_key,object_key,file_name,declared_content_type,content_type,
+         declared_size_bytes,size_bytes,declared_sha256,sha256,status,owner_id,
+         upload_expires_at,finalized_at,scanned_at
+       ) VALUES
+         ($1,$6,$7,'shared-public.pdf','application/pdf','application/pdf',11,11,repeat('a',64),repeat('a',64),'clean',$11,now()+interval '1 hour',now(),now()),
+         ($2,$8,$9,'removed-public.pdf','application/pdf','application/pdf',12,12,repeat('b',64),repeat('b',64),'clean',$11,now()+interval '1 hour',now(),now()),
+         ($3,$10,$12,'added-public.pdf','application/pdf','application/pdf',13,13,repeat('c',64),repeat('c',64),'clean',$11,now()+interval '1 hour',now(),now()),
+         ($4,$13,$14,'private-attachment-before.pdf','application/pdf','application/pdf',14,14,repeat('d',64),repeat('d',64),'clean',$11,now()+interval '1 hour',now(),now()),
+         ($5,$15,$16,'private-attachment-after.pdf','application/pdf','application/pdf',15,15,repeat('e',64),repeat('e',64),'clean',$11,now()+interval '1 hour',now(),now())`,
+      [
+        ...ids.attachmentIds,
+        `history-quarantine/${ids.attachmentIds[0]}`,
+        `history-storage/${ids.attachmentIds[0]}`,
+        `history-quarantine/${ids.attachmentIds[1]}`,
+        `history-storage/${ids.attachmentIds[1]}`,
+        `history-quarantine/${ids.attachmentIds[2]}`,
+        users.editor.id,
+        `history-storage/${ids.attachmentIds[2]}`,
+        `history-quarantine/${ids.attachmentIds[3]}`,
+        `history-storage/${ids.attachmentIds[3]}`,
+        `history-quarantine/${ids.attachmentIds[4]}`,
+        `history-storage/${ids.attachmentIds[4]}`,
+      ],
+    );
+    await manager.query(
+      `INSERT INTO feature_version_attachments(
+         feature_version_id,attachment_id,field_key,display_order
+       ) VALUES
+         ($1,$3,'documents',0),($1,$4,'documents',1),
+         ($1,$6,'private_documents',0),
+         ($2,$3,'documents',1),($2,$5,'documents',2),
+         ($2,$7,'private_documents',0)`,
+      [versions[0], versions[1], ...ids.attachmentIds],
     );
     await manager.query(
       `INSERT INTO publication_snapshots(id,layer_id,revision_id,status,generation,feature_count,checksum,manifest,published_by,published_at,activated_at)

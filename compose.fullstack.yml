@@ -85,6 +85,9 @@ services:
       PUBLICATION_WORKER_STALE_SECONDS: 30
       COOKIE_SECURE: 'true'
       FRONTEND_ORIGINS: https://gateway
+      MINIO_PUBLIC_ENDPOINT: gateway
+      MINIO_PUBLIC_PORT: 443
+      MINIO_PUBLIC_USE_SSL: 'true'
 
   worker:
     build:

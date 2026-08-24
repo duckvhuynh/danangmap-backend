@@ -1,5 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import AppDataSource from '../src/database/data-source';
+import { E2E_PREAUTH_COOKIE, E2E_SESSION_COOKIE } from './auth-cookie.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
 const frontendOrigin = 'http://localhost:3000';
@@ -433,29 +434,29 @@ async function login(user: (typeof users)[keyof typeof users]): Promise<Authenti
     body: JSON.stringify({ login: user.login, password: user.password }),
   });
   expect(loginResponse.status).toBe(200);
-  const preauth = cookieValue(loginResponse, '__Host-danangmap_preauth');
+  const preauth = cookieValue(loginResponse, E2E_PREAUTH_COOKIE);
   const preauthCsrf = cookieValue(loginResponse, 'danangmap_csrf');
   const verifyResponse = await fetch(`${apiBaseUrl}/api/v1/auth/mfa/verify`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Cookie: `__Host-danangmap_preauth=${preauth}; danangmap_csrf=${preauthCsrf}`,
+      Cookie: `${E2E_PREAUTH_COOKIE}=${preauth}; danangmap_csrf=${preauthCsrf}`,
       Origin: frontendOrigin,
       'X-CSRF-Token': preauthCsrf,
     },
     body: JSON.stringify({ method: 'totp', code: totp(mfaSecret) }),
   });
   expect(verifyResponse.status).toBe(200);
-  const session = cookieValue(verifyResponse, '__Host-danangmap_session');
+  const session = cookieValue(verifyResponse, E2E_SESSION_COOKIE);
   let csrf = cookieValue(verifyResponse, 'danangmap_csrf');
   const rotateResponse = await fetch(`${apiBaseUrl}/api/v1/auth/csrf`, {
-    headers: { Cookie: `__Host-danangmap_session=${session}; danangmap_csrf=${csrf}` },
+    headers: { Cookie: `${E2E_SESSION_COOKIE}=${session}; danangmap_csrf=${csrf}` },
   });
   expect(rotateResponse.status).toBe(200);
   csrf = (await json<Envelope<{ csrfToken: string }>>(rotateResponse)).data.csrfToken;
   return {
     id: user.id,
-    cookie: `__Host-danangmap_session=${session}; danangmap_csrf=${csrf}`,
+    cookie: `${E2E_SESSION_COOKIE}=${session}; danangmap_csrf=${csrf}`,
     csrf,
   };
 }

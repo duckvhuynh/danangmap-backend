@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
 import AppDataSource from '../src/database/data-source';
+import { E2E_SESSION_COOKIE } from './auth-cookie.helper';
 import { waitForMailpitMessage } from './mailpit.helper';
 
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
@@ -208,9 +209,7 @@ describe('password reset, change and session-revocation HTTP lifecycle', () => {
     );
     expect(changePayloads[1]?.data).toEqual(changePayloads[0]?.data);
     const cookieOwners = changeResponses.filter((response) =>
-      response.headers
-        .getSetCookie()
-        .some((cookie) => cookie.startsWith('__Host-danangmap_session=')),
+      response.headers.getSetCookie().some((cookie) => cookie.startsWith(`${E2E_SESSION_COOKIE}=`)),
     );
     expect(cookieOwners).toHaveLength(1);
     const rotatedJar = enrollment.jar.clone();
@@ -328,7 +327,7 @@ describe('password reset, change and session-revocation HTTP lifecycle', () => {
     expect(
       resetSuccess.headers
         .getSetCookie()
-        .some((cookie) => cookie.startsWith('__Host-danangmap_session=;')),
+        .some((cookie) => cookie.startsWith(`${E2E_SESSION_COOKIE}=;`)),
     ).toBe(true);
     await expectUnauthorizedMe(rotatedJar);
     const preauthVerify = await postWithCsrf('/api/v1/auth/mfa/verify', pendingPreauth.jar, {
@@ -357,9 +356,7 @@ describe('password reset, change and session-revocation HTTP lifecycle', () => {
       },
     });
     expect(
-      revoked.headers
-        .getSetCookie()
-        .some((cookie) => cookie.startsWith('__Host-danangmap_session=;')),
+      revoked.headers.getSetCookie().some((cookie) => cookie.startsWith(`${E2E_SESSION_COOKIE}=;`)),
     ).toBe(true);
     await expectUnauthorizedMe(sessionA);
     await expectUnauthorizedMe(sessionB);

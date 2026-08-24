@@ -310,6 +310,7 @@ export class WorkflowService {
         );
       }
       await this.assertPublicationBaseCurrent(manager, revision);
+      await this.assertAttachmentsPublishable(manager, revisionId);
       await manager.query(
         `UPDATE layer_revisions SET status='publishing',updated_at=now() WHERE id=$1`,
         [revisionId],
@@ -351,6 +352,7 @@ export class WorkflowService {
             sourceKind: 'geojson',
             sourceLayer: 'features',
             schemaVersion: revision.schema_version,
+            attachmentProjection: 'versioned',
           }),
           actor.id,
         ],
@@ -468,6 +470,60 @@ export class WorkflowService {
         'PUBLICATION_BASE_STALE',
         'Revision được tạo từ một publication không còn hiện hành.',
         { activeRevisionId, baseRevisionId },
+      );
+    }
+  }
+
+  private async assertAttachmentsPublishable(
+    manager: DataSource['manager'],
+    revisionId: string,
+  ): Promise<void> {
+    const rows = (await manager.query(
+      `SELECT (
+         SELECT count(*)::integer
+         FROM revision_features member
+         JOIN feature_versions version ON version.id=member.feature_version_id
+         JOIN layer_fields field
+           ON field.revision_id=$1 AND field.type IN ('image','attachment')
+         WHERE member.revision_id=$1 AND (
+           (field.required AND NOT EXISTS (
+             SELECT 1 FROM feature_version_attachments required_link
+             JOIN attachments required_attachment
+               ON required_attachment.id=required_link.attachment_id
+             WHERE required_link.feature_version_id=version.id
+               AND required_link.field_key=field.key
+               AND required_attachment.status='clean'
+               AND required_attachment.object_key IS NOT NULL
+           )) OR
+           COALESCE(version.properties->field.key,'[]'::jsonb) IS DISTINCT FROM COALESCE((
+             SELECT jsonb_agg(link.attachment_id ORDER BY link.display_order,link.attachment_id)
+             FROM feature_version_attachments link
+             JOIN attachments attachment ON attachment.id=link.attachment_id
+             WHERE link.feature_version_id=version.id AND link.field_key=field.key
+               AND attachment.status='clean' AND attachment.object_key IS NOT NULL
+           ),'[]'::jsonb)
+         )
+       ) + (
+         SELECT count(*)::integer
+         FROM revision_features linked_member
+         JOIN feature_version_attachments link
+           ON link.feature_version_id=linked_member.feature_version_id
+         LEFT JOIN attachments attachment ON attachment.id=link.attachment_id
+         LEFT JOIN layer_fields attachment_field
+           ON attachment_field.revision_id=$1 AND attachment_field.key=link.field_key
+         WHERE linked_member.revision_id=$1 AND (
+           attachment.status IS DISTINCT FROM 'clean' OR attachment.object_key IS NULL
+           OR attachment_field.type IS NULL
+           OR attachment_field.type NOT IN ('image','attachment')
+         )
+       ) AS invalid`,
+      [revisionId],
+    )) as Array<{ invalid: number }>;
+    if (Number(rows[0]?.invalid ?? 0) > 0) {
+      throw new AppException(
+        409,
+        'ATTACHMENT_NOT_READY',
+        'Revision có tệp đính kèm chưa sạch, thiếu hoặc không khớp version.',
       );
     }
   }

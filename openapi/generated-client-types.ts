@@ -1064,6 +1064,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAttachmentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/uploads/{uploadId}:complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completeAttachmentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminAttachment"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteUnboundAttachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/revisions/{revisionId}/features/{featureId}/attachments:bind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bindFeatureAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/revisions/{revisionId}/features/{featureId}/attachments:reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["reorderFeatureAttachments"];
+        trace?: never;
+    };
+    "/api/v1/admin/revisions/{revisionId}/features/{featureId}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["unbindFeatureAttachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -4041,7 +4153,16 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             attachments: {
-                                [key: string]: unknown;
+                                /** Format: uuid */
+                                id: string;
+                                fieldKey: string;
+                                displayOrder: number;
+                                fileName: string;
+                                contentType: string;
+                                sizeBytes: number;
+                                /** @enum {string} */
+                                status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                url?: string | null;
                             }[];
                             meta: {
                                 geometryKind: string;
@@ -4105,7 +4226,16 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 attachments: {
-                                    [key: string]: unknown;
+                                    /** Format: uuid */
+                                    id: string;
+                                    fieldKey: string;
+                                    displayOrder: number;
+                                    fileName: string;
+                                    contentType: string;
+                                    sizeBytes: number;
+                                    /** @enum {string} */
+                                    status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                    url?: string | null;
                                 }[];
                                 meta: {
                                     geometryKind: string;
@@ -4208,7 +4338,16 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 attachments: {
-                                    [key: string]: unknown;
+                                    /** Format: uuid */
+                                    id: string;
+                                    fieldKey: string;
+                                    displayOrder: number;
+                                    fileName: string;
+                                    contentType: string;
+                                    sizeBytes: number;
+                                    /** @enum {string} */
+                                    status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                    url?: string | null;
                                 }[];
                                 meta: {
                                     geometryKind: string;
@@ -4691,7 +4830,16 @@ export interface operations {
                             geometryKind?: string;
                             radiusM?: number | null;
                             attachments: {
-                                [key: string]: unknown;
+                                /** Format: uuid */
+                                id: string;
+                                fieldKey: string;
+                                displayOrder: number;
+                                fileName: string;
+                                contentType: string;
+                                sizeBytes: number;
+                                /** @enum {string} */
+                                status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                url?: string | null;
                             }[];
                             meta: {
                                 layerSlug: string;
@@ -7824,6 +7972,465 @@ export interface operations {
                         timestamp: string;
                     };
                 };
+            };
+        };
+    };
+    createAttachmentUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    purpose: "feature_attachment";
+                    fileName: string;
+                    contentType: string;
+                    sizeBytes: number;
+                    sha256: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            uploadId: string;
+                            /** Format: uuid */
+                            attachmentId: string;
+                            /** @enum {string} */
+                            status: "uploading";
+                            file: {
+                                name: string;
+                                contentType: string;
+                                sizeBytes: number;
+                                sha256: string;
+                            };
+                            upload: {
+                                /** @enum {string} */
+                                method: "PUT";
+                                /** Format: uri */
+                                url: string;
+                                headers: {
+                                    [key: string]: string;
+                                };
+                                /** Format: date-time */
+                                expiresAt: string;
+                            };
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    completeAttachmentUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            fileName: string;
+                            contentType: string | null;
+                            sizeBytes: number | null;
+                            sha256: string | null;
+                            /** @enum {string} */
+                            status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                            /** Format: uuid */
+                            ownerId: string;
+                            rejectionCode?: string | null;
+                            /** Format: date-time */
+                            finalizedAt?: string | null;
+                            /** Format: date-time */
+                            scannedAt?: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAdminAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            fileName: string;
+                            contentType: string | null;
+                            sizeBytes: number | null;
+                            sha256: string | null;
+                            /** @enum {string} */
+                            status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                            /** Format: uuid */
+                            ownerId: string;
+                            rejectionCode?: string | null;
+                            /** Format: date-time */
+                            finalizedAt?: string | null;
+                            /** Format: date-time */
+                            scannedAt?: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteUnboundAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "deleted";
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    bindFeatureAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Revision ETag. */
+                "If-Match": string;
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                revisionId: string;
+                featureId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fieldKey: string;
+                    /** Format: uuid */
+                    attachmentId: string;
+                    /** @default 0 */
+                    displayOrder?: number;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            feature: {
+                                /** @enum {string} */
+                                type: "Feature";
+                                /** Format: uuid */
+                                id: string;
+                                geometry: {
+                                    type: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                                attachments: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    fieldKey: string;
+                                    displayOrder: number;
+                                    fileName: string;
+                                    contentType: string;
+                                    sizeBytes: number;
+                                    /** @enum {string} */
+                                    status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                    url?: string | null;
+                                }[];
+                                meta: {
+                                    geometryKind: string;
+                                    radiusM: number | null;
+                                    externalSource: string | null;
+                                    externalId: string | null;
+                                    /** Format: uuid */
+                                    versionId: string;
+                                    /** Format: date-time */
+                                    updatedAt: string;
+                                };
+                            };
+                            serverCursor: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    reorderFeatureAttachments: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Revision ETag. */
+                "If-Match": string;
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                revisionId: string;
+                featureId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fieldKey: string;
+                    attachmentIds: string[];
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            feature: {
+                                /** @enum {string} */
+                                type: "Feature";
+                                /** Format: uuid */
+                                id: string;
+                                geometry: {
+                                    type: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                                attachments: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    fieldKey: string;
+                                    displayOrder: number;
+                                    fileName: string;
+                                    contentType: string;
+                                    sizeBytes: number;
+                                    /** @enum {string} */
+                                    status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                    url?: string | null;
+                                }[];
+                                meta: {
+                                    geometryKind: string;
+                                    radiusM: number | null;
+                                    externalSource: string | null;
+                                    externalId: string | null;
+                                    /** Format: uuid */
+                                    versionId: string;
+                                    /** Format: date-time */
+                                    updatedAt: string;
+                                };
+                            };
+                            serverCursor: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    unbindFeatureAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Revision ETag. */
+                "If-Match": string;
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                revisionId: string;
+                featureId: string;
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description Opaque version token for the returned representation. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            feature: {
+                                /** @enum {string} */
+                                type: "Feature";
+                                /** Format: uuid */
+                                id: string;
+                                geometry: {
+                                    type: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                                attachments: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    fieldKey: string;
+                                    displayOrder: number;
+                                    fileName: string;
+                                    contentType: string;
+                                    sizeBytes: number;
+                                    /** @enum {string} */
+                                    status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                    url?: string | null;
+                                }[];
+                                meta: {
+                                    geometryKind: string;
+                                    radiusM: number | null;
+                                    externalSource: string | null;
+                                    externalId: string | null;
+                                    /** Format: uuid */
+                                    versionId: string;
+                                    /** Format: date-time */
+                                    updatedAt: string;
+                                };
+                            };
+                            serverCursor: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getPublicAttachment: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string;
+            };
+            path: {
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Not modified. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not in a public field of the active snapshot. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

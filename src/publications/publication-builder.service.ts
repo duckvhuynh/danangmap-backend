@@ -88,7 +88,7 @@ export class PublicationBuilderService {
       featureCount: total,
       vertexCount: context.vertexCount,
       publicFieldKeys: context.publicFieldKeys,
-      attachmentProjection: 'unavailable',
+      attachmentProjection: 'versioned',
     };
     await this.repository.markSwitching(
       job.id,
@@ -132,7 +132,11 @@ export class PublicationBuilderService {
     ) {
       throw new PublicationBuildError('PUBLICATION_BASE_STALE');
     }
-    if (context.invalidFeatureCount > 0 || context.missingRequiredCount > 0) {
+    if (
+      context.invalidFeatureCount > 0 ||
+      context.missingRequiredCount > 0 ||
+      context.invalidAttachmentCount > 0
+    ) {
       throw new PublicationBuildError('PUBLICATION_INPUT_INVALID');
     }
     if (

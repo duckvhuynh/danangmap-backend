@@ -7,6 +7,27 @@ const nullableString: SchemaObject = { type: 'string', nullable: true };
 const jsonObject: SchemaObject = { type: 'object', additionalProperties: true };
 const color: SchemaObject = { type: 'string', pattern: '^#[0-9A-Fa-f]{6}$' };
 
+export const attachmentStatusSchema: SchemaObject = {
+  type: 'string',
+  enum: ['uploading', 'pending', 'clean', 'infected', 'rejected', 'deleted'],
+};
+
+export const featureAttachmentSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'fieldKey', 'displayOrder', 'fileName', 'contentType', 'sizeBytes', 'status'],
+  properties: {
+    id: uuid,
+    fieldKey: { type: 'string' },
+    displayOrder: { type: 'integer', minimum: 0 },
+    fileName: { type: 'string' },
+    contentType: { type: 'string' },
+    sizeBytes: { type: 'integer', minimum: 1, maximum: 25 * 1024 * 1024 },
+    status: attachmentStatusSchema,
+    url: { type: 'string', nullable: true },
+  },
+};
+
 const pointStyleSchema: SchemaObject = {
   type: 'object',
   additionalProperties: false,
@@ -468,7 +489,7 @@ export const publicFeatureDetailSchema: SchemaObject = {
   required: ['type', 'id', 'geometry', 'properties', 'attachments', 'meta'],
   properties: {
     ...publicGeoJsonFeatureSchema.properties,
-    attachments: { type: 'array', items: jsonObject },
+    attachments: { type: 'array', items: featureAttachmentSchema },
     meta: {
       type: 'object',
       required: ['layerSlug', 'snapshotId', 'generation', 'geometryKind', 'radiusM'],
@@ -868,7 +889,7 @@ export const adminFeatureSchema: SchemaObject = {
     id: uuid,
     geometry: geoJsonGeometrySchema,
     properties: jsonObject,
-    attachments: { type: 'array', items: jsonObject },
+    attachments: { type: 'array', items: featureAttachmentSchema },
     meta: {
       type: 'object',
       additionalProperties: false,

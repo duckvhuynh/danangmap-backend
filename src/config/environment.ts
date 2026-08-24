@@ -57,9 +57,26 @@ const environmentSchema = z
     MINIO_ENDPOINT: z.string().min(1).default('localhost'),
     MINIO_PORT: z.coerce.number().int().min(1).max(65535).default(9000),
     MINIO_USE_SSL: booleanString,
+    MINIO_PUBLIC_ENDPOINT: z.string().min(1).optional(),
+    MINIO_PUBLIC_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    MINIO_PUBLIC_USE_SSL: z.enum(['true', 'false']).optional(),
+    MINIO_PUBLIC_PATH_STYLE: trueBooleanString,
+    MINIO_REGION: z.string().min(1).default('us-east-1'),
     MINIO_ACCESS_KEY: z.string().min(3),
     MINIO_SECRET_KEY: z.string().min(8),
     MINIO_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/),
+    ATTACHMENT_UPLOAD_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
+    ATTACHMENT_ORPHAN_RETENTION_HOURS: z.coerce.number().int().min(1).max(720).default(24),
+    ATTACHMENT_SWEEP_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(10_000)
+      .max(3_600_000)
+      .default(60_000),
+    ATTACHMENT_SCANNER_MODE: z.enum(['deterministic', 'clamav']).optional(),
+    CLAMAV_HOST: z.string().min(1).default('localhost'),
+    CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).default(3310),
+    ATTACHMENT_SCAN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
     SESSION_PEPPER: z.string().min(32),
     FIELD_ENCRYPTION_KEY: z.string().min(32),
     FRONTEND_ORIGINS: z.string().min(1),

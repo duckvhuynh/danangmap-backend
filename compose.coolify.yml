@@ -28,9 +28,21 @@ x-backend-environment: &backend-environment
   MINIO_ENDPOINT: minio
   MINIO_PORT: '9000'
   MINIO_USE_SSL: 'false'
+  MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:?Set MINIO_PUBLIC_ENDPOINT to the public MinIO API hostname}
+  MINIO_PUBLIC_PORT: ${MINIO_PUBLIC_PORT:-443}
+  MINIO_PUBLIC_USE_SSL: ${MINIO_PUBLIC_USE_SSL:-true}
+  MINIO_PUBLIC_PATH_STYLE: ${MINIO_PUBLIC_PATH_STYLE:-true}
+  MINIO_REGION: ${MINIO_REGION:-us-east-1}
   MINIO_ACCESS_KEY: danangmap
   MINIO_SECRET_KEY: ${SERVICE_PASSWORD_MINIO}
   MINIO_BUCKET: ${MINIO_BUCKET:-danangmap}
+  ATTACHMENT_UPLOAD_TTL_SECONDS: ${ATTACHMENT_UPLOAD_TTL_SECONDS:-600}
+  ATTACHMENT_ORPHAN_RETENTION_HOURS: ${ATTACHMENT_ORPHAN_RETENTION_HOURS:-24}
+  ATTACHMENT_SWEEP_INTERVAL_MS: ${ATTACHMENT_SWEEP_INTERVAL_MS:-60000}
+  ATTACHMENT_SCANNER_MODE: clamav
+  CLAMAV_HOST: clamav
+  CLAMAV_PORT: '3310'
+  ATTACHMENT_SCAN_TIMEOUT_MS: ${ATTACHMENT_SCAN_TIMEOUT_MS:-30000}
   SESSION_PEPPER: ${SERVICE_PASSWORD_64_SESSIONPEPPER}
   FIELD_ENCRYPTION_KEY: ${SERVICE_PASSWORD_64_FIELDENCRYPTION}
   FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:?Set FRONTEND_ORIGINS to the HTTPS frontend origin}
@@ -138,6 +150,15 @@ services:
     stop_grace_period: 30s
     restart: unless-stopped
 
+  clamav:
+    image: clamav/clamav:1.5.4
+    volumes:
+      - clamav-data:/var/lib/clamav
+    expose:
+      - '3310'
+    stop_grace_period: 1m
+    restart: unless-stopped
+
   migrate:
     <<: *backend-service
     command:
@@ -195,6 +216,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      clamav:
+        condition: service_healthy
     healthcheck:
       test: ['CMD', 'node', '-e', 'process.kill(1, 0)']
       interval: 30s
@@ -206,3 +229,4 @@ volumes:
   postgres-data:
   redis-data:
   minio-data:
+  clamav-data:

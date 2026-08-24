@@ -15,6 +15,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
 import { UserImportsModule } from './user-imports/user-imports.module';
 import { HistoryModule } from './history/history.module';
 import { PublicationsModule } from './publications/publications.module';
+import { AttachmentsModule } from './attachments/attachments.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { PublicationsModule } from './publications/publications.module';
     UserImportsModule,
     HistoryModule,
     PublicationsModule,
+    AttachmentsModule,
     HealthModule,
   ],
 })

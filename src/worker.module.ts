@@ -9,6 +9,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
 import { UserImportsWorkerModule } from './user-imports/user-imports-worker.module';
 import { MailWorkerModule } from './mail/mail-worker.module';
 import { PublicationsWorkerModule } from './publications/publications-worker.module';
+import { AttachmentsWorkerModule } from './attachments/attachments-worker.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PublicationsWorkerModule } from './publications/publications-worker.mod
     UserImportsWorkerModule,
     MailWorkerModule,
     PublicationsWorkerModule,
+    AttachmentsWorkerModule,
   ],
 })
 export class WorkerModule {}

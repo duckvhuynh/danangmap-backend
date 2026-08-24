@@ -8098,7 +8098,55 @@
                             "type": "array",
                             "items": {
                               "type": "object",
-                              "additionalProperties": true
+                              "additionalProperties": false,
+                              "required": [
+                                "id",
+                                "fieldKey",
+                                "displayOrder",
+                                "fileName",
+                                "contentType",
+                                "sizeBytes",
+                                "status"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "fieldKey": {
+                                  "type": "string"
+                                },
+                                "displayOrder": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "fileName": {
+                                  "type": "string"
+                                },
+                                "contentType": {
+                                  "type": "string"
+                                },
+                                "sizeBytes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 26214400
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "uploading",
+                                    "pending",
+                                    "clean",
+                                    "infected",
+                                    "rejected",
+                                    "deleted"
+                                  ]
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
                             }
                           },
                           "meta": {
@@ -8286,7 +8334,55 @@
                               "type": "array",
                               "items": {
                                 "type": "object",
-                                "additionalProperties": true
+                                "additionalProperties": false,
+                                "required": [
+                                  "id",
+                                  "fieldKey",
+                                  "displayOrder",
+                                  "fileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "status"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "fieldKey": {
+                                    "type": "string"
+                                  },
+                                  "displayOrder": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "fileName": {
+                                    "type": "string"
+                                  },
+                                  "contentType": {
+                                    "type": "string"
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 26214400
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "pending",
+                                      "clean",
+                                      "infected",
+                                      "rejected",
+                                      "deleted"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                }
                               }
                             },
                             "meta": {
@@ -8479,7 +8575,55 @@
                               "type": "array",
                               "items": {
                                 "type": "object",
-                                "additionalProperties": true
+                                "additionalProperties": false,
+                                "required": [
+                                  "id",
+                                  "fieldKey",
+                                  "displayOrder",
+                                  "fileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "status"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "fieldKey": {
+                                    "type": "string"
+                                  },
+                                  "displayOrder": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "fileName": {
+                                    "type": "string"
+                                  },
+                                  "contentType": {
+                                    "type": "string"
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 26214400
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "pending",
+                                      "clean",
+                                      "infected",
+                                      "rejected",
+                                      "deleted"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                }
                               }
                             },
                             "meta": {
@@ -10113,7 +10257,55 @@
                           "type": "array",
                           "items": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "fieldKey",
+                              "displayOrder",
+                              "fileName",
+                              "contentType",
+                              "sizeBytes",
+                              "status"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "fieldKey": {
+                                "type": "string"
+                              },
+                              "displayOrder": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "fileName": {
+                                "type": "string"
+                              },
+                              "contentType": {
+                                "type": "string"
+                              },
+                              "sizeBytes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 26214400
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "uploading",
+                                  "pending",
+                                  "clean",
+                                  "infected",
+                                  "rejected",
+                                  "deleted"
+                                ]
+                              },
+                              "url": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            }
                           }
                         },
                         "meta": {
@@ -19746,6 +19938,1364 @@
         "summary": "",
         "tags": [
           "publications"
+        ]
+      }
+    },
+    "/api/v1/admin/uploads": {
+      "post": {
+        "operationId": "createAttachmentUpload",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "purpose",
+                  "fileName",
+                  "contentType",
+                  "sizeBytes",
+                  "sha256"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "feature_attachment"
+                    ]
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "maxLength": 255
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "sizeBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 26214400
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "uploadId",
+                        "attachmentId",
+                        "status",
+                        "file",
+                        "upload"
+                      ],
+                      "properties": {
+                        "uploadId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "attachmentId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "uploading"
+                          ]
+                        },
+                        "file": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "name",
+                            "contentType",
+                            "sizeBytes",
+                            "sha256"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "contentType": {
+                              "type": "string"
+                            },
+                            "sizeBytes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 26214400
+                            },
+                            "sha256": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            }
+                          }
+                        },
+                        "upload": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "method",
+                            "url",
+                            "headers",
+                            "expiresAt"
+                          ],
+                          "properties": {
+                            "method": {
+                              "type": "string",
+                              "enum": [
+                                "PUT"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            "headers": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "required": [
+                                "Content-Type"
+                              ]
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/admin/uploads/{uploadId}:complete": {
+      "post": {
+        "operationId": "completeAttachmentUpload",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "fileName",
+                        "contentType",
+                        "sizeBytes",
+                        "sha256",
+                        "status",
+                        "ownerId",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "fileName": {
+                          "type": "string"
+                        },
+                        "contentType": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "sizeBytes": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "uploading",
+                            "pending",
+                            "clean",
+                            "infected",
+                            "rejected",
+                            "deleted"
+                          ]
+                        },
+                        "ownerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "rejectionCode": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "finalizedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "scannedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/admin/attachments/{attachmentId}": {
+      "get": {
+        "operationId": "getAdminAttachment",
+        "parameters": [
+          {
+            "name": "attachmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "fileName",
+                        "contentType",
+                        "sizeBytes",
+                        "sha256",
+                        "status",
+                        "ownerId",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "fileName": {
+                          "type": "string"
+                        },
+                        "contentType": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "sizeBytes": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "uploading",
+                            "pending",
+                            "clean",
+                            "infected",
+                            "rejected",
+                            "deleted"
+                          ]
+                        },
+                        "ownerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "rejectionCode": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "finalizedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "scannedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "attachments"
+        ]
+      },
+      "delete": {
+        "operationId": "deleteUnboundAttachment",
+        "parameters": [
+          {
+            "name": "attachmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "status"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "deleted"
+                          ]
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/admin/revisions/{revisionId}/features/{featureId}/attachments:bind": {
+      "post": {
+        "operationId": "bindFeatureAttachment",
+        "parameters": [
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "featureId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Revision ETag.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fieldKey",
+                  "attachmentId"
+                ],
+                "properties": {
+                  "fieldKey": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{1,63}$"
+                  },
+                  "attachmentId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "displayOrder": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000,
+                    "default": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "feature",
+                        "serverCursor"
+                      ],
+                      "properties": {
+                        "feature": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "type",
+                            "id",
+                            "geometry",
+                            "properties",
+                            "attachments",
+                            "meta"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "Feature"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "geometry": {
+                              "type": "object",
+                              "required": [
+                                "type"
+                              ],
+                              "additionalProperties": true,
+                              "properties": {
+                                "type": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "properties": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "attachments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "id",
+                                  "fieldKey",
+                                  "displayOrder",
+                                  "fileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "status"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "fieldKey": {
+                                    "type": "string"
+                                  },
+                                  "displayOrder": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "fileName": {
+                                    "type": "string"
+                                  },
+                                  "contentType": {
+                                    "type": "string"
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 26214400
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "pending",
+                                      "clean",
+                                      "infected",
+                                      "rejected",
+                                      "deleted"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "geometryKind",
+                                "radiusM",
+                                "externalSource",
+                                "externalId",
+                                "versionId",
+                                "updatedAt"
+                              ],
+                              "properties": {
+                                "geometryKind": {
+                                  "type": "string"
+                                },
+                                "radiusM": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "externalSource": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "externalId": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "versionId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "serverCursor": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/admin/revisions/{revisionId}/features/{featureId}/attachments:reorder": {
+      "patch": {
+        "operationId": "reorderFeatureAttachments",
+        "parameters": [
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "featureId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Revision ETag.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fieldKey",
+                  "attachmentIds"
+                ],
+                "properties": {
+                  "fieldKey": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{1,63}$"
+                  },
+                  "attachmentIds": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "feature",
+                        "serverCursor"
+                      ],
+                      "properties": {
+                        "feature": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "type",
+                            "id",
+                            "geometry",
+                            "properties",
+                            "attachments",
+                            "meta"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "Feature"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "geometry": {
+                              "type": "object",
+                              "required": [
+                                "type"
+                              ],
+                              "additionalProperties": true,
+                              "properties": {
+                                "type": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "properties": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "attachments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "id",
+                                  "fieldKey",
+                                  "displayOrder",
+                                  "fileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "status"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "fieldKey": {
+                                    "type": "string"
+                                  },
+                                  "displayOrder": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "fileName": {
+                                    "type": "string"
+                                  },
+                                  "contentType": {
+                                    "type": "string"
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 26214400
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "pending",
+                                      "clean",
+                                      "infected",
+                                      "rejected",
+                                      "deleted"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "geometryKind",
+                                "radiusM",
+                                "externalSource",
+                                "externalId",
+                                "versionId",
+                                "updatedAt"
+                              ],
+                              "properties": {
+                                "geometryKind": {
+                                  "type": "string"
+                                },
+                                "radiusM": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "externalSource": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "externalId": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "versionId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "serverCursor": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/admin/revisions/{revisionId}/features/{featureId}/attachments/{attachmentId}": {
+      "delete": {
+        "operationId": "unbindFeatureAttachment",
+        "parameters": [
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "featureId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Revision ETag.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "feature",
+                        "serverCursor"
+                      ],
+                      "properties": {
+                        "feature": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "type",
+                            "id",
+                            "geometry",
+                            "properties",
+                            "attachments",
+                            "meta"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "Feature"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "geometry": {
+                              "type": "object",
+                              "required": [
+                                "type"
+                              ],
+                              "additionalProperties": true,
+                              "properties": {
+                                "type": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "properties": {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            "attachments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "id",
+                                  "fieldKey",
+                                  "displayOrder",
+                                  "fileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "status"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "fieldKey": {
+                                    "type": "string"
+                                  },
+                                  "displayOrder": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "fileName": {
+                                    "type": "string"
+                                  },
+                                  "contentType": {
+                                    "type": "string"
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 26214400
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "pending",
+                                      "clean",
+                                      "infected",
+                                      "rejected",
+                                      "deleted"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                }
+                              }
+                            },
+                            "meta": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "geometryKind",
+                                "radiusM",
+                                "externalSource",
+                                "externalId",
+                                "versionId",
+                                "updatedAt"
+                              ],
+                              "properties": {
+                                "geometryKind": {
+                                  "type": "string"
+                                },
+                                "radiusM": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "externalSource": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "externalId": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "versionId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "serverCursor": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/v1/public/attachments/{attachmentId}": {
+      "get": {
+        "operationId": "getPublicAttachment",
+        "parameters": [
+          {
+            "name": "attachmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "description": ""
+          },
+          "304": {
+            "description": "Not modified."
+          },
+          "404": {
+            "description": "Not in a public field of the active snapshot."
+          }
+        },
+        "summary": "",
+        "tags": [
+          "public"
         ]
       }
     },

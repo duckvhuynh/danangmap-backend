@@ -135,8 +135,8 @@ describeAsync('durable publication admission HTTP E2E', () => {
           name: 'private-name-http-canary',
           address: 'private-address-http-canary',
           public_code: 'public-http-code',
-          documents: ['storage-key-http-canary'],
-          photo: ['image-key-http-canary'],
+          documents: [],
+          photo: [],
         }),
         'source-http-canary-checksum',
         users.editor.id,
@@ -502,7 +502,7 @@ describeAsync('durable publication admission HTTP E2E', () => {
     const detail = (await json<Envelope<Record<string, unknown>>>(detailResponse)).data as {
       fields: Array<{ key: string }>;
     };
-    expect(detail.fields.map((field) => field.key)).toEqual(['public_code']);
+    expect(detail.fields.map((field) => field.key)).toEqual(['public_code', 'documents', 'photo']);
     expectNoPublicHttpCanaries(detail);
 
     const featuresResponse = await fetch(

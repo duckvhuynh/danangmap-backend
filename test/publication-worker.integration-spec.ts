@@ -161,7 +161,7 @@ describe('durable publication worker with real PostgreSQL and Redis', () => {
     expect(await batchCount(fixture.jobId)).toBe(1);
     await AppDataSource.query(
       `UPDATE publication_jobs
-       SET available_at=now(),lock_version=lock_version+1 WHERE id=$1`,
+       SET available_at=now()-interval '1 second',lock_version=lock_version+1 WHERE id=$1`,
       [fixture.jobId],
     );
 
@@ -238,7 +238,7 @@ describe('durable publication worker with real PostgreSQL and Redis', () => {
     expectNoPublicCanaries(catalogLayer);
 
     const detail = await publicApi.layerDetail(fixture.slug);
-    expect(detail.data.fields.map((field) => field.key)).toEqual(['name']);
+    expect(detail.data.fields.map((field) => field.key)).toEqual(['name', 'documents', 'photo']);
     expectNoPublicCanaries(detail.data);
 
     const collection = await publicApi.featureCollection(fixture.slug, undefined, 1000);
@@ -367,7 +367,7 @@ describe('durable publication worker with real PostgreSQL and Redis', () => {
 
     const publicApi = publicApiService();
     const detail = await publicApi.layerDetail(fixture.slug);
-    expect(detail.data.fields.map((field) => field.key)).toEqual(['code']);
+    expect(detail.data.fields.map((field) => field.key)).toEqual(['documents', 'photo', 'code']);
     expect(detail.data.filterCapabilities.fieldKeys).toEqual(['code']);
     expect(detail.data.searchCapabilities.fieldKeys).toEqual(['code']);
     expectNoPublicCanaries(detail.data);
@@ -840,15 +840,15 @@ describe('durable publication worker with real PostgreSQL and Redis', () => {
                     code: `public-code-${index}`,
                     private_note: `private-canary-${index}`,
                     api_key: `credential-canary-${index}`,
-                    documents: [`storage-key-canary-${index}`],
-                    photo: [`image-key-canary-${index}`],
+                    documents: [],
+                    photo: [],
                   }
                 : {
                     name: `public-${index}`,
                     private_note: `private-canary-${index}`,
                     api_key: `credential-canary-${index}`,
-                    documents: [`storage-key-canary-${index}`],
-                    photo: [`image-key-canary-${index}`],
+                    documents: [],
+                    photo: [],
                   },
             ),
             `source-checksum-${index}`,

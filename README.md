@@ -28,3 +28,11 @@ nhận tại đúng backend `2d4675ec2385abf55fa23ad26914e037456f14cd` + fronten
 `059e240b87869bb4b1d87da66b7698c859a34e5e`; final CI `32562513173` và exact-SHA cross-stack
 `32561792134` đều xanh, nên `CROSS_REPO_READ_TOKEN` không còn là blocker. Release tổng thể vẫn
 NO-GO cho các scope attachment/a11y/Mapbox/deploy và accepted no-backup risk chưa đóng.
+
+## Coolify attachment storage
+
+`compose.coolify.yml` chạy ClamAV riêng và chỉ cho worker kết nối qua mạng nội bộ. Trước khi deploy,
+gán một domain HTTPS cho MinIO API port `9000`, rồi đặt `MINIO_PUBLIC_ENDPOINT` bằng hostname đó
+(không gồm scheme/path). Mặc định `MINIO_PUBLIC_PORT=443`, `MINIO_PUBLIC_USE_SSL=true` và
+`MINIO_PUBLIC_PATH_STYLE=true`; API dùng endpoint này chỉ để ký upload URL, còn đọc/ghi object nội bộ
+vẫn qua service `minio:9000`. Không expose ClamAV port `3310` ra Internet.

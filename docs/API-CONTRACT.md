@@ -245,7 +245,7 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 | POST      | `/auth/mfa/verify`                                  | pre-auth + CSRF                    | Xác minh TOTP/recovery code, tạo session                            |
 | POST      | `/auth/mfa/enroll`                                  | pre-auth + CSRF                    | Bắt đầu enroll TOTP; URI chỉ trả một lần cho pre-auth đó            |
 | POST      | `/auth/mfa/enroll/confirm`                          | pre-auth + CSRF                    | Xác nhận TOTP lần đầu, trả recovery codes một lần                   |
-| POST      | `/auth/mfa/recovery-codes:regenerate`               | authenticated                      | Xác minh password + MFA rồi thay toàn bộ recovery codes             |
+| POST      | `/auth/mfa/recovery-codes:regenerate`               | authenticated + CSRF + idempotency | Xác minh password + MFA rồi thay toàn bộ recovery codes             |
 | GET       | `/auth/me`                                          | authenticated                      | Principal hiện tại                                                  |
 | POST      | `/auth/logout`                                      | authenticated                      | Thu hồi phiên hiện tại                                              |
 | POST      | `/auth/sessions:revoke-all`                         | authenticated + CSRF + idempotency | Thu hồi mọi session, gồm session đang gọi                           |

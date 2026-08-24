@@ -46,6 +46,18 @@ export class ConfirmMfaEnrollmentDto {
   code: string;
 }
 
+export class RegenerateRecoveryCodesDto {
+  @ApiProperty({ writeOnly: true, minLength: 12, maxLength: 200 })
+  @IsString()
+  @Length(12, 200)
+  password: string;
+
+  @ApiProperty({ writeOnly: true, minLength: 6, maxLength: 64 })
+  @IsString()
+  @Length(6, 64)
+  mfaCode: string;
+}
+
 export class InspectInviteDto {
   @ApiProperty({ writeOnly: true, minLength: 32, maxLength: 512 })
   @IsString()

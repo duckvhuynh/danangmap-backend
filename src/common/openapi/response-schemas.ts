@@ -541,6 +541,21 @@ export const mfaEnrollmentConfirmationSchema: SchemaObject = {
   },
 };
 
+export const recoveryCodesRegenerationSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'recoveryCodes'],
+  properties: {
+    status: { type: 'string', enum: ['recovery_codes_regenerated'] },
+    recoveryCodes: {
+      type: 'array',
+      minItems: 10,
+      maxItems: 10,
+      items: { type: 'string', pattern: '^[A-F0-9]{4}(?:-[A-F0-9]{4}){4}$' },
+    },
+  },
+};
+
 export const logoutResultSchema: SchemaObject = {
   type: 'object',
   required: ['status', 'recoveryAction'],

@@ -101,6 +101,7 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
       ]);
       await manager.query('DELETE FROM command_receipts WHERE idempotency_key=$1', [fixtureKey]);
       if (userId) {
+        await manager.query('DELETE FROM command_receipts WHERE actor_id=$1', [userId]);
         await manager.query('DELETE FROM audit_logs WHERE actor_id=$1 OR resource_id=$1', [userId]);
         await manager.query('DELETE FROM users WHERE id=$1', [userId]);
       }
@@ -342,6 +343,7 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
     expect(confirmed.data.recoveryCodes).toEqual(
       expect.arrayContaining([expect.stringMatching(/^[A-F0-9]{4}(?:-[A-F0-9]{4}){4}$/)]),
     );
+    const initialRecoveryCodes = confirmed.data.recoveryCodes;
     const authenticatedToken = authenticatedJar.get('danangmap_csrf');
     expect(authenticatedToken).toBeDefined();
     expect(authenticatedToken).not.toBe(confirmedPreauthCsrf);
@@ -378,6 +380,63 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
       authenticatedToken,
     ]);
     expect(await sessionCsrfHash(authenticatedSession.id)).toBe(authenticatedSession.csrfHash);
+
+    const wrongPasswordRegeneration = await postWithCsrf(
+      '/api/v1/auth/mfa/recovery-codes:regenerate',
+      authenticatedJar,
+      { password: `${password}-wrong`, mfaCode: initialRecoveryCodes[1] },
+      allowedOrigin,
+      undefined,
+      { 'Idempotency-Key': randomUUID() },
+    );
+    await expectProblem(wrongPasswordRegeneration, 401, 'AUTH_INVALID_CREDENTIALS');
+    const wrongMfaRegeneration = await postWithCsrf(
+      '/api/v1/auth/mfa/recovery-codes:regenerate',
+      authenticatedJar,
+      { password, mfaCode: '000000' },
+      allowedOrigin,
+      undefined,
+      { 'Idempotency-Key': randomUUID() },
+    );
+    await expectProblem(wrongMfaRegeneration, 401, 'AUTH_MFA_INVALID');
+
+    const regenerationKey = randomUUID();
+    const regenerationRequests = await Promise.all([
+      postWithCsrf(
+        '/api/v1/auth/mfa/recovery-codes:regenerate',
+        authenticatedJar,
+        { password, mfaCode: initialRecoveryCodes[1] },
+        allowedOrigin,
+        undefined,
+        { 'Idempotency-Key': regenerationKey },
+      ),
+      postWithCsrf(
+        '/api/v1/auth/mfa/recovery-codes:regenerate',
+        authenticatedJar,
+        { password, mfaCode: initialRecoveryCodes[1] },
+        allowedOrigin,
+        undefined,
+        { 'Idempotency-Key': regenerationKey },
+      ),
+    ]);
+    expect(regenerationRequests.map((response) => response.status).sort()).toEqual([200, 409]);
+    const regenerationSuccess = regenerationRequests.find((response) => response.status === 200)!;
+    const regenerationReplay = regenerationRequests.find((response) => response.status === 409)!;
+    await expectProblem(regenerationReplay, 409, 'RECOVERY_CODES_ALREADY_REGENERATED');
+    const regenerated = (await regenerationSuccess.json()) as Envelope<{
+      status: string;
+      recoveryCodes: string[];
+    }>;
+    expect(regenerated.data.status).toBe('recovery_codes_regenerated');
+    expect(regenerated.data.recoveryCodes).toHaveLength(10);
+    expect(new Set(regenerated.data.recoveryCodes).size).toBe(10);
+    expect(regenerated.data.recoveryCodes).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^[A-F0-9]{4}(?:-[A-F0-9]{4}){4}$/)]),
+    );
+    expect(regenerated.data.recoveryCodes).not.toEqual(
+      expect.arrayContaining(initialRecoveryCodes),
+    );
+    const activeRecoveryCodes = regenerated.data.recoveryCodes;
 
     const authOnlyEnroll = await postWithCsrf('/api/v1/auth/mfa/enroll', authenticatedJar);
     expect(authOnlyEnroll.status).toBe(401);
@@ -418,7 +477,7 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
 
     const recoveryA = await loginWithPassword(login, password);
     const recoveryB = await loginWithPassword(login, password);
-    const firstRecoveryCode = confirmed.data.recoveryCodes[0]!;
+    const firstRecoveryCode = activeRecoveryCodes[0]!;
     const recoveryReplay = await Promise.all([
       postWithCsrf('/api/v1/auth/mfa/verify', recoveryA.jar, {
         method: 'recovery_code',
@@ -447,7 +506,7 @@ describe('MFA enrollment and recovery HTTP lifecycle', () => {
     const serializedAudit = JSON.stringify(audits);
     expect(serializedAudit).not.toContain('otpauth://');
     expect(serializedAudit).not.toContain(secret);
-    for (const rawCode of confirmed.data.recoveryCodes) {
+    for (const rawCode of [...initialRecoveryCodes, ...activeRecoveryCodes]) {
       expect(serializedAudit).not.toContain(rawCode);
     }
   });
@@ -503,10 +562,14 @@ async function postWithCsrf(
   body?: Record<string, unknown>,
   origin: string | null = allowedOrigin,
   overrideToken?: string,
+  extraHeaders: Record<string, string> = {},
 ): Promise<Response> {
   return fetch(`${apiBaseUrl}${path}`, {
     method: 'POST',
-    headers: jsonHeaders(jar, overrideToken ?? jar.get('danangmap_csrf'), origin ?? undefined),
+    headers: {
+      ...jsonHeaders(jar, overrideToken ?? jar.get('danangmap_csrf'), origin ?? undefined),
+      ...extraHeaders,
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
 }

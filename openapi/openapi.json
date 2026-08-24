@@ -15028,27 +15028,38 @@
                           "additionalProperties": false,
                           "required": [
                             "available",
-                            "status",
-                            "reasonCode"
+                            "featuresModified",
+                            "added",
+                            "removed",
+                            "reordered",
+                            "redactedChangeCount"
                           ],
                           "properties": {
                             "available": {
                               "type": "boolean",
                               "enum": [
-                                false
+                                true
                               ]
                             },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "unavailable"
-                              ]
+                            "featuresModified": {
+                              "type": "integer",
+                              "minimum": 0
                             },
-                            "reasonCode": {
-                              "type": "string",
-                              "enum": [
-                                "ATTACHMENT_CONTRACT_PENDING"
-                              ]
+                            "added": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "removed": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "reordered": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "redactedChangeCount": {
+                              "type": "integer",
+                              "minimum": 0
                             }
                           }
                         },
@@ -15251,27 +15262,167 @@
                                 "additionalProperties": false,
                                 "required": [
                                   "available",
-                                  "status",
-                                  "reasonCode"
+                                  "changed",
+                                  "added",
+                                  "removed",
+                                  "reordered",
+                                  "redactedChange"
                                 ],
                                 "properties": {
                                   "available": {
                                     "type": "boolean",
                                     "enum": [
-                                      false
+                                      true
                                     ]
                                   },
-                                  "status": {
-                                    "type": "string",
-                                    "enum": [
-                                      "unavailable"
-                                    ]
+                                  "changed": {
+                                    "type": "boolean"
                                   },
-                                  "reasonCode": {
-                                    "type": "string",
-                                    "enum": [
-                                      "ATTACHMENT_CONTRACT_PENDING"
-                                    ]
+                                  "added": {
+                                    "type": "array",
+                                    "maxItems": 500,
+                                    "items": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": [
+                                        "id",
+                                        "fieldKey",
+                                        "displayOrder",
+                                        "fileName",
+                                        "contentType",
+                                        "sizeBytes",
+                                        "status"
+                                      ],
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        },
+                                        "fieldKey": {
+                                          "type": "string"
+                                        },
+                                        "displayOrder": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100000
+                                        },
+                                        "fileName": {
+                                          "type": "string"
+                                        },
+                                        "contentType": {
+                                          "type": "string"
+                                        },
+                                        "sizeBytes": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 26214400
+                                        },
+                                        "status": {
+                                          "type": "string",
+                                          "enum": [
+                                            "uploading",
+                                            "pending",
+                                            "clean",
+                                            "infected",
+                                            "rejected",
+                                            "deleted"
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "removed": {
+                                    "type": "array",
+                                    "maxItems": 500,
+                                    "items": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": [
+                                        "id",
+                                        "fieldKey",
+                                        "displayOrder",
+                                        "fileName",
+                                        "contentType",
+                                        "sizeBytes",
+                                        "status"
+                                      ],
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        },
+                                        "fieldKey": {
+                                          "type": "string"
+                                        },
+                                        "displayOrder": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100000
+                                        },
+                                        "fileName": {
+                                          "type": "string"
+                                        },
+                                        "contentType": {
+                                          "type": "string"
+                                        },
+                                        "sizeBytes": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 26214400
+                                        },
+                                        "status": {
+                                          "type": "string",
+                                          "enum": [
+                                            "uploading",
+                                            "pending",
+                                            "clean",
+                                            "infected",
+                                            "rejected",
+                                            "deleted"
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "reordered": {
+                                    "type": "array",
+                                    "maxItems": 500,
+                                    "items": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": [
+                                        "id",
+                                        "fieldKey",
+                                        "fileName",
+                                        "beforeDisplayOrder",
+                                        "afterDisplayOrder"
+                                      ],
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        },
+                                        "fieldKey": {
+                                          "type": "string"
+                                        },
+                                        "fileName": {
+                                          "type": "string"
+                                        },
+                                        "beforeDisplayOrder": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100000
+                                        },
+                                        "afterDisplayOrder": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100000
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "redactedChange": {
+                                    "type": "boolean"
                                   }
                                 }
                               },

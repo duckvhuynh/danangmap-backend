@@ -11,6 +11,11 @@ import type {
   RevisionHistoryQueryDto,
   WorkflowHistoryQueryDto,
 } from './history.dto';
+import {
+  queryRevisionAttachmentDiffEntries,
+  queryRevisionAttachmentDiffSummary,
+  type RevisionAttachmentDiffEntry,
+} from './revision-attachment-diff';
 
 interface Actor {
   id: string;
@@ -525,6 +530,11 @@ export class HistoryQueryService {
           changed: [],
           redactedChangeCount: 0,
         };
+        const attachmentSummary = await queryRevisionAttachmentDiffSummary(
+          manager,
+          revisionId,
+          identity.baseRevisionId,
+        );
         const diffCursor = query.cursor ? this.decodeFeatureDiffCursor(query.cursor) : null;
         const entryRows = (await manager.query(
           `WITH safe_fields AS (
@@ -533,6 +543,32 @@ export class HistoryQueryService {
           WHERE field.revision_id IN ($1,$2)
           GROUP BY field.key
           HAVING bool_and(${canonicalPublicFieldSql('field')})
+        ), current_attachment_links AS (
+          SELECT member.feature_id,link.attachment_id,link.field_key,link.display_order,
+                 COALESCE(field.public=true AND field.sensitive=false
+                   AND field.type IN ('image','attachment'),false) AS safe_public
+          FROM revision_features member
+          JOIN feature_version_attachments link ON link.feature_version_id=member.feature_version_id
+          LEFT JOIN layer_fields field
+            ON field.revision_id=$1 AND field.key=link.field_key
+          WHERE member.revision_id=$1
+        ), base_attachment_links AS (
+          SELECT member.feature_id,link.attachment_id,link.field_key,link.display_order,
+                 COALESCE(field.public=true AND field.sensitive=false
+                   AND field.type IN ('image','attachment'),false) AS safe_public
+          FROM revision_features member
+          JOIN feature_version_attachments link ON link.feature_version_id=member.feature_version_id
+          LEFT JOIN layer_fields field
+            ON field.revision_id=$2 AND field.key=link.field_key
+          WHERE member.revision_id=$2
+        ), attachment_changed_features AS (
+          SELECT DISTINCT COALESCE(current_link.feature_id,base_link.feature_id) AS feature_id
+          FROM current_attachment_links current_link
+          FULL JOIN base_attachment_links base_link
+            USING(feature_id,attachment_id,field_key)
+          WHERE current_link.attachment_id IS NULL OR base_link.attachment_id IS NULL
+             OR current_link.display_order IS DISTINCT FROM base_link.display_order
+             OR current_link.safe_public IS DISTINCT FROM base_link.safe_public
         ), current_features AS (
           SELECT member.feature_id,version.geometry,version.geometry_kind,
                  version.properties,version.radius_m,version.checksum
@@ -587,6 +623,8 @@ export class HistoryQueryService {
                current_public.value AS "currentPublicProperties",
                base_public.value AS "basePublicProperties"
        FROM compared
+       LEFT JOIN attachment_changed_features attachment_change
+         ON attachment_change.feature_id=compared.feature_id
        LEFT JOIN LATERAL (
          SELECT COALESCE(jsonb_object_agg(field.key,compared.current_properties->field.key)
                   FILTER (WHERE compared.current_properties ? field.key),'{}'::jsonb) AS value
@@ -598,15 +636,25 @@ export class HistoryQueryService {
           FROM safe_fields field
         ) base_public ON true
        WHERE (compared.current_id IS NULL OR compared.base_id IS NULL
-              OR compared.current_checksum IS DISTINCT FROM compared.base_checksum)
+              OR compared.current_checksum IS DISTINCT FROM compared.base_checksum
+              OR attachment_change.feature_id IS NOT NULL)
          AND ($3::uuid IS NULL OR compared.feature_id>$3::uuid)
        ORDER BY compared.feature_id
        LIMIT $4`,
           [revisionId, identity.baseRevisionId, diffCursor?.featureId ?? null, query.limit + 1],
         )) as Array<Record<string, unknown> & { featureId: string }>;
         const hasMore = entryRows.length > query.limit;
-        const entryPage = entryRows.slice(0, query.limit).map((row) => this.diffEntry(row));
-        const lastEntry = entryRows.slice(0, query.limit).at(-1);
+        const pageRows = entryRows.slice(0, query.limit);
+        const attachmentEntries = await queryRevisionAttachmentDiffEntries(
+          manager,
+          revisionId,
+          identity.baseRevisionId,
+          pageRows.map((row) => row.featureId),
+        );
+        const entryPage = pageRows.map((row) =>
+          this.diffEntry(row, attachmentEntries.get(row.featureId)),
+        );
+        const lastEntry = pageRows.at(-1);
         return this.versioned({
           revisionId,
           layerId: identity.layerId,
@@ -623,11 +671,7 @@ export class HistoryQueryService {
             featuresModified: Number(feature.propertiesModified ?? 0),
             publicFieldKeysChanged: propertyKeys,
           },
-          attachments: {
-            available: false,
-            status: 'unavailable',
-            reasonCode: 'ATTACHMENT_CONTRACT_PENDING',
-          },
+          attachments: attachmentSummary,
           schema: {
             publicFieldsAdded: schema.added,
             publicFieldsRemoved: schema.removed,
@@ -914,7 +958,7 @@ export class HistoryQueryService {
     });
   }
 
-  private diffEntry(row: Record<string, unknown>) {
+  private diffEntry(row: Record<string, unknown>, attachmentDiff?: RevisionAttachmentDiffEntry) {
     const beforeProperties = this.sanitizePublicProjection(row.basePublicProperties);
     const afterProperties = this.sanitizePublicProjection(row.currentPublicProperties);
     const propertyKeys = new Set([
@@ -927,7 +971,20 @@ export class HistoryQueryService {
       )
       .sort();
     const changeType = row.currentId ? (row.baseId ? 'modified' : 'added') : 'removed';
-    const hasVisibleChange = Boolean(row.geometryChanged) || changedPropertyKeys.length > 0;
+    const attachments = attachmentDiff ?? {
+      available: true as const,
+      changed: false,
+      added: [],
+      removed: [],
+      reordered: [],
+      redactedChange: false,
+    };
+    const hasVisibleChange =
+      Boolean(row.geometryChanged) ||
+      changedPropertyKeys.length > 0 ||
+      attachments.added.length > 0 ||
+      attachments.removed.length > 0 ||
+      attachments.reordered.length > 0;
     return {
       featureId: row.featureId,
       changeType,
@@ -949,12 +1006,9 @@ export class HistoryQueryService {
         after: afterProperties,
         changedKeys: changedPropertyKeys,
       },
-      attachments: {
-        available: false,
-        status: 'unavailable',
-        reasonCode: 'ATTACHMENT_CONTRACT_PENDING',
-      },
-      redactedChange: changeType === 'modified' && !hasVisibleChange,
+      attachments,
+      redactedChange:
+        attachments.redactedChange || (changeType === 'modified' && !hasVisibleChange),
     };
   }
 

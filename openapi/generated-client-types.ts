@@ -6260,11 +6260,12 @@ export interface operations {
                             };
                             attachments: {
                                 /** @enum {boolean} */
-                                available: false;
-                                /** @enum {string} */
-                                status: "unavailable";
-                                /** @enum {string} */
-                                reasonCode: "ATTACHMENT_CONTRACT_PENDING";
+                                available: true;
+                                featuresModified: number;
+                                added: number;
+                                removed: number;
+                                reordered: number;
+                                redactedChangeCount: number;
                             };
                             schema: {
                                 publicFieldsAdded: string[];
@@ -6309,11 +6310,39 @@ export interface operations {
                                 };
                                 attachments: {
                                     /** @enum {boolean} */
-                                    available: false;
-                                    /** @enum {string} */
-                                    status: "unavailable";
-                                    /** @enum {string} */
-                                    reasonCode: "ATTACHMENT_CONTRACT_PENDING";
+                                    available: true;
+                                    changed: boolean;
+                                    added: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        fieldKey: string;
+                                        displayOrder: number;
+                                        fileName: string;
+                                        contentType: string;
+                                        sizeBytes: number;
+                                        /** @enum {string} */
+                                        status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                    }[];
+                                    removed: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        fieldKey: string;
+                                        displayOrder: number;
+                                        fileName: string;
+                                        contentType: string;
+                                        sizeBytes: number;
+                                        /** @enum {string} */
+                                        status: "uploading" | "pending" | "clean" | "infected" | "rejected" | "deleted";
+                                    }[];
+                                    reordered: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        fieldKey: string;
+                                        fileName: string;
+                                        beforeDisplayOrder: number;
+                                        afterDisplayOrder: number;
+                                    }[];
+                                    redactedChange: boolean;
                                 };
                                 redactedChange: boolean;
                             }[];

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: DanangMap v2 delivery board
+    url: https://github.com/users/duckvhuynh/projects/3
+    about: Check the delivery board for an existing issue and dependency status before opening a new item.

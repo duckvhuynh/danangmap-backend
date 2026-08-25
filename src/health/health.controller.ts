@@ -1,4 +1,4 @@
-import { Controller, Get, VERSION_NEUTRAL, Version } from '@nestjs/common';
+import { Controller, Get, OnModuleDestroy, VERSION_NEUTRAL, Version } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
@@ -15,7 +15,7 @@ import { GeoServiceAdapter } from '../public-api/geo-service.adapter';
 @ApiTags('health')
 @Controller('health')
 @RawResponse()
-export class HealthController {
+export class HealthController implements OnModuleDestroy {
   private readonly redis: Redis;
 
   constructor(
@@ -31,8 +31,23 @@ export class HealthController {
       lazyConnect: true,
       enableOfflineQueue: false,
       connectTimeout: 2_000,
+      commandTimeout: 2_000,
       maxRetriesPerRequest: 0,
     });
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.redis.status === 'end') return;
+    if (this.redis.status === 'wait') {
+      this.redis.disconnect(false);
+      return;
+    }
+
+    try {
+      await this.redis.quit();
+    } catch {
+      this.redis.disconnect(false);
+    }
   }
 
   @Get('live')

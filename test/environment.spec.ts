@@ -142,6 +142,25 @@ describe('environment validation', () => {
     );
   });
 
+  it('keeps first-admin bootstrap disabled by default and rejects low-entropy token input', () => {
+    expect(validateEnvironment(baseline).INITIAL_ADMIN_BOOTSTRAP_TOKEN).toBeUndefined();
+    expect(
+      validateEnvironment({
+        ...baseline,
+        INITIAL_ADMIN_BOOTSTRAP_TOKEN: 'A'.repeat(64),
+      }).INITIAL_ADMIN_BOOTSTRAP_TOKEN,
+    ).toBe('A'.repeat(64));
+    expect(() =>
+      validateEnvironment({ ...baseline, INITIAL_ADMIN_BOOTSTRAP_TOKEN: 'too-short' }),
+    ).toThrow('INITIAL_ADMIN_BOOTSTRAP_TOKEN');
+    expect(() =>
+      validateEnvironment({
+        ...baseline,
+        INITIAL_ADMIN_BOOTSTRAP_TOKEN: `${'A'.repeat(48)} with-space`,
+      }),
+    ).toThrow('INITIAL_ADMIN_BOOTSTRAP_TOKEN');
+  });
+
   it('keeps the feature change feed retention bounded', () => {
     expect(validateEnvironment(baseline).FEATURE_SYNC_CHANGE_RETENTION).toBe(10_000);
     expect(

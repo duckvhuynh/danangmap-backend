@@ -6,6 +6,7 @@ export const configuration = () => ({
     frontendOrigins: process.env.FRONTEND_ORIGINS ?? 'http://localhost:3000',
     cookieSecure: process.env.COOKIE_SECURE === 'true',
     mfaTotpIssuer: process.env.MFA_TOTP_ISSUER ?? 'DanangMap',
+    initialAdminBootstrapToken: process.env.INITIAL_ADMIN_BOOTSTRAP_TOKEN || undefined,
     trustProxyHops: Number(process.env.TRUST_PROXY_HOPS ?? 0),
   },
   redis: {

@@ -65,6 +65,7 @@ export async function createApplication() {
       'If-Match',
       'If-None-Match',
       'Idempotency-Key',
+      'X-Initial-Admin-Bootstrap-Token',
     ],
     exposedHeaders: ['X-Request-Id', 'ETag', 'Location', 'Retry-After'],
   });
@@ -87,6 +88,10 @@ export async function createApplication() {
     .addCookieAuth('__Host-danangmap_session', { type: 'apiKey', in: 'cookie' }, 'adminSession')
     .addCookieAuth('__Host-danangmap_preauth', { type: 'apiKey', in: 'cookie' }, 'preauthSession')
     .addApiKey({ type: 'apiKey', in: 'header', name: 'X-CSRF-Token' }, 'csrf')
+    .addApiKey(
+      { type: 'apiKey', in: 'header', name: 'X-Initial-Admin-Bootstrap-Token' },
+      'initialAdminBootstrapToken',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, swagger);
   SwaggerModule.setup('api/docs', app, document, { jsonDocumentUrl: 'api/openapi.json' });

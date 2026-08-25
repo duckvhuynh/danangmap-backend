@@ -62,7 +62,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: chỉ view/comment/approve/request changes; không có draw/import/schema/publish/rollback.
 - [x] **VS-005 — Frontend/Design:** Khóa `DESIGN.md` và design QA. Mapping: `C-016`.
   - Acceptance: Tabler Icons; primary `#1A73E8` cùng tint semantic; control radius/elevation kiểu Google Maps web; không gradient/glass; trạng thái `SELECTED_READY_TO_SCAFFOLD`.
-- [ ] **VS-006 — Backend/API:** Chọn operation IDs và schemas tối thiểu cho catalog, GeoJSON, detail, auth principal, batch mutation và workflow command. Mapping: `C-003`, `B-055`.
+- [x] **VS-006 — Backend/API:** Chọn operation IDs và schemas tối thiểu cho catalog, GeoJSON, detail, auth principal, batch mutation và workflow command. Mapping: `C-003`, `B-055`. Evidence: backend public/auth `7ec3bc7`, query/import `efc1a29`, admin spatial `09c4c98`, durable batch sync `b670ab1`; contract issues `#8/#9` Done; `openapi:check` pass tại CI `32800768706`.
   - Acceptance: không đổi envelope, ETag, idempotency, CSRF, privacy hoặc generation semantics đã baseline.
 
 ### 4.2 Repository và Docker foundation
@@ -71,18 +71,25 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: install/build/unit command dùng lockfile và chạy độc lập cho API/worker.
 - [x] **VS-008 — Backend:** Tạo TypeORM datasource PostGIS với `synchronize=false`. Mapping: `B-003`. Evidence: fresh Docker migration + PostGIS integration tại `1767787`.
   - Acceptance: migration baseline chạy trên database trống; PostGIS extension được xác nhận.
-- [ ] **VS-009 — Backend:** Kết nối Redis/BullMQ và worker lifecycle tối thiểu. Mapping: `B-004`.
+- [x] **VS-009 — Backend:** Kết nối Redis/BullMQ và worker lifecycle tối thiểu. Mapping: `B-004`. Evidence: enqueue/consume/retry chạy trên Redis thật trong integration/E2E và CI `32800768706`; `enableShutdownHooks`, publication drain guard và shutdown sweep đã có; `d5cada5` thêm regression chứng minh delivery mới bị từ chối ngay khi shutdown bắt đầu.
   - Acceptance: enqueue/consume fixture job; graceful shutdown không nhận job mới.
-- [ ] **VS-010 — Backend:** Tạo MinIO adapter và bucket initializer contract. Mapping: `B-005`.
+- [x] **VS-010 — Backend:** Tạo MinIO adapter và bucket initializer contract. Mapping: `B-005`. Evidence: foundation `1767787`; secure server-generated quarantine/object-key lifecycle `e9fa320`; real MinIO binding/private-delivery integration tại backend `1b7d861` + full-stack gateway `53b2701`; current Docker CI `32800768706` xanh.
   - Acceptance: object key do server kiểm soát; không public bucket; probe/test xanh.
-- [ ] **VS-011 — Backend:** Request ID, problem envelope và structured redacted log. Mapping: `B-007`.
+- [x] **VS-011 — Backend:** Request ID, problem envelope và structured redacted log. Mapping: `B-007`. Evidence: middleware/envelope/JSON failure log tại `1767787`, secret redaction regression `test/problem-details-redaction.spec.ts`, mail token/recipient log checks và current CI `32800768706`; `d5cada5` thêm structured completion event chỉ gồm request ID/method/path/status/duration và canary test chứng minh body, password, bootstrap token cùng query secret không xuất hiện log.
   - Acceptance: success/error có request ID; fixture secret/private value không xuất hiện log.
 - [x] **VS-012 — Backend:** Liveness/readiness và migration-version check. Mapping: `B-006`. Evidence: Docker live/ready HTTP 200 tại `1767787`.
   - Acceptance: liveness không gọi dependency; readiness fail khi DB/Redis/migration chưa sẵn sàng.
 - [x] **VS-013 — Frontend:** Thiết lập Next.js non-UI tooling. Mapping: `F-001`. Evidence: frontend `fb73d95`.
   - Acceptance: lint, typecheck, unit và production build chạy; task này không tạo production screen trước D3.
-- [ ] **VS-014 — QA/Ops:** Tạo compose E2E skeleton với network, healthcheck và isolated project naming. Mapping: `Q-008`.
+- [x] **VS-014 — QA/Ops:** Tạo compose E2E skeleton với network, healthcheck và isolated project naming. Mapping: `Q-008`. Evidence: backend `compose.e2e.yml` có PostGIS/Redis/MinIO/Mailpit/deterministic scanner mode, health dependencies và named volumes; harness cấp `--project-name` riêng, chạy hai fresh-volume journey tại canonical `059e240`, CI `32561792134`, artifact `9473176426`; issue `#11` Done.
   - Acceptance: PostGIS, Redis, MinIO/init, mail capture, scanner/mock placeholders có dependency rõ; volume của developer không được dùng.
+
+- [x] **VS-014A — Repo governance:** Issue forms, PR template và CODEOWNERS cho cả hai repo. Mapping: `C-011`. Evidence: backend `ea86662`, frontend `1c6c40c`; issue forms bắt buộc Requirement/AC/Dependency/Test/Risk, docs/API paths có owner.
+  - Acceptance: blank issue bị tắt; delivery/bug forms thu đủ closure evidence; PR template giữ cùng trường; CODEOWNERS chỉ có hiệu lực bắt buộc sau `C-017`.
+- [x] **VS-014B — Delivery Project alignment:** Đồng bộ fields/views/status của Project 3 với `PLANS.md` §9. Mapping: `C-012`. Evidence live ngày 2026-08-25: Project 3 link cả hai repo, có 21 fields; bổ sung `Estimate`, `Requirement`, status `Inbox|Ready|In review|Blocked` và Risk `None|Accepted`; tám views `Roadmap`, `Current delivery`, `Frontend`, `Backend`, `QA & migration`, `Blocked`, `Release readiness`, `Security & privacy` đã được tạo với filter/visible fields tương ứng. Taxonomy Area hiện tại là refinement theo frontend/backend/security và được giữ để không làm mất dữ liệu của 40 items.
+  - Acceptance: cấu hình Project thực tế khớp §9 hoặc có owner-approved baseline amendment; export field/view evidence được gắn vào M1.
+- [ ] **VS-014C — Protected main and required checks:** Bật ruleset/branch protection cho frontend/backend. Mapping: `C-017`. Blocker: GitHub API trả `403 Upgrade to GitHub Pro or make this repository public` cho cả hai private repo ở gói hiện tại.
+  - Acceptance: `main` không force-push/delete/bypass, chỉ merge qua PR có review; backend bắt buộc `verify`, frontend bắt buộc `Contract, quality, tests, and build` cùng `Non-root container health smoke`; proof PR của mỗi repo và ruleset export được gắn vào M1.
 
 ### 4.3 Published layer read path
 
@@ -122,6 +129,9 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
 - [x] **VS-029A — Backend:** System Admin user/invite security lifecycle API. Mapping: `B-012`, `B-013`, `B-014`, tracking backend `#31`.
   - Evidence: 91-operation OpenAPI; 18 migrations chạy từ fresh PostGIS; unit 99/99, integration 67/67 và E2E 50/50 pass (4 test publication async skip có chủ đích). Concurrency TOTP/admin mutation dùng lock order `user → session → factor`; real Postgres/Redis/Mailpit phủ 401/403/409/412/422/428/429, session invalidation, mail replacement và credential/audit redaction.
   - Acceptance: cursor/search/filter directory; safe user security detail; ETag/idempotent role/status/session/MFA/reset/invite-resend commands; last-admin/self-target guards; atomic session invalidation; redacted audit/mail.
+- [x] **VS-029B — Backend/Frontend:** Secure first-System-Admin bootstrap cho database mới. Mapping: `B-011`, `B-012`, `B-014`, `B-016`; tracking backend `#51`, frontend `#41`.
+  - Evidence: backend `29e4865` dùng operator token không default, CSRF/origin/rate limit, transaction + PostgreSQL advisory lock, exactly-one concurrent winner, pre-auth và mandatory MFA; real fresh-Postgres HTTP E2E phủ unavailable/invalid/`201+409`/replay/audit redaction/MFA. Frontend `a3ca0ed` + contract pin `8046979` có `/setup`, login discovery, no-persist secret behavior và desktop/Pixel 7 setup→MFA tests.
+  - Acceptance: fresh production database không cần seed/default credential; token/password/TOTP/recovery code không vào URL, browser storage, audit hoặc log; setup tự đóng sau khi user đầu tiên được tạo.
 - [x] **VS-030 — Backend:** RBAC guard và separation policy predicates. Mapping: `B-016`, `B-017`. Evidence: canonical stack đã merge vào `main` tại `059e240`; real HTTP role/SoD deny matrix và hai fresh-volume exact-SHA browser journey xanh trong run `32561792134`.
   - Acceptance: allow/deny tests gồm self-review, prior participant publish và System Admin bypass.
 - [x] **VS-031 — Backend:** Draft create, feature mutation và optimistic ETag. Mapping: `B-026`, `B-027`. Evidence: spatial core + real domain replay tests through backend `e62c478`; create layer/feature one effect, original ETag/result survives service restart.

@@ -1,3 +1,5 @@
+# Coolify Compose extension file. The `exclude_from_hc` key is interpreted by Coolify and is
+# intentionally not accepted by the stock Docker Compose schema.
 x-backend-build: &backend-build
   context: .
   dockerfile: Dockerfile
@@ -46,6 +48,7 @@ x-backend-environment: &backend-environment
   FEATURE_SYNC_CHANGE_RETENTION: ${FEATURE_SYNC_CHANGE_RETENTION:-10000}
   SESSION_PEPPER: ${SERVICE_PASSWORD_64_SESSIONPEPPER}
   FIELD_ENCRYPTION_KEY: ${SERVICE_PASSWORD_64_FIELDENCRYPTION}
+  INITIAL_ADMIN_BOOTSTRAP_TOKEN: ${INITIAL_ADMIN_BOOTSTRAP_TOKEN:-}
   FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:?Set FRONTEND_ORIGINS to the HTTPS frontend origin}
   COOKIE_SECURE: 'true'
   MFA_TOTP_ISSUER: ${MFA_TOTP_ISSUER:-DanangMap}
@@ -177,7 +180,7 @@ services:
           attempt=$$((attempt + 1))
           sleep 5
         done
-        exec npm run migration:run:prod
+        exec npm run migration:run:locked:prod
     depends_on:
       postgres:
         condition: service_healthy

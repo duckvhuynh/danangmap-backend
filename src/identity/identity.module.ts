@@ -13,6 +13,7 @@ import { AdminIdentityService } from './admin-identity.service';
 import { UsersController } from './users.controller';
 import { IdentityRateLimitService } from './identity-rate-limit.service';
 import { PasswordSecurityService } from './password-security.service';
+import { FirstAdminBootstrapService } from './first-admin-bootstrap.service';
 import {
   AdminSessionEntity,
   InviteEntity,
@@ -41,6 +42,7 @@ import {
     AdminIdentityService,
     IdentityRateLimitService,
     PasswordSecurityService,
+    FirstAdminBootstrapService,
     SessionGuard,
     PreAuthGuard,
     OptionalAuthGuard,

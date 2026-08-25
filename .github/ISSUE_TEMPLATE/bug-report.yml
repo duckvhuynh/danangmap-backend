@@ -1,0 +1,68 @@
+name: Bug report
+description: Report a reproducible product, API, data, security, or deployment defect.
+title: '[BUG] '
+body:
+  - type: textarea
+    id: requirement
+    attributes:
+      label: Requirement
+      description: List the affected PRD/SRS/API/PLANS requirement or backlog IDs.
+      placeholder: 'FR-... / NFR-... / B-... / Q-...'
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior and reproduction
+      description: Include the smallest deterministic reproduction, environment, and sanitized logs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State the contract or user-visible behavior that should occur.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Add observable regression criteria as a checklist.
+      placeholder: '- [ ] ...'
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Link blocking issues/PRs across both repositories, or write None.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test and evidence plan
+      description: Name the regression test, CI job, screenshot, trace, or deployment evidence required for closure.
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      description: Select the highest current delivery or security risk.
+      options:
+        - None
+        - Low
+        - Medium
+        - High
+        - Accepted
+    validations:
+      required: true
+  - type: textarea
+    id: risk_detail
+    attributes:
+      label: Risk detail and mitigation
+      description: Explain impact, mitigation, owner, and review point; write None when Risk is None.
+    validations:
+      required: true

@@ -23,7 +23,9 @@ import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
 import {
   apiJsonResponse,
+  apiProblemResponse,
   authPrincipalSchema,
+  bootstrapStatusSchema,
   csrfResultSchema,
   envelopeSchema,
   inviteInspectionSchema,
@@ -41,6 +43,7 @@ import { requireIdempotencyKey } from '../layers/etag';
 import { Principal } from './auth.decorators';
 import {
   AcceptInviteDto,
+  BootstrapSystemAdminDto,
   ChangePasswordDto,
   ConfirmMfaEnrollmentDto,
   InspectInviteDto,
@@ -61,6 +64,7 @@ import {
 } from './auth.guards';
 import { AuthService } from './auth.service';
 import { PasswordSecurityService } from './password-security.service';
+import { FirstAdminBootstrapService } from './first-admin-bootstrap.service';
 
 @ApiTags('authentication')
 @Controller({ path: 'auth', version: '1' })
@@ -72,11 +76,61 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly passwordSecurity: PasswordSecurityService,
+    private readonly firstAdminBootstrap: FirstAdminBootstrapService,
     config: ConfigService,
   ) {
     this.secure = config.getOrThrow<boolean>('app.cookieSecure');
     this.sessionCookie = sessionCookieName(this.secure);
     this.preauthCookie = preauthCookieName(this.secure);
+  }
+
+  @Get('bootstrap/status')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    operationId: 'getBootstrapStatus',
+    description:
+      'Returns only whether a configured first-System-Admin bootstrap may run against the empty users table.',
+  })
+  @apiJsonResponse(200, bootstrapStatusSchema)
+  bootstrapStatus() {
+    return this.firstAdminBootstrap.status();
+  }
+
+  @Post('bootstrap/system-admin')
+  @UseGuards(CsrfGuard)
+  @ApiSecurity({ initialAdminBootstrapToken: [], csrf: [] })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiHeader({
+    name: 'X-Initial-Admin-Bootstrap-Token',
+    required: true,
+    schema: { type: 'string', minLength: 43, maxLength: 512, writeOnly: true },
+  })
+  @ApiOperation({
+    operationId: 'bootstrapSystemAdmin',
+    description:
+      'Creates the only first System Admin and returns an MFA-enrollment pre-auth challenge. The bootstrap token is never returned or persisted.',
+  })
+  @apiJsonResponse(201, loginResultSchema)
+  @apiProblemResponse(401, ['BOOTSTRAP_TOKEN_INVALID'])
+  @apiProblemResponse(403, ['CSRF_INVALID'])
+  @apiProblemResponse(409, ['BOOTSTRAP_ALREADY_COMPLETED'])
+  @apiProblemResponse(422, ['VALIDATION_FAILED', 'BOOTSTRAP_PASSWORD_WEAK'])
+  @apiProblemResponse(429, ['RATE_LIMITED'])
+  @apiProblemResponse(503, ['BOOTSTRAP_UNAVAILABLE', 'AUTH_RATE_LIMIT_UNAVAILABLE'])
+  async bootstrapSystemAdmin(
+    @Headers('x-initial-admin-bootstrap-token') bootstrapToken: string | undefined,
+    @Body() dto: BootstrapSystemAdminDto,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.firstAdminBootstrap.createSystemAdmin(
+      dto,
+      bootstrapToken,
+      this.metadata(request),
+    );
+    response.cookie(this.preauthCookie, result.token, this.cookieOptions(5 * 60_000));
+    this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
+    return result.data;
   }
 
   @Post('login')

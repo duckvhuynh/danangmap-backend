@@ -39,6 +39,10 @@ export class IdentityRateLimitService implements OnApplicationShutdown {
     return this.consume('invite_accept', ip, token, 30, 5, 5 * 60);
   }
 
+  enforceBootstrapSystemAdmin(ip: string | undefined, token: string): Promise<void> {
+    return this.consume('bootstrap_system_admin', ip, token, 10, 5, 15 * 60);
+  }
+
   enforcePasswordResetRequest(ip: string | undefined, normalizedEmail: string): Promise<void> {
     return this.consume('password_reset_request', ip, normalizedEmail, 20, 3, 15 * 60);
   }

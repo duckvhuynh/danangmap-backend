@@ -143,6 +143,30 @@ export const apiBinaryResponse = (status: number, mediaType: string) =>
     content: { [mediaType]: { schema: { type: 'string', format: 'binary' } } },
   });
 
+export const problemDetailsSchema = (status: number, codes: string[]): SchemaObject => ({
+  type: 'object',
+  additionalProperties: false,
+  required: ['type', 'title', 'status', 'code', 'message', 'details', 'requestId', 'timestamp'],
+  properties: {
+    type: { type: 'string', format: 'uri' },
+    title: { type: 'string' },
+    status: { type: 'integer', enum: [status] },
+    code: { type: 'string', enum: codes },
+    message: { type: 'string' },
+    details: { type: 'object', additionalProperties: true },
+    requestId: { type: 'string' },
+    timestamp: { type: 'string', format: 'date-time' },
+  },
+});
+
+export const apiProblemResponse = (status: number, codes: string[]) =>
+  ApiResponse({
+    status,
+    content: {
+      'application/problem+json': { schema: problemDetailsSchema(status, codes) },
+    },
+  });
+
 export const genericObjectSchema = jsonObject;
 
 export const authPrincipalSchema: SchemaObject = {
@@ -167,6 +191,13 @@ export const authPrincipalSchema: SchemaObject = {
     mfaEnabled: { type: 'boolean' },
     mustChangePassword: { type: 'boolean' },
   },
+};
+
+export const bootstrapStatusSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['available'],
+  properties: { available: { type: 'boolean' } },
 };
 
 export const inviteResultSchema: SchemaObject = {

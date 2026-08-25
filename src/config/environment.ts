@@ -80,6 +80,10 @@ const environmentSchema = z
     ATTACHMENT_SCAN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
     SESSION_PEPPER: z.string().min(32),
     FIELD_ENCRYPTION_KEY: z.string().min(32),
+    INITIAL_ADMIN_BOOTSTRAP_TOKEN: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(43).max(512).regex(/^\S+$/).optional(),
+    ),
     FRONTEND_ORIGINS: z.string().min(1),
     COOKIE_SECURE: booleanString,
     MFA_TOTP_ISSUER: z.string().trim().min(1).max(100).default('DanangMap'),

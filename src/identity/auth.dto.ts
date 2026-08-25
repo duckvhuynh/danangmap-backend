@@ -27,6 +27,38 @@ export class LoginDto {
   password: string;
 }
 
+export class BootstrapSystemAdminDto {
+  @ApiProperty({ example: 'admin@example.gov.vn', maxLength: 254 })
+  @IsEmail()
+  @Length(3, 254)
+  email: string;
+
+  @ApiProperty({ example: 'system.admin', pattern: '^[a-z][a-z0-9._-]{2,63}$' })
+  @Matches(/^[a-z][a-z0-9._-]{2,63}$/)
+  username: string;
+
+  @ApiProperty({ example: 'Quản trị hệ thống', minLength: 2, maxLength: 200 })
+  @IsString()
+  @Length(2, 200)
+  displayName: string;
+
+  @ApiProperty({
+    writeOnly: true,
+    minLength: 14,
+    maxLength: 200,
+    pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).+$',
+  })
+  @IsString()
+  @Length(14, 200)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/)
+  password: string;
+
+  @ApiProperty({ writeOnly: true, minLength: 14, maxLength: 200 })
+  @IsString()
+  @Length(14, 200)
+  passwordConfirmation: string;
+}
+
 export class VerifyMfaDto {
   @ApiProperty({ enum: ['totp', 'recovery_code'], default: 'totp' })
   @IsIn(['totp', 'recovery_code'])

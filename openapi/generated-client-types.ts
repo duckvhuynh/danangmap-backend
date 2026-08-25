@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/v1/auth/bootstrap/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns only whether a configured first-System-Admin bootstrap may run against the empty users table. */
+        get: operations["getBootstrapStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/bootstrap/system-admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Creates the only first System Admin and returns an MFA-enrollment pre-auth challenge. The bootstrap token is never returned or persisted. */
+        post: operations["bootstrapSystemAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -1357,6 +1391,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        BootstrapSystemAdminDto: {
+            /** @example admin@example.gov.vn */
+            email: string;
+            /** @example system.admin */
+            username: string;
+            /** @example Quản trị hệ thống */
+            displayName: string;
+            password: string;
+            passwordConfirmation: string;
+        };
         LoginDto: {
             /** @example editor@example.gov.vn */
             login: string;
@@ -1765,6 +1809,207 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getBootstrapStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            available: boolean;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    bootstrapSystemAdmin: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Initial-Admin-Bootstrap-Token": string;
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BootstrapSystemAdminDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {string} */
+                            status: "mfa_required";
+                            mfaEnrollmentRequired: boolean;
+                            /** Format: date-time */
+                            challengeExpiresAt: string;
+                        };
+                        meta: {
+                            requestId: string;
+                        };
+                    };
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        /** @enum {integer} */
+                        status: 401;
+                        /** @enum {string} */
+                        code: "BOOTSTRAP_TOKEN_INVALID";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        /** @enum {integer} */
+                        status: 403;
+                        /** @enum {string} */
+                        code: "CSRF_INVALID";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        /** @enum {integer} */
+                        status: 409;
+                        /** @enum {string} */
+                        code: "BOOTSTRAP_ALREADY_COMPLETED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        /** @enum {integer} */
+                        status: 422;
+                        /** @enum {string} */
+                        code: "VALIDATION_FAILED" | "BOOTSTRAP_PASSWORD_WEAK";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        /** @enum {integer} */
+                        status: 429;
+                        /** @enum {string} */
+                        code: "RATE_LIMITED";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": {
+                        /** Format: uri */
+                        type: string;
+                        title: string;
+                        /** @enum {integer} */
+                        status: 503;
+                        /** @enum {string} */
+                        code: "BOOTSTRAP_UNAVAILABLE" | "AUTH_RATE_LIMIT_UNAVAILABLE";
+                        message: string;
+                        details: {
+                            [key: string]: unknown;
+                        };
+                        requestId: string;
+                        /** Format: date-time */
+                        timestamp: string;
+                    };
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;

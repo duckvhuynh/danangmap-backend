@@ -401,7 +401,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     seen.set(operationId, `${method.toUpperCase()} ${path}`);
   }
 }
-if (seen.size !== 94) throw new Error(`Expected 94 OpenAPI operations, received ${seen.size}`);
+if (seen.size !== 96) throw new Error(`Expected 96 OpenAPI operations, received ${seen.size}`);
 const csrfOperation = document.paths?.['/api/v1/auth/csrf']?.get;
 if (csrfOperation?.operationId !== 'getCsrfToken') {
   throw new Error('CSRF GET must use the truthful getCsrfToken operation ID');

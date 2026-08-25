@@ -241,6 +241,8 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 | Method    | Route                                               | Auth/role                          | Mô tả                                                               |
 | --------- | --------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------- |
 | GET       | `/auth/csrf`                                        | public/pre-auth/auth               | Cấp hoặc lấy token CSRF hiện tại; không rotate trong cùng session   |
+| GET       | `/auth/bootstrap/status`                            | public                             | Chỉ trả bootstrap System Admin có available hay không               |
+| POST      | `/auth/bootstrap/system-admin`                      | public + CSRF + bootstrap token    | Tạo đúng một System Admin đầu tiên, chuyển sang MFA enroll          |
 | POST      | `/auth/login`                                       | public + CSRF                      | Xác minh username/email + password                                  |
 | POST      | `/auth/mfa/verify`                                  | pre-auth + CSRF                    | Xác minh TOTP/recovery code, tạo session                            |
 | POST      | `/auth/mfa/enroll`                                  | pre-auth + CSRF                    | Bắt đầu enroll TOTP; URI chỉ trả một lần cho pre-auth đó            |
@@ -271,6 +273,46 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 | GET       | `/admin/user-imports/{jobId}/report`                | System Admin                       | Tải report đã lọc                                                   |
 
 ### 3.2 Login và MFA
+
+Database mới không có default credential hoặc production seed. Khi operator đã cấu hình
+`INITIAL_ADMIN_BOOTSTRAP_TOKEN` ngẫu nhiên tối thiểu 43 ký tự, client gọi:
+
+`GET /api/v1/auth/bootstrap/status`
+
+Response `200` chỉ có một field nghiệp vụ (ngoài envelope meta chung):
+
+```json
+{ "data": { "available": true } }
+```
+
+`available=false` khi token không được cấu hình hoặc bảng `users` không còn rỗng. Token cấu hình
+không bao giờ xuất hiện trong status/response/log/audit. Khi available, client lấy CSRF qua
+`GET /auth/csrf`, gửi credentialed same-origin request với `Origin`, `X-CSRF-Token` và header bí mật
+`X-Initial-Admin-Bootstrap-Token`:
+
+`POST /api/v1/auth/bootstrap/system-admin`
+
+```json
+{
+  "email": "admin@example.gov.vn",
+  "username": "system.admin",
+  "displayName": "Quản trị hệ thống",
+  "password": "<redacted>",
+  "passwordConfirmation": "<redacted>"
+}
+```
+
+Password dài 14-200 ký tự, có chữ thường, chữ hoa, số và ký tự đặc biệt, đồng thời không chứa
+username hoặc local-part của email. Server rate-limit trước khi so token constant-time. Transaction
+PostgreSQL giữ advisory lock rồi chỉ insert khi `users` rỗng; hai request đồng thời có đúng một
+response `201`, request thua và mọi replay trả `409 BOOTSTRAP_ALREADY_COMPLETED`. Thành công trả cùng
+`loginResult` như login với `mfaEnrollmentRequired=true`, set pre-auth/CSRF cookie và bắt buộc tiếp tục
+`/auth/mfa/enroll` → `/auth/mfa/enroll/confirm` trước authenticated session.
+
+Error codes typed: `BOOTSTRAP_TOKEN_INVALID` (401), `CSRF_INVALID` (403),
+`BOOTSTRAP_ALREADY_COMPLETED` (409), `VALIDATION_FAILED|BOOTSTRAP_PASSWORD_WEAK` (422),
+`RATE_LIMITED` (429), `BOOTSTRAP_UNAVAILABLE|AUTH_RATE_LIMIT_UNAVAILABLE` (503). Audit chỉ ghi
+outcome/reason đã redacted; password, bootstrap token, TOTP secret và recovery codes không được ghi.
 
 Trước `POST /auth/login`, client gọi `GET /auth/csrf`, giữ cookie `danangmap_csrf`, rồi echo giá trị cookie đã được browser chốt trong `X-CSRF-Token` và gửi `Origin` hợp lệ. Quy tắc tương tự áp dụng cho `mfa/verify`, `mfa/enroll` và `mfa/enroll/confirm`. Sau khi public cookie đã được thiết lập, các GET lặp lại reuse token đó; trong cùng pre-auth/authenticated session, các GET đồng thời hoặc lặp lại luôn trả cùng token. Client chỉ dùng token mới sau trust transition public → pre-auth → authenticated hoặc khi server tạo/rotate session mới tại password/session-security boundary.
 

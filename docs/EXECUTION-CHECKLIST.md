@@ -62,7 +62,7 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: chỉ view/comment/approve/request changes; không có draw/import/schema/publish/rollback.
 - [x] **VS-005 — Frontend/Design:** Khóa `DESIGN.md` và design QA. Mapping: `C-016`.
   - Acceptance: Tabler Icons; primary `#1A73E8` cùng tint semantic; control radius/elevation kiểu Google Maps web; không gradient/glass; trạng thái `SELECTED_READY_TO_SCAFFOLD`.
-- [ ] **VS-006 — Backend/API:** Chọn operation IDs và schemas tối thiểu cho catalog, GeoJSON, detail, auth principal, batch mutation và workflow command. Mapping: `C-003`, `B-055`.
+- [x] **VS-006 — Backend/API:** Chọn operation IDs và schemas tối thiểu cho catalog, GeoJSON, detail, auth principal, batch mutation và workflow command. Mapping: `C-003`, `B-055`. Evidence: backend public/auth `7ec3bc7`, query/import `efc1a29`, admin spatial `09c4c98`, durable batch sync `b670ab1`; contract issues `#8/#9` Done; `openapi:check` pass tại CI `32800768706`.
   - Acceptance: không đổi envelope, ETag, idempotency, CSRF, privacy hoặc generation semantics đã baseline.
 
 ### 4.2 Repository và Docker foundation
@@ -71,18 +71,25 @@ Mỗi task dưới đây được giới hạn mục tiêu khoảng 30–60 phú
   - Acceptance: install/build/unit command dùng lockfile và chạy độc lập cho API/worker.
 - [x] **VS-008 — Backend:** Tạo TypeORM datasource PostGIS với `synchronize=false`. Mapping: `B-003`. Evidence: fresh Docker migration + PostGIS integration tại `1767787`.
   - Acceptance: migration baseline chạy trên database trống; PostGIS extension được xác nhận.
-- [ ] **VS-009 — Backend:** Kết nối Redis/BullMQ và worker lifecycle tối thiểu. Mapping: `B-004`.
+- [ ] **VS-009 — Backend:** Kết nối Redis/BullMQ và worker lifecycle tối thiểu. Mapping: `B-004`. Partial evidence: enqueue/consume/retry chạy trên Redis thật trong integration/E2E và CI `32800768706`; `enableShutdownHooks`, publication drain guard và shutdown sweep đã có. Còn thiếu assertion gửi job sau shutdown signal và chứng minh worker không nhận job mới trước khi đánh dấu Done.
   - Acceptance: enqueue/consume fixture job; graceful shutdown không nhận job mới.
-- [ ] **VS-010 — Backend:** Tạo MinIO adapter và bucket initializer contract. Mapping: `B-005`.
+- [x] **VS-010 — Backend:** Tạo MinIO adapter và bucket initializer contract. Mapping: `B-005`. Evidence: foundation `1767787`; secure server-generated quarantine/object-key lifecycle `e9fa320`; real MinIO binding/private-delivery integration tại backend `1b7d861` + full-stack gateway `53b2701`; current Docker CI `32800768706` xanh.
   - Acceptance: object key do server kiểm soát; không public bucket; probe/test xanh.
-- [ ] **VS-011 — Backend:** Request ID, problem envelope và structured redacted log. Mapping: `B-007`.
+- [ ] **VS-011 — Backend:** Request ID, problem envelope và structured redacted log. Mapping: `B-007`. Partial evidence: middleware/envelope/JSON failure log tại `1767787`, secret redaction regression `test/problem-details-redaction.spec.ts`, mail token/recipient log checks và current CI `32800768706` xanh. Còn thiếu một integration fixture khẳng định cùng private-field canary không xuất hiện trong structured application logs và request ID có trong cả success/error trước khi đánh dấu Done.
   - Acceptance: success/error có request ID; fixture secret/private value không xuất hiện log.
 - [x] **VS-012 — Backend:** Liveness/readiness và migration-version check. Mapping: `B-006`. Evidence: Docker live/ready HTTP 200 tại `1767787`.
   - Acceptance: liveness không gọi dependency; readiness fail khi DB/Redis/migration chưa sẵn sàng.
 - [x] **VS-013 — Frontend:** Thiết lập Next.js non-UI tooling. Mapping: `F-001`. Evidence: frontend `fb73d95`.
   - Acceptance: lint, typecheck, unit và production build chạy; task này không tạo production screen trước D3.
-- [ ] **VS-014 — QA/Ops:** Tạo compose E2E skeleton với network, healthcheck và isolated project naming. Mapping: `Q-008`.
+- [x] **VS-014 — QA/Ops:** Tạo compose E2E skeleton với network, healthcheck và isolated project naming. Mapping: `Q-008`. Evidence: backend `compose.e2e.yml` có PostGIS/Redis/MinIO/Mailpit/deterministic scanner mode, health dependencies và named volumes; harness cấp `--project-name` riêng, chạy hai fresh-volume journey tại canonical `059e240`, CI `32561792134`, artifact `9473176426`; issue `#11` Done.
   - Acceptance: PostGIS, Redis, MinIO/init, mail capture, scanner/mock placeholders có dependency rõ; volume của developer không được dùng.
+
+- [x] **VS-014A — Repo governance:** Issue forms, PR template và CODEOWNERS cho cả hai repo. Mapping: `C-011`. Evidence: backend `ea86662`, frontend `1c6c40c`; issue forms bắt buộc Requirement/AC/Dependency/Test/Risk, docs/API paths có owner.
+  - Acceptance: blank issue bị tắt; delivery/bug forms thu đủ closure evidence; PR template giữ cùng trường; CODEOWNERS chỉ có hiệu lực bắt buộc sau `C-017`.
+- [ ] **VS-014B — Delivery Project alignment:** Đồng bộ fields/views/status của Project 3 với `PLANS.md` §9. Mapping: `C-012`. Partial evidence: Project 3 đang active, link cả hai repo và có 38 items/19 fields. Còn thiếu status `Inbox|Ready|In review|Blocked`, fields `Estimate|Requirement`, Risk `None|Accepted` và evidence cho các views đã baseline; chưa sửa `PLANS.md` để tránh hợp thức hóa drift.
+  - Acceptance: cấu hình Project thực tế khớp §9 hoặc có owner-approved baseline amendment; export field/view evidence được gắn vào M1.
+- [ ] **VS-014C — Protected main and required checks:** Bật ruleset/branch protection cho frontend/backend. Mapping: `C-017`. Blocker: GitHub API trả `403 Upgrade to GitHub Pro or make this repository public` cho cả hai private repo ở gói hiện tại.
+  - Acceptance: `main` không force-push/delete/bypass, chỉ merge qua PR có review; backend bắt buộc `verify`, frontend bắt buộc `Contract, quality, tests, and build` cùng `Non-root container health smoke`; proof PR của mỗi repo và ruleset export được gắn vào M1.
 
 ### 4.3 Published layer read path
 

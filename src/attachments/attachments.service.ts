@@ -9,6 +9,7 @@ import { AppException } from '../common/http/app.exception';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { ATTACHMENT_QUEUE } from '../jobs/jobs.constants';
 import { requireRevisionVersion, revisionEtag } from '../layers/etag';
+import { ChangeFeedRetentionService } from '../layers/change-feed-retention.service';
 import { StorageService } from '../storage/storage.service';
 import type { BindAttachmentDto, CreateAttachmentUploadDto } from './attachment.dto';
 import { AttachmentEntity, type AttachmentStatus } from './attachment.entities';
@@ -54,6 +55,7 @@ export class AttachmentsService {
     private readonly config: ConfigService,
     private readonly crypto: CryptoService,
     private readonly idempotency: IdempotencyService,
+    private readonly retention: ChangeFeedRetentionService,
     @InjectQueue(ATTACHMENT_QUEUE) private readonly queue: Queue,
   ) {}
 
@@ -449,6 +451,7 @@ export class AttachmentsService {
           input.actor.id,
         ],
       );
+      await this.retention.prune(manager, input.revisionId, locked.cursorSeq);
       await manager.query(
         `INSERT INTO revision_participants(revision_id,user_id,participation_type)
          VALUES($1,$2,'edit') ON CONFLICT DO NOTHING`,

@@ -26,6 +26,7 @@ import { RevisionParticipantEntity } from '../workflow/workflow.entities';
 import { GeometryService } from './geometry.service';
 import { LayerSchemaService } from './layer-schema.service';
 import { requireRevisionVersion, revisionEtag } from './etag';
+import { ChangeFeedRetentionService } from './change-feed-retention.service';
 
 interface Actor {
   id: string;
@@ -68,6 +69,7 @@ export class LayersService {
     private readonly schema: LayerSchemaService,
     private readonly crypto: CryptoService,
     private readonly idempotency: IdempotencyService,
+    private readonly retention: ChangeFeedRetentionService,
   ) {}
 
   async listGroups() {
@@ -388,6 +390,7 @@ export class LayersService {
         changedPaths: ['geometry', 'properties'],
         actorId: actor.id,
       });
+      await this.retention.prune(manager, revisionId, locked.cursorSeq);
       await manager
         .createQueryBuilder()
         .insert()
@@ -529,6 +532,7 @@ export class LayersService {
         changedPaths: Object.keys(dto),
         actorId: actor.id,
       });
+      await this.retention.prune(manager, revisionId, locked.cursorSeq);
       await manager
         .createQueryBuilder()
         .insert()
@@ -582,6 +586,7 @@ export class LayersService {
         changedPaths: [],
         actorId: actor.id,
       });
+      await this.retention.prune(manager, revisionId, locked.cursorSeq);
       await manager
         .createQueryBuilder()
         .insert()

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
@@ -16,6 +15,7 @@ import { GeometryService } from './geometry.service';
 import { LayerFieldEntity } from './layer.entities';
 import { LayerSchemaService } from './layer-schema.service';
 import { RevisionParticipantEntity } from '../workflow/workflow.entities';
+import { ChangeFeedRetentionService } from './change-feed-retention.service';
 
 interface Actor {
   id: string;
@@ -91,17 +91,13 @@ export type FeatureSyncResult =
 
 @Injectable()
 export class FeatureSyncService {
-  private readonly changeRetention: number;
-
   constructor(
     private readonly dataSource: DataSource,
     private readonly geometry: GeometryService,
     private readonly schema: LayerSchemaService,
     private readonly crypto: CryptoService,
-    config: ConfigService,
-  ) {
-    this.changeRetention = config.getOrThrow<number>('featureSync.changeRetention');
-  }
+    private readonly retention: ChangeFeedRetentionService,
+  ) {}
 
   async syncBatch(
     revisionId: string,
@@ -219,22 +215,15 @@ export class FeatureSyncService {
       }
 
       let lockVersion = revision.lock_version;
-      let cursorFloor = Number(revision.change_cursor_floor);
       if (appliedCount > 0) {
         lockVersion += appliedCount;
-        cursorFloor = Math.max(cursorFloor, cursor - this.changeRetention);
         await manager.query(
           `UPDATE layer_revisions
-           SET lock_version=$2,cursor_seq=$3,change_cursor_floor=$4,updated_at=now()
+           SET lock_version=$2,cursor_seq=$3,updated_at=now()
            WHERE id=$1`,
-          [revisionId, lockVersion, cursor, cursorFloor],
+          [revisionId, lockVersion, cursor],
         );
-        if (cursorFloor > Number(revision.change_cursor_floor)) {
-          await manager.query(
-            `DELETE FROM revision_changes WHERE revision_id=$1 AND server_cursor <= $2`,
-            [revisionId, cursorFloor],
-          );
-        }
+        await this.retention.prune(manager, revisionId, cursor);
         await manager
           .createQueryBuilder()
           .insert()
@@ -510,7 +499,10 @@ export class FeatureSyncService {
     actor: Actor,
     requestId: string,
   ): Promise<{ applied: boolean; result: FeatureSyncResult }> {
-    if (!mutation.baseVersionId || (mutation.featureId && mutation.clientFeatureId)) {
+    if (
+      !mutation.baseVersionId ||
+      Boolean(mutation.featureId) === Boolean(mutation.clientFeatureId)
+    ) {
       throw new AppException(
         422,
         'SCHEMA_VIOLATION',

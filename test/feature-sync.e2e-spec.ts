@@ -286,6 +286,35 @@ describe('Durable feature batch sync HTTP E2E', () => {
       deleted_exists: false,
     });
 
+    const identityless = await mutate(
+      editor,
+      `/api/v1/admin/revisions/${revisionId}/changes:batch`,
+      {
+        clientId,
+        origin: 'recovery',
+        baseCursor: orderedData.serverCursor,
+        mutations: [
+          withHash({
+            clientMutationId: randomUUID(),
+            operation: 'update',
+            baseRevisionVersion: 10,
+            baseVersionId: responseData.results[0]!.versionId,
+            patch: { properties: { name: 'Không có feature identity' } },
+          }),
+        ],
+      },
+      { ifMatch: orderedEtag },
+    );
+    expect(identityless.status).toBe(200);
+    expect(
+      (
+        await json<Envelope<{ results: Array<{ status: string; error?: { code: string } }> }>>(
+          identityless,
+        )
+      ).data.results[0],
+    ).toMatchObject({ status: 'rejected', error: { code: 'SCHEMA_VIOLATION' } });
+    expect(requiredHeader(identityless, 'etag')).toBe(orderedEtag);
+
     const changed = structuredClone(request);
     const changedFeature = changed.mutations[0]!.feature as {
       properties: Record<string, unknown>;

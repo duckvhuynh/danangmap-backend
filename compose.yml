@@ -37,6 +37,7 @@ x-backend-environment: &backend-environment
   ATTACHMENT_SWEEP_INTERVAL_MS: 60000
   ATTACHMENT_SCANNER_MODE: deterministic
   ATTACHMENT_SCAN_TIMEOUT_MS: 30000
+  FEATURE_SYNC_CHANGE_RETENTION: ${FEATURE_SYNC_CHANGE_RETENTION:-10000}
   SESSION_PEPPER: local-only-session-pepper-change-in-production
   FIELD_ENCRYPTION_KEY: local-only-field-encryption-key-change-in-production
   FRONTEND_ORIGINS: http://localhost:3000

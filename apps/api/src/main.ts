@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { AppModule } from '../../../src/app.module';
 import { ProblemDetailsFilter } from '../../../src/common/http/problem-details.filter';
@@ -12,7 +13,9 @@ import { frontendOrigins } from '../../../src/config/environment';
 import { AppException } from '../../../src/common/http/app.exception';
 
 export async function createApplication() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  app.use(json({ limit: 2 * 1024 * 1024 }));
+  app.use(urlencoded({ limit: 100 * 1024, extended: true }));
   const config = app.get(ConfigService);
   const allowedOrigins = frontendOrigins(config.getOrThrow<string>('app.frontendOrigins'));
   const trustProxyHops = config.getOrThrow<number>('app.trustProxyHops');

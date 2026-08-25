@@ -62,6 +62,8 @@ const strictlyTypedResponseOperations = new Set([
   'createFeature',
   'updateFeature',
   'deleteFeature',
+  'syncFeatureChangesBatch',
+  'listRevisionChanges',
   'createSpatialImport',
   'getSpatialImport',
   'updateSpatialImportMapping',
@@ -207,6 +209,14 @@ const parameterContracts = {
     ['header', 'If-Match', true],
     ['header', 'X-CSRF-Token', true],
   ],
+  syncFeatureChangesBatch: [
+    ['header', 'If-Match', true],
+    ['header', 'X-CSRF-Token', true],
+  ],
+  listRevisionChanges: [
+    ['query', 'after', true],
+    ['query', 'limit', false],
+  ],
   submitRevision: [
     ['header', 'Idempotency-Key', true],
     ['header', 'X-CSRF-Token', true],
@@ -265,6 +275,7 @@ const authenticatedCsrfOperations = new Set([
   'revokeAllAdminUserSessions',
   'resetAdminUserMfa',
   'requestAdminUserPasswordReset',
+  'syncFeatureChangesBatch',
 ]);
 const resolveSchema = (schema) => {
   if (!schema?.$ref) return schema;
@@ -390,7 +401,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     seen.set(operationId, `${method.toUpperCase()} ${path}`);
   }
 }
-if (seen.size !== 92) throw new Error(`Expected 92 OpenAPI operations, received ${seen.size}`);
+if (seen.size !== 94) throw new Error(`Expected 94 OpenAPI operations, received ${seen.size}`);
 const csrfOperation = document.paths?.['/api/v1/auth/csrf']?.get;
 if (csrfOperation?.operationId !== 'getCsrfToken') {
   throw new Error('CSRF GET must use the truthful getCsrfToken operation ID');
@@ -537,6 +548,51 @@ const placePosition =
     ?.properties?.data?.properties?.position;
 if (searchPosition?.nullable !== true || placePosition?.nullable !== true) {
   throw new Error('Geo Service position must remain required and nullable');
+}
+const featureBatchOperation = operationsById.get('syncFeatureChangesBatch');
+const featureBatchRequest = resolveSchema(
+  featureBatchOperation?.requestBody?.content?.['application/json']?.schema,
+);
+const featureSyncMutation = resolveSchema(featureBatchRequest?.properties?.mutations?.items);
+if (
+  featureBatchRequest?.properties?.mutations?.minItems !== 1 ||
+  featureBatchRequest?.properties?.mutations?.maxItems !== 100 ||
+  !featureBatchRequest?.required?.includes('baseCursor') ||
+  !featureSyncMutation?.required?.includes('baseRevisionVersion') ||
+  !featureSyncMutation?.required?.includes('payloadHash') ||
+  featureSyncMutation?.properties?.payloadHash?.pattern !== '^[0-9a-f]{64}$'
+) {
+  throw new Error('Feature batch sync request bounds/version/hash contract drifted');
+}
+const featureBatchData =
+  featureBatchOperation?.responses?.['200']?.content?.['application/json']?.schema?.properties
+    ?.data;
+if (
+  featureBatchData?.properties?.results?.maxItems !== 100 ||
+  featureBatchData?.properties?.results?.items?.oneOf?.length !== 3 ||
+  !featureBatchOperation?.responses?.['200']?.headers?.ETag
+) {
+  throw new Error('Feature batch sync acknowledgement contract is not bounded and typed');
+}
+const revisionChangesOperation = operationsById.get('listRevisionChanges');
+const revisionChangesMeta =
+  revisionChangesOperation?.responses?.['200']?.content?.['application/json']?.schema?.properties
+    ?.meta;
+if (
+  revisionChangesMeta?.properties?.limit?.maximum !== 500 ||
+  revisionChangesMeta?.properties?.nextCursor?.type !== 'string' ||
+  !revisionChangesOperation?.responses?.['200']?.headers?.ETag
+) {
+  throw new Error('Revision change feed cursor/limit/ETag contract drifted');
+}
+if (
+  !generatedTypes.includes('syncFeatureChangesBatch: {') ||
+  !generatedTypes.includes('listRevisionChanges: {') ||
+  !generatedTypes.includes('status: "applied";') ||
+  !generatedTypes.includes('status: "conflict";') ||
+  !generatedTypes.includes('status: "rejected";')
+) {
+  throw new Error('Generated feature sync client types are missing');
 }
 for (const [name, schema] of Object.entries(document.components?.schemas ?? {})) {
   if (

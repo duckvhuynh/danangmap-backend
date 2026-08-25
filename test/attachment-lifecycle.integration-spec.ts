@@ -11,6 +11,7 @@ import { AppException } from '../src/common/http/app.exception';
 import { IdempotencyService } from '../src/common/idempotency/idempotency.service';
 import AppDataSource from '../src/database/data-source';
 import { ATTACHMENT_QUEUE, ATTACHMENT_SCAN_JOB } from '../src/jobs/jobs.constants';
+import { ChangeFeedRetentionService } from '../src/layers/change-feed-retention.service';
 import { StorageService } from '../src/storage/storage.service';
 
 const editor = { id: '00000000-0000-4000-8000-000000000002', role: 'editor' };
@@ -56,6 +57,7 @@ describe('Attachment lifecycle with Postgres, Redis and MinIO', () => {
         clamavPort: 3310,
         scanTimeoutMs: 5_000,
       },
+      featureSync: { changeRetention: 10_000 },
     });
     storage = new StorageService(config);
     await storage.onModuleInit();
@@ -73,6 +75,7 @@ describe('Attachment lifecycle with Postgres, Redis and MinIO', () => {
       config,
       new CryptoService(config),
       new IdempotencyService(),
+      new ChangeFeedRetentionService(config),
       queue,
     );
     processor = new AttachmentProcessor(

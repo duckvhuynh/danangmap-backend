@@ -1487,6 +1487,146 @@ export const workflowResultSchema: SchemaObject = {
   ],
 };
 
+const featureSyncAppliedSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'clientMutationId',
+    'status',
+    'operation',
+    'clientFeatureId',
+    'canonicalFeatureId',
+    'versionId',
+    'serverCursor',
+  ],
+  properties: {
+    clientMutationId: uuid,
+    status: { type: 'string', enum: ['applied'] },
+    operation: { type: 'string', enum: ['create', 'update', 'delete'] },
+    clientFeatureId: { ...uuid, nullable: true },
+    canonicalFeatureId: uuid,
+    versionId: { ...uuid, nullable: true },
+    serverCursor: { type: 'string' },
+  },
+};
+
+const featureSyncConflictSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'clientMutationId',
+    'status',
+    'operation',
+    'canonicalFeatureId',
+    'serverCursor',
+    'conflict',
+  ],
+  properties: {
+    clientMutationId: uuid,
+    status: { type: 'string', enum: ['conflict'] },
+    operation: { type: 'string', enum: ['update', 'delete'] },
+    canonicalFeatureId: uuid,
+    serverCursor: { type: 'string' },
+    conflict: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['code', 'currentVersionId', 'changedPaths'],
+      properties: {
+        code: { type: 'string', enum: ['FEATURE_VERSION_CHANGED'] },
+        currentVersionId: uuid,
+        changedPaths: { type: 'array', items: { type: 'string' } },
+      },
+    },
+  },
+};
+
+const featureSyncRejectedSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'clientMutationId',
+    'status',
+    'operation',
+    'canonicalFeatureId',
+    'serverCursor',
+    'error',
+  ],
+  properties: {
+    clientMutationId: uuid,
+    status: { type: 'string', enum: ['rejected'] },
+    operation: { type: 'string', enum: ['create', 'update', 'delete'] },
+    canonicalFeatureId: { ...uuid, nullable: true },
+    serverCursor: { type: 'string' },
+    error: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['code', 'message', 'details'],
+      properties: {
+        code: { type: 'string' },
+        message: { type: 'string' },
+        details: jsonObject,
+      },
+    },
+  },
+};
+
+export const featureBatchSyncSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['revisionId', 'serverCursor', 'results'],
+  properties: {
+    revisionId: uuid,
+    serverCursor: { type: 'string' },
+    results: {
+      type: 'array',
+      maxItems: 100,
+      items: {
+        oneOf: [featureSyncAppliedSchema, featureSyncConflictSchema, featureSyncRejectedSchema],
+      },
+    },
+  },
+};
+
+export const revisionChangeSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'serverCursor',
+    'operation',
+    'featureId',
+    'versionId',
+    'changedPaths',
+    'actor',
+    'changedAt',
+  ],
+  properties: {
+    serverCursor: { type: 'string' },
+    operation: { type: 'string', enum: ['create', 'update', 'delete'] },
+    featureId: uuid,
+    versionId: { ...uuid, nullable: true },
+    changedPaths: { type: 'array', items: { type: 'string' } },
+    actor: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['id', 'displayName'],
+      properties: { id: uuid, displayName: { type: 'string' } },
+    },
+    changedAt: dateTime,
+  },
+};
+
+export const revisionChangeMetaSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['requestId', 'nextCursor', 'hasMore', 'limit'],
+  properties: {
+    requestId: { type: 'string' },
+    nextCursor: { type: 'string' },
+    hasMore: { type: 'boolean' },
+    limit: { type: 'integer', minimum: 1, maximum: 500 },
+  },
+};
+
 export const livenessSchema: SchemaObject = {
   type: 'object',
   required: ['status', 'version'],

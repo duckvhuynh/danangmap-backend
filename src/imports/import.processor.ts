@@ -15,6 +15,7 @@ import {
 import { GeometryService } from '../layers/geometry.service';
 import type { LayerFieldDto } from '../layers/layer.dto';
 import { LayerSchemaService } from '../layers/layer-schema.service';
+import { ChangeFeedRetentionService } from '../layers/change-feed-retention.service';
 import { StorageService } from '../storage/storage.service';
 import { MAX_IMPORT_BYTES } from './import-file.inspector';
 import { ImportJobEntity } from './import.entity';
@@ -104,6 +105,7 @@ export class ImportProcessor extends WorkerHost {
     private readonly dataSource: DataSource,
     private readonly geometryService: GeometryService,
     private readonly schemaService: LayerSchemaService,
+    private readonly retention: ChangeFeedRetentionService,
   ) {
     super();
   }
@@ -542,6 +544,7 @@ export class ImportProcessor extends WorkerHost {
            WHERE id=$1`,
           [job.revisionId, nextCursor.toString()],
         );
+        await this.retention.prune(manager, job.revisionId, Number(nextCursor));
         await manager.query(
           `INSERT INTO revision_participants(revision_id,user_id,participation_type)
            VALUES($1,$2,'edit') ON CONFLICT DO NOTHING`,

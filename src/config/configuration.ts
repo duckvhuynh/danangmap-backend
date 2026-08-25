@@ -30,6 +30,9 @@ export const configuration = () => ({
     testFailpoint: process.env.PUBLICATION_TEST_FAILPOINT,
     testBarrier: process.env.PUBLICATION_TEST_BARRIER,
   },
+  featureSync: {
+    changeRetention: Number(process.env.FEATURE_SYNC_CHANGE_RETENTION ?? 10_000),
+  },
   minio: {
     endpoint: process.env.MINIO_ENDPOINT ?? 'localhost',
     port: Number(process.env.MINIO_PORT ?? 9000),

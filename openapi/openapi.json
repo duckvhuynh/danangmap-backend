@@ -10677,6 +10677,462 @@
         ]
       }
     },
+    "/api/v1/admin/revisions/{revisionId}/changes:batch": {
+      "post": {
+        "operationId": "syncFeatureChangesBatch",
+        "parameters": [
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Revision ETag at batch start.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureBatchSyncDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "revisionId",
+                        "serverCursor",
+                        "results"
+                      ],
+                      "properties": {
+                        "revisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "serverCursor": {
+                          "type": "string"
+                        },
+                        "results": {
+                          "type": "array",
+                          "maxItems": 100,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "clientMutationId",
+                                  "status",
+                                  "operation",
+                                  "clientFeatureId",
+                                  "canonicalFeatureId",
+                                  "versionId",
+                                  "serverCursor"
+                                ],
+                                "properties": {
+                                  "clientMutationId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "applied"
+                                    ]
+                                  },
+                                  "operation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "create",
+                                      "update",
+                                      "delete"
+                                    ]
+                                  },
+                                  "clientFeatureId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "nullable": true
+                                  },
+                                  "canonicalFeatureId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "versionId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "nullable": true
+                                  },
+                                  "serverCursor": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "clientMutationId",
+                                  "status",
+                                  "operation",
+                                  "canonicalFeatureId",
+                                  "serverCursor",
+                                  "conflict"
+                                ],
+                                "properties": {
+                                  "clientMutationId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "conflict"
+                                    ]
+                                  },
+                                  "operation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "update",
+                                      "delete"
+                                    ]
+                                  },
+                                  "canonicalFeatureId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "serverCursor": {
+                                    "type": "string"
+                                  },
+                                  "conflict": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "code",
+                                      "currentVersionId",
+                                      "changedPaths"
+                                    ],
+                                    "properties": {
+                                      "code": {
+                                        "type": "string",
+                                        "enum": [
+                                          "FEATURE_VERSION_CHANGED"
+                                        ]
+                                      },
+                                      "currentVersionId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      "changedPaths": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "clientMutationId",
+                                  "status",
+                                  "operation",
+                                  "canonicalFeatureId",
+                                  "serverCursor",
+                                  "error"
+                                ],
+                                "properties": {
+                                  "clientMutationId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "rejected"
+                                    ]
+                                  },
+                                  "operation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "create",
+                                      "update",
+                                      "delete"
+                                    ]
+                                  },
+                                  "canonicalFeatureId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "nullable": true
+                                  },
+                                  "serverCursor": {
+                                    "type": "string"
+                                  },
+                                  "error": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "code",
+                                      "message",
+                                      "details"
+                                    ],
+                                    "properties": {
+                                      "code": {
+                                        "type": "string"
+                                      },
+                                      "message": {
+                                        "type": "string"
+                                      },
+                                      "details": {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "requestId"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          },
+          {
+            "adminSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-layers"
+        ]
+      }
+    },
+    "/api/v1/admin/revisions/{revisionId}/changes": {
+      "get": {
+        "operationId": "listRevisionChanges",
+        "parameters": [
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 500,
+              "default": 200,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "description": "Opaque version token for the returned representation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "serverCursor",
+                          "operation",
+                          "featureId",
+                          "versionId",
+                          "changedPaths",
+                          "actor",
+                          "changedAt"
+                        ],
+                        "properties": {
+                          "serverCursor": {
+                            "type": "string"
+                          },
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "create",
+                              "update",
+                              "delete"
+                            ]
+                          },
+                          "featureId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "versionId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "changedPaths": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "actor": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "displayName"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "displayName": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "changedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "requestId",
+                        "nextCursor",
+                        "hasMore",
+                        "limit"
+                      ],
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        },
+                        "nextCursor": {
+                          "type": "string"
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 500
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "admin-layers"
+        ]
+      }
+    },
     "/api/v1/admin/revisions/{revisionId}:submit": {
       "post": {
         "operationId": "submitRevision",
@@ -24476,6 +24932,139 @@
             "additionalProperties": true
           }
         }
+      },
+      "FeatureSyncPatchDto": {
+        "type": "object",
+        "properties": {
+          "geometry": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "geometryKind": {
+            "type": "string",
+            "enum": [
+              "point",
+              "multipoint",
+              "line",
+              "multiline",
+              "polygon",
+              "multipolygon",
+              "circle"
+            ]
+          },
+          "radiusM": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0.001,
+            "maximum": 10000000
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "externalSource": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "unsetProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100
+          }
+        }
+      },
+      "FeatureSyncMutationDto": {
+        "type": "object",
+        "properties": {
+          "clientMutationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete"
+            ]
+          },
+          "baseRevisionVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "clientFeatureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "featureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "feature": {
+            "$ref": "#/components/schemas/FeatureMutationDto"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/FeatureSyncPatchDto"
+          }
+        },
+        "required": [
+          "clientMutationId",
+          "operation",
+          "baseRevisionVersion",
+          "payloadHash"
+        ]
+      },
+      "FeatureBatchSyncDto": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable browser client UUID, not a credential."
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "editor",
+              "recovery"
+            ]
+          },
+          "baseCursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "mutations": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeatureSyncMutationDto"
+            }
+          }
+        },
+        "required": [
+          "clientId",
+          "origin",
+          "baseCursor",
+          "mutations"
+        ]
       },
       "SubmitRevisionDto": {
         "type": "object",

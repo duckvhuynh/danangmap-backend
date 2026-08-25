@@ -5,6 +5,7 @@ import { AppException } from '../src/common/http/app.exception';
 import { IdempotencyService } from '../src/common/idempotency/idempotency.service';
 import AppDataSource from '../src/database/data-source';
 import { GeometryService } from '../src/layers/geometry.service';
+import { ChangeFeedRetentionService } from '../src/layers/change-feed-retention.service';
 import { LayerSchemaService } from '../src/layers/layer-schema.service';
 import {
   LayerEntity,
@@ -600,6 +601,9 @@ describe('Domain command idempotency', () => {
       new LayerSchemaService(),
       crypto,
       new IdempotencyService(),
+      new ChangeFeedRetentionService(
+        new ConfigService({ featureSync: { changeRetention: 10_000 } }),
+      ),
     );
   }
 

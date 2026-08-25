@@ -64,6 +64,7 @@ export class LayerRevisionEntity {
   @Column({ name: 'schema_version', type: 'integer', default: 1 }) schemaVersion: number;
   @Column({ name: 'lock_version', type: 'integer', default: 1 }) lockVersion: number;
   @Column({ name: 'cursor_seq', type: 'bigint', default: 0 }) cursorSeq: string;
+  @Column({ name: 'change_cursor_floor', type: 'bigint', default: 0 }) changeCursorFloor: string;
   @Column({ name: 'created_by', type: 'uuid' }) createdBy: string;
   @Column({ name: 'supersedes_revision_id', type: 'uuid', nullable: true }) supersedesRevisionId:
     string | null;
@@ -159,5 +160,9 @@ export class ClientMutationEntity {
   @Column({ name: 'request_digest', type: 'text' }) requestDigest: string;
   @Column({ name: 'response_payload', type: 'jsonb' }) responsePayload: Record<string, unknown>;
   @Column({ name: 'server_cursor', type: 'bigint' }) serverCursor: string;
+  @Column({ name: 'client_feature_id', type: 'uuid', nullable: true }) clientFeatureId:
+    string | null;
+  @Column({ name: 'canonical_feature_id', type: 'uuid', nullable: true }) canonicalFeatureId:
+    string | null;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }

@@ -615,6 +615,113 @@ export class UpdateFeatureDto {
   properties?: Record<string, unknown>;
 }
 
+export class FeatureSyncPatchDto extends UpdateFeatureDto {
+  @ApiProperty({ required: false, type: String, nullable: true, maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  externalSource?: string | null;
+
+  @ApiProperty({ required: false, type: String, nullable: true, maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  externalId?: string | null;
+
+  @ApiProperty({ required: false, type: 'array', items: { type: 'string' }, maxItems: 100 })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @Matches(FIELD_KEY_PATTERN, { each: true })
+  unsetProperties?: string[];
+}
+
+export class FeatureSyncMutationDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  clientMutationId: string;
+
+  @ApiProperty({ enum: ['create', 'update', 'delete'] })
+  @IsIn(['create', 'update', 'delete'])
+  operation: 'create' | 'update' | 'delete';
+
+  @ApiProperty({ type: 'integer', minimum: 1 })
+  @IsInt()
+  @Min(1)
+  baseRevisionVersion: number;
+
+  @ApiProperty({ pattern: '^[0-9a-f]{64}$' })
+  @Matches(/^[0-9a-f]{64}$/)
+  payloadHash: string;
+
+  @ApiProperty({ required: false, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  clientFeatureId?: string;
+
+  @ApiProperty({ required: false, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  featureId?: string;
+
+  @ApiProperty({ required: false, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  baseVersionId?: string;
+
+  @ApiProperty({ required: false, type: () => FeatureMutationDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FeatureMutationDto)
+  feature?: FeatureMutationDto;
+
+  @ApiProperty({ required: false, type: () => FeatureSyncPatchDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FeatureSyncPatchDto)
+  patch?: FeatureSyncPatchDto;
+}
+
+export class FeatureBatchSyncDto {
+  @ApiProperty({ format: 'uuid', description: 'Stable browser client UUID, not a credential.' })
+  @IsUUID()
+  clientId: string;
+
+  @ApiProperty({ enum: ['editor', 'recovery'] })
+  @IsIn(['editor', 'recovery'])
+  origin: 'editor' | 'recovery';
+
+  @ApiProperty({ minLength: 1, maxLength: 64 })
+  @IsString()
+  @Length(1, 64)
+  baseCursor: string;
+
+  @ApiProperty({ type: () => FeatureSyncMutationDto, isArray: true, minItems: 1, maxItems: 100 })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ArrayUnique((mutation: FeatureSyncMutationDto) => mutation.clientMutationId)
+  @ValidateNested({ each: true })
+  @Type(() => FeatureSyncMutationDto)
+  mutations: FeatureSyncMutationDto[];
+}
+
+export class FeatureChangeFeedQueryDto {
+  @ApiProperty({ minLength: 1, maxLength: 64 })
+  @IsString()
+  @Length(1, 64)
+  after: string;
+
+  @ApiProperty({ required: false, type: 'integer', minimum: 1, maximum: 500, default: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit: number = 200;
+}
+
 export class WorkflowCommentDto {
   @ApiProperty({ required: false, maxLength: 4000 })
   @IsOptional()

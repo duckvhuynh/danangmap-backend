@@ -208,22 +208,22 @@ Mỗi field có:
 
 ### 7.2 Layer, revision và feature
 
-| ID      | Yêu cầu                                                                                                                                |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| LYR-001 | Editor tạo layer với slug unique, loại geometry, schema và style.                                                                      |
-| LYR-002 | Mỗi layer chỉ có tối đa một active draft trong MVP.                                                                                    |
-| LYR-003 | Draft khởi tạo từ published snapshot gần nhất hoặc rỗng; không copy blob geometry không cần thiết.                                     |
-| LYR-004 | Editor thêm/sửa/xóa mềm feature và properties theo schema.                                                                             |
-| LYR-005 | Server luôn tạo UUID cho feature mới; client không quyết định canonical ID.                                                            |
-| LYR-006 | Mutation dùng `ETag`/`If-Match` hoặc batch cursor; conflict trả 409/412, không last-write-wins âm thầm.                                |
-| LYR-007 | API batch mutation idempotent theo `(revisionId, clientId, clientMutationId)`.                                                         |
-| LYR-008 | Circle chỉ nhận Point tâm và `radius_m` > 0; các unit khác được frontend chuyển sang mét.                                              |
-| LYR-009 | Mixed layer cho phép geometry kinds đã cấu hình; cấm GeometryCollection.                                                               |
-| LYR-010 | Attachment/image chỉ bind sau khi upload finalize và qua kiểm tra MIME/checksum/scan policy.                                           |
-| LYR-011 | Archive layer là soft delete, không xóa snapshot đang được tham chiếu.                                                                 |
-| LYR-012 | Editor quản lý layer group, `groupId` và display order; group chỉ phục vụ catalog/UI, không thay RBAC.                                 |
-| LYR-013 | `popupConfig` được validate bằng allowlist, version hóa trong layer revision và chỉ tham chiếu field public khi tạo public projection. |
-| LYR-014 | Giá trị field `image                                                                                                                   | attachment`là danh sách attachment ID có thứ tự được materialize từ`feature_version_attachments`; bind/unbind/reorder luôn tạo feature version mới, không sửa version cũ. |
+| ID      | Yêu cầu                                                                                                                                                                                          |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| LYR-001 | Editor tạo layer với slug unique, loại geometry, schema và style.                                                                                                                                |
+| LYR-002 | Mỗi layer chỉ có tối đa một active draft trong MVP.                                                                                                                                              |
+| LYR-003 | Draft khởi tạo từ published snapshot gần nhất hoặc rỗng; không copy blob geometry không cần thiết.                                                                                               |
+| LYR-004 | Editor thêm/sửa/xóa mềm feature và properties theo schema.                                                                                                                                       |
+| LYR-005 | Server luôn tạo UUID cho feature mới; client không quyết định canonical ID.                                                                                                                      |
+| LYR-006 | Mutation dùng `ETag`/`If-Match`, revision version, feature version và batch cursor; conflict trả 409/412/422, không last-write-wins âm thầm.                                                     |
+| LYR-007 | API batch mutation idempotent theo `(revisionId, clientId, clientMutationId, payloadHash)`; receipt và client→server UUID mapping durable trong PostgreSQL, replay được sau restart.             |
+| LYR-008 | Circle chỉ nhận Point tâm và `radius_m` > 0; các unit khác được frontend chuyển sang mét.                                                                                                        |
+| LYR-009 | Mixed layer cho phép geometry kinds đã cấu hình; cấm GeometryCollection.                                                                                                                         |
+| LYR-010 | Attachment/image chỉ bind sau khi upload finalize và qua kiểm tra MIME/checksum/scan policy.                                                                                                     |
+| LYR-011 | Archive layer là soft delete, không xóa snapshot đang được tham chiếu.                                                                                                                           |
+| LYR-012 | Editor quản lý layer group, `groupId` và display order; group chỉ phục vụ catalog/UI, không thay RBAC.                                                                                           |
+| LYR-013 | `popupConfig` được validate bằng allowlist, version hóa trong layer revision và chỉ tham chiếu field public khi tạo public projection.                                                           |
+| LYR-014 | Giá trị field `image/attachment` là danh sách attachment ID có thứ tự được materialize từ `feature_version_attachments`; bind/unbind/reorder luôn tạo feature version mới, không sửa version cũ. |
 
 ### 7.3 Dexie autosave và recovery
 
@@ -231,14 +231,14 @@ Mỗi field có:
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SYNC-001 | IndexedDB/Dexie là bộ đệm khôi phục trên thiết bị, không phải source of truth và không thay thế Save lên server.                                                                                                                                              |
 | SYNC-002 | Frontend lưu local snapshot, `serverCursor`, ETag và hàng đợi mutation chưa ack theo user/layer/revision/client.                                                                                                                                              |
-| SYNC-003 | Backend cung cấp workspace snapshot, change feed theo cursor và batch mutation idempotent.                                                                                                                                                                    |
+| SYNC-003 | Backend cung cấp workspace snapshot, change feed theo cursor ổn định/bounded và batch mutation ordered, partial-success, idempotent.                                                                                                                          |
 | SYNC-004 | Sau reload, client pull thay đổi server, rebase mutation chưa ack, hiển thị conflict để user chọn; không tự ghi đè.                                                                                                                                           |
 | SYNC-005 | Server trả mapping `clientMutationId → status/canonicalFeatureId/serverCursor`.                                                                                                                                                                               |
-| SYNC-006 | Cursor có hạn lưu. Nếu cursor quá cũ, server trả `SYNC_CURSOR_EXPIRED` cùng chỉ dẫn fetch full workspace.                                                                                                                                                     |
+| SYNC-006 | Cursor có hạn lưu cấu hình được, mặc định 10.000 change/revision. Nếu cursor quá cũ, server trả `SYNC_CURSOR_EXPIRED` cùng workspace URL, current cursor và ETag để fetch full workspace.                                                                     |
 | SYNC-007 | Logout chủ động/xóa user PHẢI yêu cầu frontend xóa database Dexie của principal. Session hết hạn chỉ khóa recovery cho tới khi cùng principal re-auth; user khác không được thấy metadata. Không lưu session token, MFA secret hay URL presigned trong Dexie. |
 | SYNC-008 | Draft local phải có quota guard; attachment binary không lưu lâu trong IndexedDB, chỉ lưu metadata/trạng thái upload.                                                                                                                                         |
 | SYNC-009 | Backend không cấp editor lease. Concurrency dùng optimistic ETag/version và idempotent mutation; Web Locks/Dexie lease chỉ phối hợp tab cục bộ.                                                                                                               |
-| SYNC-010 | Batch có `origin=editor                                                                                                                                                                                                                                       | recovery`; mutation recovery được audit. Conflict resolve phải nêu explicit strategy và base/current version, không merge geometry tự động. |
+| SYNC-010 | Batch có `origin=editor/recovery`; mutation recovery được audit. Conflict resolve phải nêu explicit strategy và base/current version, không merge geometry tự động.                                                                                           |
 
 ### 7.4 Import
 

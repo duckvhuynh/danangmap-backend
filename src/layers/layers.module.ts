@@ -26,6 +26,7 @@ import { LayerCatalogService } from './layer-catalog.service';
 import { LayersController } from './layers.controller';
 import { LayersService } from './layers.service';
 import { RevisionConfigurationService } from './revision-configuration.service';
+import { FeatureSyncService } from './feature-sync.service';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { RevisionConfigurationService } from './revision-configuration.service';
     GeometryService,
     LayerSchemaService,
     WorkflowService,
+    FeatureSyncService,
   ],
   exports: [LayersService, GeometryService, LayerSchemaService, WorkflowService],
 })

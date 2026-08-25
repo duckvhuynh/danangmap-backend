@@ -148,6 +148,7 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | B-025 | Circle center/radius validator | `danangmap-backend` | B-024 | `radius_m > 0`, center EPSG:4326, render polygon không ghi làm canonical geometry |
 | B-026 | Draft revision creation/service | `danangmap-backend` | B-020, B-022, B-023 | Một open editorial chain/layer qua bốn status; successor copy config+feature links từ active publication, lưu supersedes lineage; cross-path create/request-changes race một winner; source immutable |
 | B-027 | Feature CRUD với optimistic locking | `danangmap-backend` | B-024, B-026 | Version/ETag required; stale write trả conflict; không silent overwrite |
+| B-069 | Durable feature batch sync và conflict feed | `danangmap-backend` | B-023, B-024, B-027 | Ordered partial batch; PostgreSQL receipt + UUID mapping; payload-hash replay qua restart; no-lost-update conflict; bounded cursor feed; 6 GeoJSON types + circle |
 | B-028 | Draft validation report | `danangmap-backend` | B-023, B-024, B-027 | Trả lỗi theo feature/field/geometry; invalid draft không submit được |
 | B-029 | Submit immutable revision | `danangmap-backend` | B-028, B-017 | Submit đóng working version, ghi author/audit, trạng thái `in_review` |
 | B-030 | Review/changes-requested/approve service | `danangmap-backend` | B-029, B-017, B-026 | Reviewer khác author thao tác có comment/reason; request-changes atomically terminalize original + tạo successor trong cùng lineage; open-chain conflict zero partial mutation và submitted revision immutable |

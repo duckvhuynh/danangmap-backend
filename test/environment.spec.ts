@@ -142,6 +142,20 @@ describe('environment validation', () => {
     );
   });
 
+  it('keeps the feature change feed retention bounded', () => {
+    expect(validateEnvironment(baseline).FEATURE_SYNC_CHANGE_RETENTION).toBe(10_000);
+    expect(
+      validateEnvironment({ ...baseline, FEATURE_SYNC_CHANGE_RETENTION: '250000' })
+        .FEATURE_SYNC_CHANGE_RETENTION,
+    ).toBe(250_000);
+    expect(() => validateEnvironment({ ...baseline, FEATURE_SYNC_CHANGE_RETENTION: '99' })).toThrow(
+      'FEATURE_SYNC_CHANGE_RETENTION',
+    );
+    expect(() =>
+      validateEnvironment({ ...baseline, FEATURE_SYNC_CHANGE_RETENTION: '1000001' }),
+    ).toThrow('FEATURE_SYNC_CHANGE_RETENTION');
+  });
+
   it('requires a complete SMTP configuration and strict production transport security', () => {
     expect(() =>
       validateEnvironment({ ...baseline, SMTP_ENABLED: 'true', SMTP_HOST: 'smtp.example.vn' }),

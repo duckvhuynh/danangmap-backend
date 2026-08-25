@@ -15,7 +15,14 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiQuery,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { RequestWithContext } from '../common/http/request-context';
 import {
@@ -28,7 +35,10 @@ import {
   catalogReorderResultSchema,
   createLayerResultSchema,
   featureDeleteResultSchema,
+  featureBatchSyncSchema,
   featureMutationResultSchema,
+  revisionChangeMetaSchema,
+  revisionChangeSchema,
   revisionResultSchema,
   revisionConfigurationImpactSchema,
   revisionConfigurationResultSchema,
@@ -44,6 +54,8 @@ import {
   CreateLayerDto,
   CreateLayerGroupDto,
   FeatureMutationDto,
+  FeatureBatchSyncDto,
+  FeatureChangeFeedQueryDto,
   ListCatalogQueryDto,
   ReorderCatalogDto,
   RevisionConfigurationDto,
@@ -53,6 +65,7 @@ import {
 } from './layer.dto';
 import { LayersService } from './layers.service';
 import { RevisionConfigurationService } from './revision-configuration.service';
+import { FeatureSyncService } from './feature-sync.service';
 
 @ApiTags('admin-layers')
 @ApiCookieAuth('adminSession')
@@ -63,6 +76,7 @@ export class LayersController {
     private readonly layers: LayersService,
     private readonly catalog: LayerCatalogService,
     private readonly revisionConfiguration: RevisionConfigurationService,
+    private readonly featureSync: FeatureSyncService,
   ) {}
 
   @Get('layer-groups')
@@ -612,5 +626,52 @@ export class LayersController {
     );
     response.setHeader('ETag', result.etag);
     return result;
+  }
+
+  @Post('revisions/:revisionId/changes\\:batch')
+  @HttpCode(200)
+  @Roles('editor')
+  @UseGuards(CsrfGuard)
+  @ApiSecurity({ adminSession: [], csrf: [] })
+  @ApiHeader({ name: 'If-Match', required: true, description: 'Revision ETag at batch start.' })
+  @ApiHeader({ name: 'X-CSRF-Token', required: true })
+  @ApiOperation({ operationId: 'syncFeatureChangesBatch' })
+  @apiVersionedJsonResponse(200, featureBatchSyncSchema)
+  async syncFeatureChangesBatch(
+    @Param('revisionId', ParseUUIDPipe) revisionId: string,
+    @Body() dto: FeatureBatchSyncDto,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Req() request: RequestWithContext,
+    @Res({ passthrough: true }) response: Response,
+    @Principal() principal: NonNullable<RequestWithContext['principal']>,
+  ) {
+    const result = await this.featureSync.syncBatch(
+      revisionId,
+      dto,
+      ifMatch,
+      principal,
+      request.requestId,
+    );
+    response.setHeader('ETag', result.etag);
+    return result.data;
+  }
+
+  @Get('revisions/:revisionId/changes')
+  @ApiQuery({ name: 'after', required: true, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 500 })
+  @ApiOperation({ operationId: 'listRevisionChanges' })
+  @apiVersionedJsonResponse(
+    200,
+    { type: 'array', items: revisionChangeSchema },
+    revisionChangeMetaSchema,
+  )
+  async listRevisionChanges(
+    @Param('revisionId', ParseUUIDPipe) revisionId: string,
+    @Query() query: FeatureChangeFeedQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.featureSync.changes(revisionId, query.after, query.limit);
+    response.setHeader('ETag', result.etag);
+    return { data: result.data, meta: result.meta };
   }
 }

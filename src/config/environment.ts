@@ -48,6 +48,7 @@ const environmentSchema = z
     PUBLICATION_RETRY_BACKOFF_MS: z.coerce.number().int().min(100).max(60_000).default(1_000),
     PUBLICATION_MAX_FEATURES: z.coerce.number().int().min(1).max(1_000_000).default(100_000),
     PUBLICATION_MAX_VERTICES: z.coerce.number().int().min(1).max(20_000_000).default(2_000_000),
+    FEATURE_SYNC_CHANGE_RETENTION: z.coerce.number().int().min(100).max(1_000_000).default(10_000),
     PUBLICATION_TEST_FAILPOINT: z
       .enum(['after_batch_commit', 'before_pointer_switch', 'after_final_commit'])
       .optional(),

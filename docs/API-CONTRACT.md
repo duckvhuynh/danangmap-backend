@@ -680,14 +680,16 @@ Header: `If-Match` là workspace ETag khi bắt đầu batch. Batch tối đa 10
 
 ```json
 {
-  "clientId": "browser-0192a793",
+  "clientId": "0192a793-f096-78f6-bad8-e18b9452f8c9",
   "origin": "recovery",
   "baseCursor": "cur_01J5ABC",
   "mutations": [
     {
       "clientMutationId": "0192a794-1f84-79a5-95e2-60a888c591cd",
       "operation": "create",
-      "clientFeatureId": "local-0192a794",
+      "baseRevisionVersion": 7,
+      "payloadHash": "95922923a60b2dfb9b5e764ed410d63d0e027426bcd39859a5f48d5844e60a6e",
+      "clientFeatureId": "0192a794-2eb0-7ab6-86d0-64aa90a6a2b8",
       "feature": {
         "geometry": {
           "type": "Point",
@@ -701,6 +703,8 @@ Header: `If-Match` là workspace ETag khi bắt đầu batch. Batch tối đa 10
     {
       "clientMutationId": "0192a794-5d70-71c1-a28f-e034fd2a6c8b",
       "operation": "update",
+      "baseRevisionVersion": 7,
+      "payloadHash": "20f3daed23b62efd9e6ab4cb346d0db51c998ee1b342c0939614bbcaaf742d83",
       "featureId": "0192a6bc-7e70-7ef5-9cc2-5773f77276a9",
       "baseVersionId": "0192a6c1-5bb4-7bc0-8376-c8d69bcd2f37",
       "patch": {
@@ -710,6 +714,8 @@ Header: `If-Match` là workspace ETag khi bắt đầu batch. Batch tối đa 10
   ]
 }
 ```
+
+`clientId`, `clientMutationId` và `clientFeatureId` là UUID ổn định do client tạo; chúng không phải credential. `baseRevisionVersion` của từng mutation phải bằng version trong `If-Match`. `payloadHash` là SHA-256 chữ thường của canonical JSON mutation sau khi bỏ chính field `payloadHash`: key object sắp xếp tăng dần đệ quy, array giữ nguyên thứ tự, UTF-8, JSON compact. `baseCursor` phải nằm trong cửa sổ retention hiện tại.
 
 `origin`: `editor|recovery`; server ghi audit cho batch recovery. Backend không cấp editor lease. Web Locks/Dexie lease chỉ phối hợp tab trên một browser; mọi client vẫn phải dùng optimistic version/ETag.
 
@@ -725,12 +731,18 @@ Response `200`:
       {
         "clientMutationId": "0192a794-1f84-79a5-95e2-60a888c591cd",
         "status": "applied",
+        "operation": "create",
+        "clientFeatureId": "0192a794-2eb0-7ab6-86d0-64aa90a6a2b8",
         "canonicalFeatureId": "0192a79a-74eb-7221-aa2b-3dc4ae326ec9",
-        "versionId": "0192a79a-af0d-78e1-883a-c555f1a16107"
+        "versionId": "0192a79a-af0d-78e1-883a-c555f1a16107",
+        "serverCursor": "cur_01J5ABD"
       },
       {
         "clientMutationId": "0192a794-5d70-71c1-a28f-e034fd2a6c8b",
         "status": "conflict",
+        "operation": "update",
+        "canonicalFeatureId": "0192a6bc-7e70-7ef5-9cc2-5773f77276a9",
+        "serverCursor": "cur_01J5ABD",
         "conflict": {
           "code": "FEATURE_VERSION_CHANGED",
           "currentVersionId": "0192a79a-60ce-7891-9b53-042c34ec352a",
@@ -742,7 +754,7 @@ Response `200`:
 }
 ```
 
-Một mutation được reject/conflict không làm rollback mutation độc lập khác; response luôn có result cho từng mutation. Retry cùng `clientMutationId` và payload trả lại kết quả cũ; cùng ID nhưng payload khác trả 409 `IDEMPOTENCY_KEY_REUSED`.
+Một mutation được reject/conflict không làm rollback mutation độc lập khác; response luôn có result theo đúng thứ tự request. Mỗi result là `applied|conflict|rejected` và luôn có cursor quan sát được. Retry cùng `(revisionId, clientId, clientMutationId)` và cùng payload trả lại nguyên kết quả durable cũ kể cả sau API restart và không yêu cầu ETag cũ còn hiện hành; cùng ID nhưng payload khác trả 409 `IDEMPOTENCY_KEY_REUSED`. Hash caller sai trả 422 `SYNC_PAYLOAD_HASH_MISMATCH`; stale workspace trả 412 `ETAG_MISMATCH`; revision không còn draft trả 409 `REVISION_NOT_EDITABLE`.
 
 ### 5.4 Pull changes
 
@@ -771,7 +783,7 @@ Một mutation được reject/conflict không làm rollback mutation độc l�
 }
 ```
 
-Nếu cursor quá cũ, trả 409 `SYNC_CURSOR_EXPIRED`, `details.workspaceUrl` và ETag hiện tại. Client fetch workspace/full needed viewport, giữ mutation local chưa ack và rebase có kiểm soát.
+Feed được sắp xếp tăng dần theo server cursor, tối đa 500 item/page và không đổi thứ tự khi phân trang. Retention mặc định 10.000 change/revision, cấu hình bằng `FEATURE_SYNC_CHANGE_RETENTION` (100–1.000.000). Nếu cursor quá cũ, trả 409 `SYNC_CURSOR_EXPIRED`, `details.workspaceUrl`, `details.currentCursor` và `details.currentEtag`. Client fetch workspace/full needed viewport, giữ mutation local chưa ack và rebase có kiểm soát.
 
 ### 5.5 Resolve conflict
 

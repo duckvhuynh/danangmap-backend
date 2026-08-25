@@ -86,3 +86,93 @@ describe('publication readiness truth table', () => {
     return { workerFresh, recoveryFresh, dispatchFresh, workerErrorCode, dispatchErrorCode };
   }
 });
+
+describe('dependency readiness and lifecycle', () => {
+  const config = {
+    get: jest.fn().mockReturnValue(undefined),
+    getOrThrow: jest.fn((key: string) => {
+      const values: Record<string, string | number | boolean> = {
+        'redis.host': '127.0.0.1',
+        'redis.port': 6379,
+        'app.version': 'test',
+        'mail.workerHeartbeatStaleSeconds': 120,
+        'publication.asyncEnabled': false,
+      };
+      return values[key];
+    }),
+  } as unknown as ConfigService;
+  const geoService = { healthStatus: 'disabled' } as unknown as GeoServiceAdapter;
+
+  it.each([
+    ['postgres', jest.fn().mockRejectedValue(new Error('postgres unavailable')), false, false],
+    ['pending migrations', jest.fn().mockResolvedValue([]), true, false],
+  ])('fails readiness when %s is unhealthy', async (_name, query, pending, storageFails) => {
+    const dataSource = {
+      query,
+      showMigrations: jest.fn().mockResolvedValue(pending),
+    } as unknown as DataSource;
+    const storage = {
+      ping: storageFails
+        ? jest.fn().mockRejectedValue(new Error('storage unavailable'))
+        : jest.fn().mockResolvedValue(undefined),
+    } as unknown as StorageService;
+    const controller = new HealthController(dataSource, storage, config, geoService);
+    (controller as unknown as { redis: Redis }).redis = {
+      status: 'ready',
+      ping: jest.fn().mockResolvedValue('PONG'),
+    } as unknown as Redis;
+
+    await expect(controller.ready()).rejects.toThrow();
+  });
+
+  it('fails readiness when Redis is unavailable', async () => {
+    const controller = healthyController();
+    (controller as unknown as { redis: Redis }).redis = {
+      status: 'ready',
+      ping: jest.fn().mockRejectedValue(new Error('redis unavailable')),
+    } as unknown as Redis;
+    await expect(controller.ready()).rejects.toThrow('redis unavailable');
+  });
+
+  it('fails readiness when MinIO is unavailable', async () => {
+    const dataSource = {
+      query: jest.fn().mockResolvedValue([{ status: 'up', fresh: true }]),
+      showMigrations: jest.fn().mockResolvedValue(false),
+    } as unknown as DataSource;
+    const storage = {
+      ping: jest.fn().mockRejectedValue(new Error('minio unavailable')),
+    } as unknown as StorageService;
+    const controller = new HealthController(dataSource, storage, config, geoService);
+    (controller as unknown as { redis: Redis }).redis = {
+      status: 'ready',
+      ping: jest.fn().mockResolvedValue('PONG'),
+    } as unknown as Redis;
+    await expect(controller.ready()).rejects.toThrow('minio unavailable');
+  });
+
+  it('closes the owned Redis connection on module destroy', async () => {
+    const controller = healthyController();
+    const quit = jest.fn().mockResolvedValue('OK');
+    (controller as unknown as { redis: Redis }).redis = {
+      status: 'ready',
+      quit,
+      disconnect: jest.fn(),
+    } as unknown as Redis;
+
+    await controller.onModuleDestroy();
+
+    expect(quit).toHaveBeenCalledTimes(1);
+  });
+
+  function healthyController(): HealthController {
+    return new HealthController(
+      {
+        query: jest.fn().mockResolvedValue([{ status: 'up', fresh: true }]),
+        showMigrations: jest.fn().mockResolvedValue(false),
+      } as unknown as DataSource,
+      { ping: jest.fn().mockResolvedValue(undefined) } as unknown as StorageService,
+      config,
+      geoService,
+    );
+  }
+});

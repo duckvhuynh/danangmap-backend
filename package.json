@@ -27,6 +27,7 @@
     "migration:run": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:revert",
     "migration:run:prod": "typeorm -d dist/src/database/data-source.js migration:run",
+    "migration:run:locked:prod": "node dist/scripts/run-migrations-with-lock.js",
     "seed": "tsx scripts/seed.ts",
     "seed:prod": "node dist/scripts/seed.js",
     "mail:requeue": "tsx scripts/requeue-mail.ts",

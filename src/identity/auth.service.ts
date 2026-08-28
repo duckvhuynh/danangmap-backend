@@ -64,6 +64,40 @@ export class AuthService {
       throw new AppException(401, 'AUTH_INVALID_CREDENTIALS', 'Thông tin đăng nhập không hợp lệ.');
     }
     await this.users.update(user.id, { failedLoginCount: 0, lockedUntil: null });
+    if (!this.isMfaEnabled()) {
+      const authenticated = await this.createAuthenticatedSession(
+        this.dataSource.manager,
+        user.id,
+        metadata,
+      );
+      await this.audit.append({
+        actorId: user.id,
+        actorRole: user.role,
+        action: 'auth.password_verified',
+        resourceType: 'user',
+        resourceId: user.id,
+        requestId: metadata.requestId,
+      });
+      await this.audit.append({
+        actorId: user.id,
+        actorRole: user.role,
+        action: 'auth.login_succeeded',
+        resourceType: 'admin_session',
+        resourceId: authenticated.session.id,
+        requestId: metadata.requestId,
+        metadata: { method: 'password', mfaPolicy: 'disabled' },
+      });
+      return {
+        sessionKind: 'authenticated' as const,
+        token: authenticated.sessionToken,
+        csrfToken: authenticated.csrfToken,
+        data: {
+          status: 'authenticated' as const,
+          mfaEnrollmentRequired: false,
+          principal: this.toPrincipal(user),
+        },
+      };
+    }
     const token = this.crypto.randomToken();
     const csrfToken = this.crypto.randomToken(24);
     const expiresAt = new Date(Date.now() + 5 * 60_000);
@@ -88,6 +122,7 @@ export class AuthService {
       requestId: metadata.requestId,
     });
     return {
+      sessionKind: 'preauth' as const,
       token,
       csrfToken,
       data: {
@@ -105,6 +140,7 @@ export class AuthService {
     code: string,
     metadata: RequestMetadata,
   ) {
+    this.assertMfaEnabled();
     const result = await this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(UserEntity, {
         where: { id: userId },
@@ -145,6 +181,7 @@ export class AuthService {
   }
 
   async startMfaEnrollment(userId: string, preauthSessionId: string, metadata: RequestMetadata) {
+    this.assertMfaEnabled();
     return this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(UserEntity, {
         where: { id: userId },
@@ -223,6 +260,7 @@ export class AuthService {
     code: string,
     metadata: RequestMetadata,
   ) {
+    this.assertMfaEnabled();
     const result = await this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(UserEntity, {
         where: { id: userId },
@@ -315,6 +353,7 @@ export class AuthService {
     metadata: RequestMetadata,
     idempotencyKey: string,
   ) {
+    this.assertMfaEnabled();
     await this.rateLimits.enforceAdminMutation(metadata.ip, userId);
     return this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(UserEntity, {
@@ -532,7 +571,7 @@ export class AuthService {
       maskedEmail: this.maskEmail(invite.email),
       role: invite.role,
       expiresAt: invite.expiresAt.toISOString(),
-      requiresMfaEnrollment: true,
+      requiresMfaEnrollment: this.isMfaEnabled(),
     };
   }
 
@@ -619,7 +658,6 @@ export class AuthService {
         invite.acceptedUserId = user.id;
         await manager.save(InviteEntity, invite);
         await this.scrubInviteOutbox(manager, invite.id);
-        const challenge = await this.createPreauthSession(manager, user.id, metadata);
         await this.insertAudit(
           manager,
           user.id,
@@ -640,7 +678,32 @@ export class AuthService {
           invite.id,
           { assignedRole: user.role, userId: user.id },
         );
+        if (!this.isMfaEnabled()) {
+          const authenticated = await this.createAuthenticatedSession(manager, user.id, metadata);
+          await this.insertAudit(
+            manager,
+            user.id,
+            user.role,
+            metadata.requestId,
+            'auth.login_succeeded',
+            'admin_session',
+            authenticated.session.id,
+            { method: 'invite_acceptance', mfaPolicy: 'disabled' },
+          );
+          return {
+            sessionKind: 'authenticated' as const,
+            token: authenticated.sessionToken,
+            csrfToken: authenticated.csrfToken,
+            data: {
+              status: 'authenticated' as const,
+              mfaEnrollmentRequired: false,
+              principal: this.toPrincipal(user),
+            },
+          };
+        }
+        const challenge = await this.createPreauthSession(manager, user.id, metadata);
         return {
+          sessionKind: 'preauth' as const,
           token: challenge.token,
           csrfToken: challenge.csrfToken,
           data: {
@@ -1130,9 +1193,19 @@ export class AuthService {
       displayName: user.displayName,
       role: user.role,
       status: user.status,
-      mfaEnabled: user.mfaEnabled,
+      mfaEnabled: this.isMfaEnabled() && user.mfaEnabled,
       mustChangePassword: user.mustChangePassword,
     };
+  }
+
+  private isMfaEnabled(): boolean {
+    return this.config.get<boolean>('app.mfaEnabled') ?? false;
+  }
+
+  private assertMfaEnabled(): void {
+    if (!this.isMfaEnabled()) {
+      throw new AppException(409, 'MFA_DISABLED', 'Xác thực đa yếu tố đang được tắt.');
+    }
   }
 
   private inviteResponse(invite: InviteEntity) {

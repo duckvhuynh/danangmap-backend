@@ -55,7 +55,7 @@
     },
     "/api/v1/auth/bootstrap/system-admin": {
       "post": {
-        "description": "Creates the only first System Admin and returns an MFA-enrollment pre-auth challenge. The bootstrap token is never returned or persisted.",
+        "description": "Creates the only first System Admin. Returns an authenticated session when MFA is disabled, otherwise an MFA-enrollment pre-auth challenge. The bootstrap token is never returned or persisted.",
         "operationId": "bootstrapSystemAdmin",
         "parameters": [
           {
@@ -101,27 +101,108 @@
                   ],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "required": [
-                        "status",
-                        "mfaEnrollmentRequired",
-                        "challengeExpiresAt"
-                      ],
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "mfa_required"
-                          ]
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "status",
+                            "mfaEnrollmentRequired",
+                            "challengeExpiresAt"
+                          ],
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "mfa_required"
+                              ]
+                            },
+                            "mfaEnrollmentRequired": {
+                              "type": "boolean"
+                            },
+                            "challengeExpiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
                         },
-                        "mfaEnrollmentRequired": {
-                          "type": "boolean"
-                        },
-                        "challengeExpiresAt": {
-                          "type": "string",
-                          "format": "date-time"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "status",
+                            "mfaEnrollmentRequired",
+                            "principal"
+                          ],
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "authenticated"
+                              ]
+                            },
+                            "mfaEnrollmentRequired": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "principal": {
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "email",
+                                "username",
+                                "displayName",
+                                "role",
+                                "status",
+                                "mfaEnabled",
+                                "mustChangePassword"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "email": {
+                                  "type": "string",
+                                  "format": "email"
+                                },
+                                "username": {
+                                  "type": "string"
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "editor",
+                                    "reviewer",
+                                    "publisher",
+                                    "system_admin"
+                                  ]
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "active",
+                                    "inactive",
+                                    "disabled",
+                                    "invited"
+                                  ]
+                                },
+                                "mfaEnabled": {
+                                  "type": "boolean"
+                                },
+                                "mustChangePassword": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          }
                         }
-                      }
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -526,27 +607,108 @@
                   ],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "required": [
-                        "status",
-                        "mfaEnrollmentRequired",
-                        "challengeExpiresAt"
-                      ],
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "mfa_required"
-                          ]
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "status",
+                            "mfaEnrollmentRequired",
+                            "challengeExpiresAt"
+                          ],
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "mfa_required"
+                              ]
+                            },
+                            "mfaEnrollmentRequired": {
+                              "type": "boolean"
+                            },
+                            "challengeExpiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
                         },
-                        "mfaEnrollmentRequired": {
-                          "type": "boolean"
-                        },
-                        "challengeExpiresAt": {
-                          "type": "string",
-                          "format": "date-time"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "status",
+                            "mfaEnrollmentRequired",
+                            "principal"
+                          ],
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "authenticated"
+                              ]
+                            },
+                            "mfaEnrollmentRequired": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "principal": {
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "email",
+                                "username",
+                                "displayName",
+                                "role",
+                                "status",
+                                "mfaEnabled",
+                                "mustChangePassword"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "email": {
+                                  "type": "string",
+                                  "format": "email"
+                                },
+                                "username": {
+                                  "type": "string"
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "editor",
+                                    "reviewer",
+                                    "publisher",
+                                    "system_admin"
+                                  ]
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "active",
+                                    "inactive",
+                                    "disabled",
+                                    "invited"
+                                  ]
+                                },
+                                "mfaEnabled": {
+                                  "type": "boolean"
+                                },
+                                "mustChangePassword": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          }
                         }
-                      }
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -629,10 +791,7 @@
                           "format": "date-time"
                         },
                         "requiresMfaEnrollment": {
-                          "type": "boolean",
-                          "enum": [
-                            true
-                          ]
+                          "type": "boolean"
                         }
                       }
                     },
@@ -695,27 +854,108 @@
                   ],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "required": [
-                        "status",
-                        "mfaEnrollmentRequired",
-                        "challengeExpiresAt"
-                      ],
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "mfa_required"
-                          ]
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "status",
+                            "mfaEnrollmentRequired",
+                            "challengeExpiresAt"
+                          ],
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "mfa_required"
+                              ]
+                            },
+                            "mfaEnrollmentRequired": {
+                              "type": "boolean"
+                            },
+                            "challengeExpiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
                         },
-                        "mfaEnrollmentRequired": {
-                          "type": "boolean"
-                        },
-                        "challengeExpiresAt": {
-                          "type": "string",
-                          "format": "date-time"
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "status",
+                            "mfaEnrollmentRequired",
+                            "principal"
+                          ],
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "authenticated"
+                              ]
+                            },
+                            "mfaEnrollmentRequired": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "principal": {
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "email",
+                                "username",
+                                "displayName",
+                                "role",
+                                "status",
+                                "mfaEnabled",
+                                "mustChangePassword"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "email": {
+                                  "type": "string",
+                                  "format": "email"
+                                },
+                                "username": {
+                                  "type": "string"
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "editor",
+                                    "reviewer",
+                                    "publisher",
+                                    "system_admin"
+                                  ]
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "active",
+                                    "inactive",
+                                    "disabled",
+                                    "invited"
+                                  ]
+                                },
+                                "mfaEnabled": {
+                                  "type": "boolean"
+                                },
+                                "mustChangePassword": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          }
                         }
-                      }
+                      ]
                     },
                     "meta": {
                       "type": "object",
@@ -848,6 +1088,62 @@
                 }
               }
             }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "enum": [
+                        409
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "MFA_DISABLED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -922,6 +1218,62 @@
                 }
               }
             }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "enum": [
+                        409
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "MFA_DISABLED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -1058,6 +1410,62 @@
                 }
               }
             }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "enum": [
+                        409
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "MFA_DISABLED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -1157,6 +1565,62 @@
                 }
               }
             }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "enum": [
+                        409
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "MFA_DISABLED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -3996,6 +4460,62 @@
                 }
               }
             }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code",
+                    "message",
+                    "details",
+                    "requestId",
+                    "timestamp"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "enum": [
+                        409
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "MFA_DISABLED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [

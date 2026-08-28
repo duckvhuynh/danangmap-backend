@@ -26,6 +26,7 @@ import type { RequestWithContext } from '../common/http/request-context';
 import { requireIdempotencyKey } from '../layers/etag';
 import {
   apiJsonResponse,
+  apiProblemResponse,
   adminInviteResendResultSchema,
   adminInviteSchema,
   adminMfaResetResultSchema,
@@ -352,6 +353,7 @@ export class UsersController {
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'resetAdminUserMfa' })
   @apiVersionedJsonResponse(200, adminMfaResetResultSchema)
+  @apiProblemResponse(409, ['MFA_DISABLED'])
   async resetMfa(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() dto: AdminReasonDto,

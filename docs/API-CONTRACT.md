@@ -35,7 +35,7 @@ ETag collection được tính từ toàn bộ state ảnh hưởng representati
 
 - `__Host-danangmap_session`: opaque random value, HttpOnly, Secure, SameSite=Lax, Path=/. Local HTTP development with `COOKIE_SECURE=false` uses the unprefixed `danangmap_session` / `danangmap_preauth` names because browsers reject `__Host-` cookies without `Secure`; production keeps the prefixed names.
 - `danangmap_csrf`: token CSRF không HttpOnly để frontend đọc và echo qua `X-CSRF-Token`; không phải credential.
-- Login trước MFA chỉ tạo pre-auth cookie hạn ngắn, không có quyền admin.
+- Khi `MFA_ENABLED=true`, login trước MFA chỉ tạo pre-auth cookie hạn ngắn, không có quyền admin; khi `false` (mặc định), password hợp lệ tạo authenticated cookie trực tiếp.
 - API không trả session/MFA secret trong JSON ngoài TOTP enrollment URI tại đúng bước enrollment; URI chỉ hiển thị một lần và không được log/lưu Dexie.
 - `GET /auth/csrf` hoạt động ở cả ba trạng thái public, pre-auth và authenticated, luôn trả `Cache-Control: private, no-store`. Khi public cookie đã được thiết lập, endpoint reuse token có cú pháp hợp lệ; các request public cold đồng thời chưa có cookie có thể nhận token khác nhau và cookie response cuối cùng của browser thắng, nhưng chưa token nào bind với protected session. Pre-auth/authenticated chỉ trả lại token hiện tại khi cookie có cú pháp hợp lệ và hash khớp session active; endpoint không update `csrf_hash`, nên nhiều tab dùng chung session không vô hiệu hóa lẫn nhau. Thiếu/sai token ở session active trả `403 CSRF_INVALID` và không rebind hay mutation DB. Token chỉ rotate/bind tại trust/session boundary: public → pre-auth, pre-auth → authenticated, hoặc khi tạo/rotate session mới do password/session-security transition.
 - Mọi POST dùng public/pre-auth/auth cookie phải gửi `Origin`/`Referer` thuộc allowlist và `X-CSRF-Token` khớp cookie. Thiếu/sai origin hoặc token trả `CSRF_INVALID`; cookie `SameSite` không thay thế kiểm tra này.
@@ -131,7 +131,7 @@ Trong mọi bảng route bên dưới, `System Admin` thỏa mọi yêu cầu ro
 
 ### 1.7 Mã lỗi chuẩn
 
-`AUTH_INVALID_CREDENTIALS`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_CHANGE_REQUIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `CONFIG_IMPACT_BLOCKED`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `PUBLICATION_BASE_STALE`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NAME_INVALID`, `ATTACHMENT_TYPE_UNSUPPORTED`, `ATTACHMENT_UPLOAD_INCOMPLETE`, `ATTACHMENT_UPLOAD_EXPIRED`, `ATTACHMENT_SIZE_MISMATCH`, `ATTACHMENT_MIME_MISMATCH`, `ATTACHMENT_CHECKSUM_MISMATCH`, `ATTACHMENT_NOT_READY`, `ATTACHMENT_ALREADY_BOUND`, `ATTACHMENT_OWNERSHIP_CONFLICT`, `ATTACHMENT_ORDER_INVALID`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
+`AUTH_INVALID_CREDENTIALS`, `MFA_DISABLED`, `AUTH_MFA_REQUIRED`, `AUTH_MFA_INVALID`, `AUTH_MFA_ENROLLMENT_REQUIRED`, `AUTH_MFA_ENROLLMENT_ALREADY_STARTED`, `AUTH_MFA_ENROLLMENT_STALE`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_RATE_LIMITED`, `AUTH_SESSION_EXPIRED`, `INVITE_INVALID_OR_EXPIRED`, `PASSWORD_CHANGE_REQUIRED`, `PASSWORD_RESET_INVALID_OR_EXPIRED`, `CSRF_INVALID`, `ROLE_FORBIDDEN`, `SEPARATION_OF_DUTIES`, `VALIDATION_FAILED`, `GEOMETRY_INVALID`, `GEOMETRY_TYPE_NOT_ALLOWED`, `RESOURCE_LIMIT_EXCEEDED`, `SCHEMA_VIOLATION`, `CONFIG_IMPACT_BLOCKED`, `ETAG_REQUIRED`, `ETAG_MISMATCH`, `IDEMPOTENCY_KEY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `DRAFT_ALREADY_EXISTS`, `REVISION_NOT_EDITABLE`, `WORKFLOW_TRANSITION_INVALID`, `PUBLICATION_BASE_STALE`, `SYNC_CONFLICT`, `SYNC_CURSOR_EXPIRED`, `IMPORT_TOO_LARGE`, `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_NOT_READY`, `IMPORT_HAS_ERRORS`, `ATTACHMENT_NAME_INVALID`, `ATTACHMENT_TYPE_UNSUPPORTED`, `ATTACHMENT_UPLOAD_INCOMPLETE`, `ATTACHMENT_UPLOAD_EXPIRED`, `ATTACHMENT_SIZE_MISMATCH`, `ATTACHMENT_MIME_MISMATCH`, `ATTACHMENT_CHECKSUM_MISMATCH`, `ATTACHMENT_NOT_READY`, `ATTACHMENT_ALREADY_BOUND`, `ATTACHMENT_OWNERSHIP_CONFLICT`, `ATTACHMENT_ORDER_INVALID`, `PUBLICATION_FAILED`, `FILTER_NOT_ALLOWED`, `QUERY_TOO_BROAD`, `GEO_SERVICE_INVALID_RESPONSE`, `RATE_LIMITED`.
 
 ## 2. DTO dùng chung
 
@@ -242,7 +242,7 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 | --------- | --------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------- |
 | GET       | `/auth/csrf`                                        | public/pre-auth/auth               | Cấp hoặc lấy token CSRF hiện tại; không rotate trong cùng session   |
 | GET       | `/auth/bootstrap/status`                            | public                             | Chỉ trả bootstrap System Admin có available hay không               |
-| POST      | `/auth/bootstrap/system-admin`                      | public + CSRF + bootstrap token    | Tạo đúng một System Admin đầu tiên, chuyển sang MFA enroll          |
+| POST      | `/auth/bootstrap/system-admin`                      | public + CSRF + bootstrap token    | Tạo đúng một System Admin đầu tiên, áp policy MFA hiện hành         |
 | POST      | `/auth/login`                                       | public + CSRF                      | Xác minh username/email + password                                  |
 | POST      | `/auth/mfa/verify`                                  | pre-auth + CSRF                    | Xác minh TOTP/recovery code, tạo session                            |
 | POST      | `/auth/mfa/enroll`                                  | pre-auth + CSRF                    | Bắt đầu enroll TOTP; URI chỉ trả một lần cho pre-auth đó            |
@@ -255,7 +255,7 @@ Server allowlist key/value/range để ngăn style injection và expression quá
 | POST      | `/auth/password/reset:request`                      | public + idempotency               | Luôn trả generic `202`, không tiết lộ account tồn tại               |
 | POST      | `/auth/password/reset:confirm`                      | public + CSRF                      | Đặt password bằng token một lần chỉ nhận trong body                 |
 | POST      | `/auth/invites:inspect`                             | public                             | Inspect invite an toàn, không tiêu thụ token                        |
-| POST      | `/auth/invites:accept`                              | public                             | Đặt password, tiêu thụ invite và chuyển sang MFA enroll             |
+| POST      | `/auth/invites:accept`                              | public                             | Đặt password, tiêu thụ invite và áp policy MFA hiện hành            |
 | GET/POST  | `/admin/users`                                      | System Admin                       | Danh sách/tạo user                                                  |
 | GET/PATCH | `/admin/users/{userId}`                             | System Admin                       | Xem/cập nhật/khóa user                                              |
 | POST      | `/admin/invites`                                    | System Admin                       | Tạo invite                                                          |
@@ -306,8 +306,8 @@ Password dài 14-200 ký tự, có chữ thường, chữ hoa, số và ký tự
 username hoặc local-part của email. Server rate-limit trước khi so token constant-time. Transaction
 PostgreSQL giữ advisory lock rồi chỉ insert khi `users` rỗng; hai request đồng thời có đúng một
 response `201`, request thua và mọi replay trả `409 BOOTSTRAP_ALREADY_COMPLETED`. Thành công trả cùng
-`loginResult` như login với `mfaEnrollmentRequired=true`, set pre-auth/CSRF cookie và bắt buộc tiếp tục
-`/auth/mfa/enroll` → `/auth/mfa/enroll/confirm` trước authenticated session.
+`loginResult` như login: policy bật trả pre-auth với `mfaEnrollmentRequired=true`; policy tắt trả
+authenticated session trực tiếp. Bootstrap token không quyết định policy MFA.
 
 Error codes typed: `BOOTSTRAP_TOKEN_INVALID` (401), `CSRF_INVALID` (403),
 `BOOTSTRAP_ALREADY_COMPLETED` (409), `VALIDATION_FAILED|BOOTSTRAP_PASSWORD_WEAK` (422),
@@ -336,6 +336,30 @@ Response `200`:
   }
 }
 ```
+
+Khi `MFA_ENABLED=false` (mặc định), login/bootstrap/invite-accept trả authenticated cookie và:
+
+```json
+{
+  "data": {
+    "status": "authenticated",
+    "mfaEnrollmentRequired": false,
+    "principal": {
+      "id": "0192a70b-245c-7a32-9481-30f288e97415",
+      "email": "editor@example.gov.vn",
+      "username": "editor01",
+      "displayName": "Biên tập viên 01",
+      "role": "editor",
+      "status": "active",
+      "mfaEnabled": false,
+      "mustChangePassword": false
+    }
+  }
+}
+```
+
+Các endpoint enroll/verify/regenerate/admin-reset MFA trả `409 MFA_DISABLED` khi policy tắt. Factor và
+recovery code đã lưu không bị xóa; bật lại policy sẽ tiếp tục dùng factor đã xác minh hoặc yêu cầu enroll.
 
 `POST /api/v1/auth/mfa/verify`
 

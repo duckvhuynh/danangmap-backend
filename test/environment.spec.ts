@@ -161,6 +161,12 @@ describe('environment validation', () => {
     ).toThrow('INITIAL_ADMIN_BOOTSTRAP_TOKEN');
   });
 
+  it('keeps MFA disabled by default and accepts only an explicit boolean flag', () => {
+    expect(validateEnvironment(baseline).MFA_ENABLED).toBe(false);
+    expect(validateEnvironment({ ...baseline, MFA_ENABLED: 'true' }).MFA_ENABLED).toBe(true);
+    expect(() => validateEnvironment({ ...baseline, MFA_ENABLED: 'yes' })).toThrow('MFA_ENABLED');
+  });
+
   it('keeps the feature change feed retention bounded', () => {
     expect(validateEnvironment(baseline).FEATURE_SYNC_CHANGE_RETENTION).toBe(10_000);
     expect(

@@ -2,14 +2,14 @@
 
 ## 1. Thông tin tài liệu
 
-| Thuộc tính | Giá trị |
-| --- | --- |
-| Sản phẩm | DanangMap v2 |
-| Trạng thái | Baseline MVP; UI gate `SELECTED_READY_TO_SCAFFOLD` |
-| Chủ sở hữu sản phẩm | `duckvhuynh` |
-| Repository | `duckvhuynh/danangmap-frontend` và `duckvhuynh/danangmap-backend` (private) |
-| Cập nhật | 2026-08-21 |
-| Tài liệu liên quan | `SRS.md`, `API-CONTRACT.md`, `DESIGN.md`, `PLANS.md` |
+| Thuộc tính          | Giá trị                                                                     |
+| ------------------- | --------------------------------------------------------------------------- |
+| Sản phẩm            | DanangMap v2                                                                |
+| Trạng thái          | Baseline MVP; UI gate `SELECTED_READY_TO_SCAFFOLD`                          |
+| Chủ sở hữu sản phẩm | `duckvhuynh`                                                                |
+| Repository          | `duckvhuynh/danangmap-frontend` và `duckvhuynh/danangmap-backend` (private) |
+| Cập nhật            | 2026-08-21                                                                  |
+| Tài liệu liên quan  | `SRS.md`, `API-CONTRACT.md`, `DESIGN.md`, `PLANS.md`                        |
 
 Tài liệu này là nguồn yêu cầu sản phẩm. `SRS.md` cụ thể hóa hành vi hệ thống, `API-CONTRACT.md` khóa giao tiếp, `DESIGN.md` khóa thiết kế sau khi người dùng chọn phương án, và `PLANS.md` điều phối triển khai.
 
@@ -36,7 +36,7 @@ DanangMap v2 phải trở thành một **Spatial CMS** phục vụ hai mặt:
 - Mapbox chỉ cung cấp basemap `street` và `light`; không có satellite trong MVP.
 - Không lưu hoặc chia sẻ camera/layer/feature state qua query string URL.
 - Vai trò nội dung tách biệt: Editor, Reviewer, Publisher. System Admin kế thừa năng lực của cả ba vai trò, nhưng vẫn chịu state machine và separation-of-duties theo lịch sử participant.
-- Tài khoản do System Admin tạo thủ công, gửi invite hoặc nhập hàng loạt; MFA thuộc MVP.
+- Tài khoản do System Admin tạo thủ công, gửi invite hoặc nhập hàng loạt; MFA TOTP/recovery có đầy đủ nhưng được điều khiển bằng `MFA_ENABLED`, mặc định tắt.
 - Circle chuẩn chỉ có một tâm `Point` và `radius_m` theo mét. MultiPoint, MultiLineString và MultiPolygon được hỗ trợ cho các geometry tương ứng, không dùng MultiPoint làm circle.
 - Admin mobile chỉ xem, comment, approve hoặc request changes. Publish, rollback, import, sửa schema/style, draw và edit chỉ được thực hiện trên desktop.
 - Import CSV, XLSX, GeoJSON và KML; tối đa chính xác 25 MiB (26.214.400 byte) mỗi file; người dùng chọn dừng toàn bộ hoặc bỏ qua bản ghi lỗi.
@@ -85,30 +85,30 @@ API, schema, Docker, CI và deployment được thiết kế để bổ sung l�
 
 ## 6. Persona và nhu cầu công việc
 
-| Persona | Jobs to be done |
-| --- | --- |
-| Người dân | “Khi cần tra cứu ranh giới hoặc địa điểm hành chính, tôi muốn tìm và xem dữ liệu chính thức trên một bản đồ dễ hiểu.” |
-| Editor | “Khi dữ liệu thay đổi, tôi muốn vẽ, sửa hoặc import vào bản nháp mà không làm thay đổi dữ liệu đang công khai.” |
-| Reviewer | “Khi nhận bản nháp, tôi muốn xem diff, lỗi hình học và metadata để yêu cầu sửa hoặc phê duyệt.” |
-| Publisher | “Khi revision đã được duyệt, tôi muốn xuất bản nguyên tử, có audit và có thể rollback publication.” |
+| Persona      | Jobs to be done                                                                                                                                                                    |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Người dân    | “Khi cần tra cứu ranh giới hoặc địa điểm hành chính, tôi muốn tìm và xem dữ liệu chính thức trên một bản đồ dễ hiểu.”                                                              |
+| Editor       | “Khi dữ liệu thay đổi, tôi muốn vẽ, sửa hoặc import vào bản nháp mà không làm thay đổi dữ liệu đang công khai.”                                                                    |
+| Reviewer     | “Khi nhận bản nháp, tôi muốn xem diff, lỗi hình học và metadata để yêu cầu sửa hoặc phê duyệt.”                                                                                    |
+| Publisher    | “Khi revision đã được duyệt, tôi muốn xuất bản nguyên tử, có audit và có thể rollback publication.”                                                                                |
 | System Admin | “Tôi muốn quản lý toàn bộ hệ thống và có thể thực hiện tác vụ nội dung khi cần, nhưng mọi transition vẫn phải hợp lệ và không được tự duyệt/tự publish revision mình đã tham gia.” |
-| Vận hành | “Tôi muốn biết API, worker và storage có khỏe không, migration có an toàn không và bản phát hành có thể rollback ở mức ứng dụng.” |
+| Vận hành     | “Tôi muốn biết API, worker và storage có khỏe không, migration có an toàn không và bản phát hành có thể rollback ở mức ứng dụng.”                                                  |
 
 ## 7. Thuật ngữ miền
 
-| Thuật ngữ | Định nghĩa |
-| --- | --- |
-| Layer | Định danh logic ổn định của một tập dữ liệu không gian. |
-| Layer group | Nhóm có thứ tự chứa các layer trong catalog, có nhãn, mô tả và trạng thái hiển thị mặc định. |
-| Layer revision | Phiên bản cấu hình/schema/style của layer trong một vòng biên tập. |
-| Feature | Định danh logic ổn định của một đối tượng, dùng UUID server. |
-| Feature version | Bản ghi bất biến chứa geometry và properties tại một thời điểm. |
-| Draft | Không gian làm việc chưa công khai. |
-| Publication snapshot | Snapshot đã được duyệt, tối ưu cho public read và được publish nguyên tử. |
-| Field schema | Khai báo `key`, `label`, `type`, `icon`, validation, public/private, searchable/filterable. |
-| External identity | Cặp `(externalSource, externalId)` ổn định trong phạm vi layer; dùng để đối sánh upsert khi không có `featureId`. |
-| Popup config | Cấu hình có schema xác định field, thứ tự và cách hiển thị feature detail; không nhận expression/HTML tùy ý. |
-| Recovery buffer | Bản lưu cục bộ trong Dexie giúp khôi phục thay đổi chưa sync, không thay backend source of truth. |
+| Thuật ngữ            | Định nghĩa                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Layer                | Định danh logic ổn định của một tập dữ liệu không gian.                                                           |
+| Layer group          | Nhóm có thứ tự chứa các layer trong catalog, có nhãn, mô tả và trạng thái hiển thị mặc định.                      |
+| Layer revision       | Phiên bản cấu hình/schema/style của layer trong một vòng biên tập.                                                |
+| Feature              | Định danh logic ổn định của một đối tượng, dùng UUID server.                                                      |
+| Feature version      | Bản ghi bất biến chứa geometry và properties tại một thời điểm.                                                   |
+| Draft                | Không gian làm việc chưa công khai.                                                                               |
+| Publication snapshot | Snapshot đã được duyệt, tối ưu cho public read và được publish nguyên tử.                                         |
+| Field schema         | Khai báo `key`, `label`, `type`, `icon`, validation, public/private, searchable/filterable.                       |
+| External identity    | Cặp `(externalSource, externalId)` ổn định trong phạm vi layer; dùng để đối sánh upsert khi không có `featureId`. |
+| Popup config         | Cấu hình có schema xác định field, thứ tự và cách hiển thị feature detail; không nhận expression/HTML tùy ý.      |
+| Recovery buffer      | Bản lưu cục bộ trong Dexie giúp khôi phục thay đổi chưa sync, không thay backend source of truth.                 |
 
 ## 8. Phạm vi chức năng MVP
 
@@ -172,10 +172,10 @@ API, schema, Docker, CI và deployment được thiết kế để bổ sung l�
 - Không tự đăng ký công khai.
 - System Admin tạo tài khoản thủ công, gửi invite hoặc import file tài khoản.
 - Invite có token một lần, thời hạn và trạng thái; không lưu token thô.
-- MFA thuộc MVP; ưu tiên TOTP với recovery codes một lần.
+- MFA thuộc MVP nhưng là policy vận hành tùy chọn: `MFA_ENABLED=false` mặc định cấp authenticated session sau password; `true` bắt buộc TOTP/recovery. Việc tắt không xóa factor đã đăng ký.
 - Tài khoản tạo thủ công phải đổi temporary password trước khi dùng bất kỳ route admin/domain nào; backend guard trả lỗi rõ ràng cho đến khi hoàn tất.
 - Đổi password phải rotate session hiện tại và revoke toàn bộ session còn lại. Revoke-all bao gồm cả session đang gọi, xóa cookie và buộc login lại; retry tuần tự bằng cookie cũ trả `401`.
-- Password reset request luôn trả generic `202` cho cả email có/không có account, có idempotency và rate limit. Token một lần chỉ được copy/paste và gửi trong request body, không nằm trong URL/browser storage/log; confirm thành công revoke mọi authenticated/pre-auth session và yêu cầu login + MFA lại.
+- Password reset request luôn trả generic `202` cho cả email có/không có account, có idempotency và rate limit. Token một lần chỉ được copy/paste và gửi trong request body, không nằm trong URL/browser storage/log; confirm thành công revoke mọi authenticated/pre-auth session và yêu cầu đăng nhập lại theo policy MFA hiện hành.
 - Invite và password reset được gửi qua mail adapter/SMTP có retry, template và audit; token bí mật không xuất hiện trong log hoặc event payload.
 - Mọi mutation dùng cookie phải kiểm tra CSRF token được bind với session và Origin/Referer allow-list.
 - Role hệ thống: Editor, Reviewer, Publisher, System Admin; mỗi tài khoản có đúng một role chính tại một thời điểm. Đổi role phải revoke session và separation-of-duties vẫn xét toàn bộ lịch sử participant của revision.
@@ -239,7 +239,7 @@ Các endpoint geocode/reverse geocode, nearby, find place và directions đượ
 ### UF-05 — Quản lý tài khoản
 
 1. System Admin tạo, invite hoặc import tài khoản.
-2. Mail adapter gửi invite/reset link một lần; người nhận đặt mật khẩu, đăng ký MFA và nhận recovery codes.
+2. Mail adapter gửi invite/reset link một lần; người nhận đặt mật khẩu rồi đăng ký MFA và nhận recovery codes khi policy MFA đang bật.
 3. System Admin gán role, thu hồi session hoặc vô hiệu hóa tài khoản.
 4. Mọi thao tác được audit; System Admin có thể thực hiện mọi capability nhưng vẫn không được bypass state/separation-of-duties của content workflow.
 
@@ -291,7 +291,7 @@ Các endpoint geocode/reverse geocode, nearby, find place và directions đượ
 ### Auth, role và workflow
 
 - **FR-AUT-001:** Không có public registration; System Admin tạo manual/invite/import account.
-- **FR-AUT-002:** Admin phải dùng MFA; TOTP/recovery-code lifecycle phải đầy đủ.
+- **FR-AUT-002:** TOTP/recovery-code lifecycle phải đầy đủ khi `MFA_ENABLED=true`; cờ mặc định `false`, khi tắt login/bootstrap/invite cấp authenticated session trực tiếp và không xóa factor đã lưu.
 - **FR-AUT-003:** Session phải có revoke, expiry, secure cookie và login rate limit.
 - **FR-AUT-004:** Mọi admin mutation dùng cookie phải xác minh CSRF token bind với session và Origin/Referer allow-list.
 - **FR-AUT-005:** Password change/reset, invite expiry/revoke/accept, session revoke và account disable phải có lifecycle hoàn chỉnh và audit.
@@ -355,16 +355,16 @@ Artifact được chọn và các màn hình derive, đều xuất phát từ Di
 
 ## 13. Chỉ số thành công MVP
 
-| Chỉ số | Mục tiêu ban đầu |
-| --- | --- |
-| Dữ liệu v1 | 100% layer thuộc manifest được nhập hoặc có biên bản loại trừ; count/checksum/geometry report được ký xác nhận |
-| Workflow | 100% publication có Editor, Reviewer khác tác giả, Publisher và audit reason |
-| Rò rỉ dữ liệu | 0 field/attachment private xuất hiện trong API public, MVT/GeoJSON, search hoặc cache |
-| Import | 100% fixture hợp lệ của 4 format import thành công; fixture biên 25 MiB/record/vertex/XLSX/property/issue report và atomic/skip-invalid có kết quả xác định |
-| Crash recovery | Draft chưa sync có thể restore sau reload/crash; conflict không gây silent data loss trong E2E |
-| Public map | Người dùng hoàn tất bật layer → tìm → mở detail trên desktop/mobile trong E2E chuẩn |
-| Accessibility | 0 lỗi axe mức critical/serious trên các flow ngoài canvas được kiểm thử |
-| Release | Fresh Docker environment migrate/seed/test được; Coolify smoke test và app rollback runbook được diễn tập |
+| Chỉ số         | Mục tiêu ban đầu                                                                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dữ liệu v1     | 100% layer thuộc manifest được nhập hoặc có biên bản loại trừ; count/checksum/geometry report được ký xác nhận                                              |
+| Workflow       | 100% publication có Editor, Reviewer khác tác giả, Publisher và audit reason                                                                                |
+| Rò rỉ dữ liệu  | 0 field/attachment private xuất hiện trong API public, MVT/GeoJSON, search hoặc cache                                                                       |
+| Import         | 100% fixture hợp lệ của 4 format import thành công; fixture biên 25 MiB/record/vertex/XLSX/property/issue report và atomic/skip-invalid có kết quả xác định |
+| Crash recovery | Draft chưa sync có thể restore sau reload/crash; conflict không gây silent data loss trong E2E                                                              |
+| Public map     | Người dùng hoàn tất bật layer → tìm → mở detail trên desktop/mobile trong E2E chuẩn                                                                         |
+| Accessibility  | 0 lỗi axe mức critical/serious trên các flow ngoài canvas được kiểm thử                                                                                     |
+| Release        | Fresh Docker environment migrate/seed/test được; Coolify smoke test và app rollback runbook được diễn tập                                                   |
 
 ## 14. Giả định và ràng buộc
 
@@ -378,18 +378,18 @@ Artifact được chọn và các màn hình derive, đều xuất phát từ Di
 
 ## 15. Rủi ro sản phẩm chính
 
-| Rủi ro | Tác động | Giảm thiểu |
-| --- | --- | --- |
-| Không có backup | Data loss/corruption không thể phục hồi đầy đủ | Ghi accepted risk trong release sign-off; dùng immutable revisions/snapshots và migration không phá hủy, nhưng không quảng bá đây là backup |
-| Không có external identity ổn định | Import lại tạo trùng dù server cấp UUID | Cho map `featureId` hoặc `(externalSource, externalId)`; UI giải thích rõ upsert thiếu key hoạt động như append |
-| Mixed/multi geometry phức tạp | Render, edit và validation sai | Allow-list theo layer; fixture cho từng type; technical spike Terra Draw trước implementation |
-| Dataset/import lớn | Browser/worker treo hoặc payload quá lớn | bbox/zoom, clustering/MVT, worker streaming và guardrail 25 MiB/100.000 record/100.000 vertex mỗi feature/2.000.000 vertex tổng/250 MiB/64 KiB |
-| Dexie và server lệch | Ghi đè dữ liệu mới hoặc restore sai | Revision/version fingerprint, optimistic lock, compare-and-confirm flow |
-| Workflow bị bypass | Dữ liệu chưa duyệt xuất hiện công khai | Policy ở backend, deny tests, immutable review event, atomic active snapshot |
-| Field private bị lộ | Sự cố bảo mật | Public projection allow-list tại query/serializer và automated leakage tests |
-| Geo Service không ổn định | Search chậm hoặc lỗi | Backend adapter, timeout/circuit breaker, nội bộ vẫn trả kết quả |
-| Mapbox token/cost | Lộ token hoặc chi phí tăng | URL-restricted public tokens, usage monitoring, no secret token in client |
-| Mobile admin kỳ vọng sai | Mutation có tác động cao trên màn hình nhỏ | Mobile chỉ view/comment/approve/request changes; desktop-only cho publish/rollback/import/schema/draw/edit |
+| Rủi ro                             | Tác động                                       | Giảm thiểu                                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Không có backup                    | Data loss/corruption không thể phục hồi đầy đủ | Ghi accepted risk trong release sign-off; dùng immutable revisions/snapshots và migration không phá hủy, nhưng không quảng bá đây là backup    |
+| Không có external identity ổn định | Import lại tạo trùng dù server cấp UUID        | Cho map `featureId` hoặc `(externalSource, externalId)`; UI giải thích rõ upsert thiếu key hoạt động như append                                |
+| Mixed/multi geometry phức tạp      | Render, edit và validation sai                 | Allow-list theo layer; fixture cho từng type; technical spike Terra Draw trước implementation                                                  |
+| Dataset/import lớn                 | Browser/worker treo hoặc payload quá lớn       | bbox/zoom, clustering/MVT, worker streaming và guardrail 25 MiB/100.000 record/100.000 vertex mỗi feature/2.000.000 vertex tổng/250 MiB/64 KiB |
+| Dexie và server lệch               | Ghi đè dữ liệu mới hoặc restore sai            | Revision/version fingerprint, optimistic lock, compare-and-confirm flow                                                                        |
+| Workflow bị bypass                 | Dữ liệu chưa duyệt xuất hiện công khai         | Policy ở backend, deny tests, immutable review event, atomic active snapshot                                                                   |
+| Field private bị lộ                | Sự cố bảo mật                                  | Public projection allow-list tại query/serializer và automated leakage tests                                                                   |
+| Geo Service không ổn định          | Search chậm hoặc lỗi                           | Backend adapter, timeout/circuit breaker, nội bộ vẫn trả kết quả                                                                               |
+| Mapbox token/cost                  | Lộ token hoặc chi phí tăng                     | URL-restricted public tokens, usage monitoring, no secret token in client                                                                      |
+| Mobile admin kỳ vọng sai           | Mutation có tác động cao trên màn hình nhỏ     | Mobile chỉ view/comment/approve/request changes; desktop-only cho publish/rollback/import/schema/draw/edit                                     |
 
 ## 16. Điều kiện chấp nhận sản phẩm
 
@@ -411,10 +411,10 @@ MVP chỉ được coi là chấp nhận khi:
 
 ## 17. Truy vết cấp cao
 
-| Mục tiêu | Requirement chính | Bằng chứng chấp nhận |
-| --- | --- | --- |
-| G-01 | FR-PUB-001..010, FR-EXT-001..003 | Public Playwright, contract tests, partial-failure test |
-| G-02 | FR-LYR-001..007, FR-ATT-001..004 | Admin/attachment E2E và schema/geometry integration tests |
-| G-03 | FR-AUT-001..006, FR-WFL-001..007 | Auth lifecycle, RBAC deny matrix, successor-draft, publish/rollback E2E, audit assertions |
-| G-04 | FR-EDT-001..006, FR-IMP-001..008 | Terra Draw/Dexie E2E và import fixture/limit suite |
-| G-05 | NFR-DAT, NFR-SCL, NFR-OPS | Migration CI, bbox/MVT tests, Docker/Coolify smoke |
+| Mục tiêu | Requirement chính                | Bằng chứng chấp nhận                                                                      |
+| -------- | -------------------------------- | ----------------------------------------------------------------------------------------- |
+| G-01     | FR-PUB-001..010, FR-EXT-001..003 | Public Playwright, contract tests, partial-failure test                                   |
+| G-02     | FR-LYR-001..007, FR-ATT-001..004 | Admin/attachment E2E và schema/geometry integration tests                                 |
+| G-03     | FR-AUT-001..006, FR-WFL-001..007 | Auth lifecycle, RBAC deny matrix, successor-draft, publish/rollback E2E, audit assertions |
+| G-04     | FR-EDT-001..006, FR-IMP-001..008 | Terra Draw/Dexie E2E và import fixture/limit suite                                        |
+| G-05     | NFR-DAT, NFR-SCL, NFR-OPS        | Migration CI, bbox/MVT tests, Docker/Coolify smoke                                        |

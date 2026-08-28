@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { DataSource, type EntityManager, IsNull } from 'typeorm';
 import { CryptoService } from '../common/crypto/crypto.service';
@@ -81,6 +82,7 @@ export class AdminIdentityService {
     private readonly crypto: CryptoService,
     private readonly idempotency: IdempotencyService,
     private readonly rateLimits: IdentityRateLimitService,
+    private readonly config: ConfigService,
   ) {}
 
   async listUsers(query: ListUsersQueryDto) {
@@ -341,6 +343,9 @@ export class AdminIdentityService {
     idempotencyKey: string,
     ip?: string,
   ) {
+    if (!(this.config.get<boolean>('app.mfaEnabled') ?? false)) {
+      throw new AppException(409, 'MFA_DISABLED', 'Xác thực đa yếu tố đang được tắt.');
+    }
     if (actorId === userId) this.throwSelfSecurityMutation();
     const requestDigest = this.idempotency.digest({ userId, expectedVersion, dto });
     return this.dataSource.transaction(async (manager) => {

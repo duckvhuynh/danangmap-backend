@@ -5,6 +5,7 @@ export const configuration = () => ({
     version: process.env.APP_VERSION ?? '0.1.0',
     frontendOrigins: process.env.FRONTEND_ORIGINS ?? 'http://localhost:3000',
     cookieSecure: process.env.COOKIE_SECURE === 'true',
+    mfaEnabled: process.env.MFA_ENABLED === 'true',
     mfaTotpIssuer: process.env.MFA_TOTP_ISSUER ?? 'DanangMap',
     initialAdminBootstrapToken: process.env.INITIAL_ADMIN_BOOTSTRAP_TOKEN || undefined,
     trustProxyHops: Number(process.env.TRUST_PROXY_HOPS ?? 0),

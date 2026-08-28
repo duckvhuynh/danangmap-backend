@@ -35,6 +35,7 @@ services:
       file: compose.yml
       service: api
     environment:
+      MFA_ENABLED: 'true'
       # Canonical Docker tests upload from another service on this network. Host-run
       # browser tests can override this with DANANGMAP_E2E_MINIO_PUBLIC_ENDPOINT=localhost.
       MINIO_PUBLIC_ENDPOINT: ${DANANGMAP_E2E_MINIO_PUBLIC_ENDPOINT:-minio}
@@ -115,6 +116,7 @@ services:
       FRONTEND_ORIGINS: http://localhost:3000
       COOKIE_SECURE: 'false'
       API_COOKIE_SECURE: 'false'
+      MFA_ENABLED: 'true'
       MFA_TOTP_ISSUER: DanangMap
       SEED_ADMIN_PASSWORD: ChangeMe-Admin-2026!
       SEED_EDITOR_PASSWORD: ChangeMe-Editor-2026!

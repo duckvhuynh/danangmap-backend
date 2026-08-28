@@ -66,6 +66,12 @@ import { AuthService } from './auth.service';
 import { PasswordSecurityService } from './password-security.service';
 import { FirstAdminBootstrapService } from './first-admin-bootstrap.service';
 
+interface AuthTransitionCookies {
+  sessionKind: 'preauth' | 'authenticated';
+  token: string;
+  csrfToken: string;
+}
+
 @ApiTags('authentication')
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
@@ -108,7 +114,7 @@ export class AuthController {
   @ApiOperation({
     operationId: 'bootstrapSystemAdmin',
     description:
-      'Creates the only first System Admin and returns an MFA-enrollment pre-auth challenge. The bootstrap token is never returned or persisted.',
+      'Creates the only first System Admin. Returns an authenticated session when MFA is disabled, otherwise an MFA-enrollment pre-auth challenge. The bootstrap token is never returned or persisted.',
   })
   @apiJsonResponse(201, loginResultSchema)
   @apiProblemResponse(401, ['BOOTSTRAP_TOKEN_INVALID'])
@@ -128,8 +134,7 @@ export class AuthController {
       bootstrapToken,
       this.metadata(request),
     );
-    response.cookie(this.preauthCookie, result.token, this.cookieOptions(5 * 60_000));
-    this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
+    this.setAuthTransitionCookies(response, result);
     return result.data;
   }
 
@@ -146,8 +151,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.auth.login(dto, this.metadata(request));
-    response.cookie(this.preauthCookie, result.token, this.cookieOptions(5 * 60_000));
-    this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
+    this.setAuthTransitionCookies(response, result);
     return result.data;
   }
 
@@ -172,8 +176,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.auth.acceptInvite(dto, this.metadata(request));
-    response.cookie(this.preauthCookie, result.token, this.cookieOptions(5 * 60_000));
-    this.setCsrfCookie(response, result.csrfToken, 5 * 60_000);
+    this.setAuthTransitionCookies(response, result);
     return result.data;
   }
 
@@ -184,6 +187,7 @@ export class AuthController {
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'verifyMfa' })
   @apiJsonResponse(200, authPrincipalSchema)
+  @apiProblemResponse(409, ['MFA_DISABLED'])
   async verifyMfa(
     @Body() dto: VerifyMfaDto,
     @Req() request: RequestWithContext,
@@ -210,6 +214,7 @@ export class AuthController {
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'startMfaEnrollment' })
   @apiJsonResponse(200, mfaEnrollmentSchema)
+  @apiProblemResponse(409, ['MFA_DISABLED'])
   enrollMfa(
     @Req() request: RequestWithContext,
     @Principal() principal: NonNullable<RequestWithContext['principal']>,
@@ -224,6 +229,7 @@ export class AuthController {
   @ApiHeader({ name: 'X-CSRF-Token', required: true })
   @ApiOperation({ operationId: 'confirmMfaEnrollment' })
   @apiJsonResponse(200, mfaEnrollmentConfirmationSchema)
+  @apiProblemResponse(409, ['MFA_DISABLED'])
   async confirmMfaEnrollment(
     @Body() dto: ConfirmMfaEnrollmentDto,
     @Req() request: RequestWithContext,
@@ -258,6 +264,7 @@ export class AuthController {
       'Replaces every recovery code after password and MFA re-authentication. Codes are returned only to the authenticated owner and never stored in an idempotency receipt.',
   })
   @apiJsonResponse(200, recoveryCodesRegenerationSchema)
+  @apiProblemResponse(409, ['MFA_DISABLED'])
   regenerateRecoveryCodes(
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() dto: RegenerateRecoveryCodesDto,
@@ -483,6 +490,18 @@ export class AuthController {
       path: '/',
       maxAge,
     };
+  }
+
+  private setAuthTransitionCookies(response: Response, result: AuthTransitionCookies): void {
+    const maxAge = result.sessionKind === 'authenticated' ? 8 * 60 * 60_000 : 5 * 60_000;
+    if (result.sessionKind === 'authenticated') {
+      response.clearCookie(this.preauthCookie, this.cookieOptions(0));
+      response.cookie(this.sessionCookie, result.token, this.cookieOptions(maxAge));
+    } else {
+      response.clearCookie(this.sessionCookie, this.cookieOptions(0));
+      response.cookie(this.preauthCookie, result.token, this.cookieOptions(maxAge));
+    }
+    this.setCsrfCookie(response, result.csrfToken, maxAge);
   }
 
   private setCsrfCookie(response: Response, token: string, maxAge: number): void {

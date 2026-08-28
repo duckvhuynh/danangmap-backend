@@ -27,7 +27,7 @@ const metadata = {
 };
 
 describe('FirstAdminBootstrapService', () => {
-  function harness(token: string | undefined = configuredToken) {
+  function harness(token: string | undefined = configuredToken, mfaEnabled = false) {
     const manager = {
       query: jest
         .fn()
@@ -51,7 +51,11 @@ describe('FirstAdminBootstrapService', () => {
       ),
     } as unknown as DataSource;
     const config = {
-      get: jest.fn((key: string) => (key === 'app.initialAdminBootstrapToken' ? token : undefined)),
+      get: jest.fn((key: string) => {
+        if (key === 'app.initialAdminBootstrapToken') return token;
+        if (key === 'app.mfaEnabled') return mfaEnabled;
+        return undefined;
+      }),
     } as unknown as ConfigService;
     const crypto = {
       randomToken: jest.fn().mockReturnValueOnce('preauth-token').mockReturnValueOnce('csrf-token'),
@@ -101,9 +105,10 @@ describe('FirstAdminBootstrapService', () => {
     expect(JSON.stringify((audit.append as jest.Mock).mock.calls)).not.toContain('wrong-token');
   });
 
-  it('creates the sole System Admin under an advisory lock and returns a pre-auth challenge', async () => {
-    const { service, dataSource, manager, audit } = harness();
+  it('creates the sole System Admin under an advisory lock and returns a pre-auth challenge when MFA is enabled', async () => {
+    const { service, dataSource, manager, audit } = harness(configuredToken, true);
     await expect(service.createSystemAdmin(dto, configuredToken, metadata)).resolves.toEqual({
+      sessionKind: 'preauth',
       token: 'preauth-token',
       csrfToken: 'csrf-token',
       data: {
@@ -131,6 +136,28 @@ describe('FirstAdminBootstrapService', () => {
     expect(transactionalAudit).toContain('auth.bootstrap_system_admin_created');
     expect(transactionalAudit).not.toContain(dto.password);
     expect(transactionalAudit).not.toContain(configuredToken);
+  });
+
+  it('creates an authenticated session directly when MFA is disabled by default', async () => {
+    const { service, manager } = harness();
+    await expect(service.createSystemAdmin(dto, configuredToken, metadata)).resolves.toEqual({
+      sessionKind: 'authenticated',
+      token: 'preauth-token',
+      csrfToken: 'csrf-token',
+      data: {
+        status: 'authenticated',
+        mfaEnrollmentRequired: false,
+        principal: expect.objectContaining({
+          role: 'system_admin',
+          mfaEnabled: false,
+          mustChangePassword: false,
+        }),
+      },
+    });
+    expect(manager.save).toHaveBeenCalledWith(
+      AdminSessionEntity,
+      expect.objectContaining({ kind: 'authenticated' }),
+    );
   });
 
   it('rejects a password containing the username before Argon2 or a transaction', async () => {

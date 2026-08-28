@@ -21,6 +21,7 @@ const BOOTSTRAP_LOCK_KEY = 'danangmap:identity:first-system-admin-bootstrap:v1';
 @Injectable()
 export class FirstAdminBootstrapService {
   private readonly configuredToken: string | undefined;
+  private readonly mfaEnabled: boolean;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -30,6 +31,7 @@ export class FirstAdminBootstrapService {
     private readonly rateLimits: IdentityRateLimitService,
   ) {
     this.configuredToken = config.get<string>('app.initialAdminBootstrapToken');
+    this.mfaEnabled = config.get<boolean>('app.mfaEnabled') ?? false;
   }
 
   async status(): Promise<{ available: boolean }> {
@@ -114,19 +116,33 @@ export class FirstAdminBootstrapService {
           lockedUntil: null,
           disabledAt: null,
         });
-        const challenge = await this.createPreauthSession(manager, user.id, metadata);
         await manager.query(
           `INSERT INTO audit_logs(actor_id,actor_role,action,resource_type,resource_id,request_id,metadata)
            VALUES($1,'system_admin','auth.bootstrap_system_admin_created','user',$1,$2,$3::jsonb)`,
           [user.id, metadata.requestId, JSON.stringify({ outcome: 'succeeded' })],
         );
+        if (!this.mfaEnabled) {
+          const session = await this.createAuthenticatedSession(manager, user.id, metadata);
+          return {
+            sessionKind: 'authenticated' as const,
+            token: session.token,
+            csrfToken: session.csrfToken,
+            data: {
+              status: 'authenticated' as const,
+              mfaEnrollmentRequired: false,
+              principal: this.toPrincipal(user),
+            },
+          };
+        }
+        const session = await this.createPreauthSession(manager, user.id, metadata);
         return {
-          token: challenge.token,
-          csrfToken: challenge.csrfToken,
+          sessionKind: 'preauth' as const,
+          token: session.token,
+          csrfToken: session.csrfToken,
           data: {
             status: 'mfa_required' as const,
             mfaEnrollmentRequired: true,
-            challengeExpiresAt: challenge.expiresAt.toISOString(),
+            challengeExpiresAt: session.expiresAt.toISOString(),
           },
         };
       });
@@ -187,6 +203,41 @@ export class FirstAdminBootstrapService {
       mfaLockedUntil: null,
     });
     return { token, csrfToken, expiresAt };
+  }
+
+  private async createAuthenticatedSession(
+    manager: EntityManager,
+    userId: string,
+    metadata: RequestMetadata,
+  ) {
+    const token = this.crypto.randomToken();
+    const csrfToken = this.crypto.randomToken(24);
+    await manager.save(AdminSessionEntity, {
+      userId,
+      tokenHash: this.crypto.digest(token),
+      csrfHash: this.crypto.digest(csrfToken),
+      kind: 'authenticated',
+      expiresAt: new Date(Date.now() + 8 * 60 * 60_000),
+      revokedAt: null,
+      ipHash: metadata.ip ? this.crypto.digest(metadata.ip) : null,
+      userAgent: metadata.userAgent?.slice(0, 512) ?? null,
+      mfaFailedAttempts: 0,
+      mfaLockedUntil: null,
+    });
+    return { token, csrfToken };
+  }
+
+  private toPrincipal(user: UserEntity) {
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName,
+      role: user.role,
+      status: user.status,
+      mfaEnabled: false,
+      mustChangePassword: user.mustChangePassword,
+    };
   }
 
   private async appendFailureAudit(requestId: string, reason: string): Promise<void> {

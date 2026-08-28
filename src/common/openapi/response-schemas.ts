@@ -221,7 +221,7 @@ export const inviteInspectionSchema: SchemaObject = {
     maskedEmail: { type: 'string' },
     role: { type: 'string', enum: ['editor', 'reviewer', 'publisher', 'system_admin'] },
     expiresAt: dateTime,
-    requiresMfaEnrollment: { type: 'boolean', enum: [true] },
+    requiresMfaEnrollment: { type: 'boolean' },
   },
 };
 
@@ -524,13 +524,28 @@ export const adminPasswordResetRequestResultSchema: SchemaObject = {
 };
 
 export const loginResultSchema: SchemaObject = {
-  type: 'object',
-  required: ['status', 'mfaEnrollmentRequired', 'challengeExpiresAt'],
-  properties: {
-    status: { type: 'string', enum: ['mfa_required'] },
-    mfaEnrollmentRequired: { type: 'boolean' },
-    challengeExpiresAt: dateTime,
-  },
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status', 'mfaEnrollmentRequired', 'challengeExpiresAt'],
+      properties: {
+        status: { type: 'string', enum: ['mfa_required'] },
+        mfaEnrollmentRequired: { type: 'boolean' },
+        challengeExpiresAt: dateTime,
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status', 'mfaEnrollmentRequired', 'principal'],
+      properties: {
+        status: { type: 'string', enum: ['authenticated'] },
+        mfaEnrollmentRequired: { type: 'boolean', enum: [false] },
+        principal: authPrincipalSchema,
+      },
+    },
+  ],
 };
 
 export const csrfResultSchema: SchemaObject = {

@@ -86,6 +86,7 @@ const environmentSchema = z
     ),
     FRONTEND_ORIGINS: z.string().min(1),
     COOKIE_SECURE: booleanString,
+    MFA_ENABLED: booleanString,
     MFA_TOTP_ISSUER: z.string().trim().min(1).max(100).default('DanangMap'),
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(3).default(0),
     GEO_SERVICE_BASE_URL: z.union([z.literal(''), z.string().url()]).default(''),

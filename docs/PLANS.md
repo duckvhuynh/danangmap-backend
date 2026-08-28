@@ -126,9 +126,9 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | B-008 | User/role/session schema migration | `danangmap-backend` | B-003, C-008 | Constraints/index/soft-disable/session-revoke fields đúng contract |
 | B-009 | Password login + secure cookie session | `danangmap-backend` | B-008 | Argon2id, HttpOnly/Secure/SameSite policy, rotate/revoke và allow/deny tests |
 | B-010 | Login throttling/lockout/audit | `danangmap-backend` | B-009, B-014 | Rate limit và lockout không lộ account existence; events được audit |
-| B-011 | TOTP enrollment/challenge/recovery code | `danangmap-backend` | B-009 | Secret được bảo vệ, recovery code one-time/hash, MFA-required policy test |
+| B-011 | TOTP enrollment/challenge/recovery code | `danangmap-backend` | B-009 | Secret được bảo vệ, recovery code one-time/hash, `MFA_ENABLED` mặc định false và cả hai policy path được test |
 | B-012 | Manual account directory/create/disable/role/security lifecycle | `danangmap-backend` | B-008, B-014 | Search/filter/cursor + safe detail; System Admin thao tác role/status/session/MFA/reset/invite resend qua ETag/idempotency; session bị thu hồi nguyên tử; audit redacted đầy đủ |
-| B-013 | Invite account lifecycle | `danangmap-backend` | B-011, B-012, B-059 | Token one-time/hashed/expiry, accept sets password+MFA, mail queued, replay bị từ chối |
+| B-013 | Invite account lifecycle | `danangmap-backend` | B-011, B-012, B-059 | Token one-time/hashed/expiry, accept sets password rồi áp policy MFA hiện hành, mail queued, replay bị từ chối |
 | B-014 | Append-only audit event service | `danangmap-backend` | B-003, C-008 | Actor/action/subject/reason/time/correlation ID; update/delete bị chặn ở service |
 | B-015 | Import account file | `danangmap-backend` | B-012, B-013, B-014 | Dry-run duplicate/error report; valid accounts created inactive/invite state và mail delivery theo contract |
 | B-016 | RBAC guard và permission matrix | `danangmap-backend` | B-008, C-003 | Editor/Reviewer/Publisher deny-by-default; System Admin kế thừa mọi content capability; integration tests đầy đủ |
@@ -223,7 +223,7 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 
 | ID | Công việc | Repo | Depends on | Acceptance criteria |
 | --- | --- | --- | --- | --- |
-| F-019 | Admin login + MFA screens | `danangmap-frontend` | F-002, F-004, F-047, B-011 | Password/TOTP/recovery/error/lockout states; session không lưu Dexie/localStorage |
+| F-019 | Admin login + MFA screens | `danangmap-frontend` | F-002, F-004, F-047, B-011 | Password direct-session và TOTP/recovery/error/lockout states theo server policy; session không lưu Dexie/localStorage |
 | F-020 | Role-aware admin shell | `danangmap-frontend` | F-003, F-004, F-047, B-016 | Nav/action visibility hỗ trợ UX; backend deny vẫn được xử lý rõ |
 | F-021 | Account manual/invite/import UI | `danangmap-frontend` | F-020, B-012, B-013, B-015 | Create/invite/import/disable/role flows có confirmation và report |
 | F-022 | Layer/group list, order và archive UI | `danangmap-frontend` | F-020, B-022, B-065 | Search/filter/status/count/order/default visibility; Editor/System Admin authoring; archive confirm |

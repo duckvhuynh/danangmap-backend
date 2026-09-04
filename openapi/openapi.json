@@ -18280,6 +18280,7 @@
                         "layerId",
                         "comparison",
                         "baseRevisionId",
+                        "configuration",
                         "geometry",
                         "properties",
                         "attachments",
@@ -18309,6 +18310,157 @@
                           "type": "string",
                           "format": "uuid",
                           "nullable": true
+                        },
+                        "configuration": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "changedKeys",
+                            "before",
+                            "after"
+                          ],
+                          "properties": {
+                            "changedKeys": {
+                              "type": "array",
+                              "maxItems": 7,
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "title",
+                                  "description",
+                                  "geometryMode",
+                                  "allowedGeometryKinds",
+                                  "style",
+                                  "renderConfig",
+                                  "popupConfig"
+                                ]
+                              }
+                            },
+                            "before": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "title",
+                                "description",
+                                "geometryMode",
+                                "allowedGeometryKinds",
+                                "style",
+                                "renderConfig",
+                                "popupConfig"
+                              ],
+                              "properties": {
+                                "title": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "geometryMode": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "enum": [
+                                    "point",
+                                    "circle",
+                                    "polyline",
+                                    "polygon",
+                                    "mixed"
+                                  ]
+                                },
+                                "allowedGeometryKinds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "point",
+                                      "multipoint",
+                                      "line",
+                                      "multiline",
+                                      "polygon",
+                                      "multipolygon",
+                                      "circle"
+                                    ]
+                                  }
+                                },
+                                "style": {
+                                  "type": "object",
+                                  "additionalProperties": true
+                                },
+                                "renderConfig": {
+                                  "type": "object",
+                                  "additionalProperties": true
+                                },
+                                "popupConfig": {
+                                  "type": "object",
+                                  "additionalProperties": true
+                                }
+                              },
+                              "nullable": true
+                            },
+                            "after": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "title",
+                                "description",
+                                "geometryMode",
+                                "allowedGeometryKinds",
+                                "style",
+                                "renderConfig",
+                                "popupConfig"
+                              ],
+                              "properties": {
+                                "title": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "geometryMode": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "enum": [
+                                    "point",
+                                    "circle",
+                                    "polyline",
+                                    "polygon",
+                                    "mixed"
+                                  ]
+                                },
+                                "allowedGeometryKinds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "point",
+                                      "multipoint",
+                                      "line",
+                                      "multiline",
+                                      "polygon",
+                                      "multipolygon",
+                                      "circle"
+                                    ]
+                                  }
+                                },
+                                "style": {
+                                  "type": "object",
+                                  "additionalProperties": true
+                                },
+                                "renderConfig": {
+                                  "type": "object",
+                                  "additionalProperties": true
+                                },
+                                "popupConfig": {
+                                  "type": "object",
+                                  "additionalProperties": true
+                                }
+                              }
+                            }
+                          }
                         },
                         "geometry": {
                           "type": "object",

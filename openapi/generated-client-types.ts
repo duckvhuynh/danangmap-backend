@@ -7577,6 +7577,41 @@ export interface operations {
                             comparison: "parent" | "active";
                             /** Format: uuid */
                             baseRevisionId: string | null;
+                            configuration: {
+                                changedKeys: ("title" | "description" | "geometryMode" | "allowedGeometryKinds" | "style" | "renderConfig" | "popupConfig")[];
+                                before: {
+                                    title: string | null;
+                                    description: string | null;
+                                    /** @enum {string|null} */
+                                    geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed" | null;
+                                    allowedGeometryKinds: ("point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle")[];
+                                    style: {
+                                        [key: string]: unknown;
+                                    };
+                                    renderConfig: {
+                                        [key: string]: unknown;
+                                    };
+                                    popupConfig: {
+                                        [key: string]: unknown;
+                                    };
+                                } | null;
+                                after: {
+                                    title: string | null;
+                                    description: string | null;
+                                    /** @enum {string|null} */
+                                    geometryMode: "point" | "circle" | "polyline" | "polygon" | "mixed" | null;
+                                    allowedGeometryKinds: ("point" | "multipoint" | "line" | "multiline" | "polygon" | "multipolygon" | "circle")[];
+                                    style: {
+                                        [key: string]: unknown;
+                                    };
+                                    renderConfig: {
+                                        [key: string]: unknown;
+                                    };
+                                    popupConfig: {
+                                        [key: string]: unknown;
+                                    };
+                                };
+                            };
                             geometry: {
                                 currentFeatureCount: number;
                                 baseFeatureCount: number;

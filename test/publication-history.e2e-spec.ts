@@ -184,11 +184,21 @@ describe('Publication, revision and audit history HTTP E2E', () => {
         hasMore: boolean;
         nextCursor: string;
         attachments: Record<string, unknown>;
+        configuration: {
+          changedKeys: string[];
+          before: { title: string };
+          after: { title: string };
+        };
       }>
     >(diff);
     expect(diffBody.data.entries).toHaveLength(1);
     expect(diffBody.data.hasMore).toBe(true);
     expect(diffBody.data.nextCursor).toBeTruthy();
+    expect(diffBody.data.configuration).toMatchObject({
+      changedKeys: ['title'],
+      before: { title: 'Revision 1' },
+      after: { title: 'Revision 2' },
+    });
     expect(diffBody.data.attachments).toEqual({
       available: true,
       featuresModified: 1,

@@ -10,6 +10,7 @@ import type {
   WorkflowCommentDto,
 } from '../layers/layer.dto';
 import { revisionEtag } from '../layers/etag';
+import { touchLayerAggregate } from '../layers/layer-aggregate-version';
 import {
   publicationReceiptMetadata,
   replayPublicationReceipt,
@@ -91,6 +92,7 @@ export class WorkflowService {
         `UPDATE layer_revisions SET status='in_review',submitted_at=now(),lock_version=lock_version+1,updated_at=now() WHERE id=$1`,
         [revisionId],
       );
+      await touchLayerAggregate(manager, revision.layer_id);
       await this.event(manager, revisionId, 'draft', 'in_review', actor.id, dto.summary);
       await this.audit(manager, actor, requestId, 'revision.submitted', revisionId, {
         summary: dto.summary,
@@ -133,6 +135,7 @@ export class WorkflowService {
         `UPDATE layer_revisions SET status='approved',approved_at=now(),lock_version=lock_version+1,updated_at=now() WHERE id=$1`,
         [revisionId],
       );
+      await touchLayerAggregate(manager, revision.layer_id);
       await manager.query(
         `INSERT INTO revision_participants(revision_id,user_id,participation_type)
          VALUES($1,$2,'review') ON CONFLICT DO NOTHING`,
@@ -248,6 +251,7 @@ export class WorkflowService {
            VALUES($1,$2,'review'),($3,$4,'edit') ON CONFLICT DO NOTHING`,
           [revisionId, actor.id, successorId, revision.created_by],
         );
+        await touchLayerAggregate(manager, revision.layer_id);
         await this.event(
           manager,
           revisionId,
@@ -376,6 +380,7 @@ export class WorkflowService {
         `UPDATE layer_revisions SET status='published',published_at=now(),lock_version=lock_version+1,updated_at=now() WHERE id=$1`,
         [revisionId],
       );
+      await touchLayerAggregate(manager, revision.layer_id);
       await manager.query(
         `INSERT INTO revision_participants(revision_id,user_id,participation_type)
          VALUES($1,$2,'publish') ON CONFLICT DO NOTHING`,

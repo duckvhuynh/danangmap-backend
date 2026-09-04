@@ -27,6 +27,33 @@ const geometryKind: SchemaObject = {
   type: 'string',
   enum: ['point', 'multipoint', 'line', 'multiline', 'polygon', 'multipolygon', 'circle'],
 };
+const geometryMode: SchemaObject = {
+  type: 'string',
+  nullable: true,
+  enum: ['point', 'circle', 'polyline', 'polygon', 'mixed'],
+};
+const revisionConfigurationStateSchema: SchemaObject = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'title',
+    'description',
+    'geometryMode',
+    'allowedGeometryKinds',
+    'style',
+    'renderConfig',
+    'popupConfig',
+  ],
+  properties: {
+    title: nullableString,
+    description: nullableString,
+    geometryMode,
+    allowedGeometryKinds: { type: 'array', items: geometryKind },
+    style: { type: 'object', additionalProperties: true },
+    renderConfig: { type: 'object', additionalProperties: true },
+    popupConfig: { type: 'object', additionalProperties: true },
+  },
+};
 
 const pageProperties: Record<string, SchemaObject> = {
   nextCursor: nullableString,
@@ -336,6 +363,7 @@ export const revisionDiffSchema: SchemaObject = {
     'layerId',
     'comparison',
     'baseRevisionId',
+    'configuration',
     'geometry',
     'properties',
     'attachments',
@@ -350,6 +378,32 @@ export const revisionDiffSchema: SchemaObject = {
     layerId: uuid,
     comparison: { type: 'string', enum: ['parent', 'active'] },
     baseRevisionId: nullableUuid,
+    configuration: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['changedKeys', 'before', 'after'],
+      properties: {
+        changedKeys: {
+          type: 'array',
+          maxItems: 7,
+          uniqueItems: true,
+          items: {
+            type: 'string',
+            enum: [
+              'title',
+              'description',
+              'geometryMode',
+              'allowedGeometryKinds',
+              'style',
+              'renderConfig',
+              'popupConfig',
+            ],
+          },
+        },
+        before: { ...revisionConfigurationStateSchema, nullable: true },
+        after: revisionConfigurationStateSchema,
+      },
+    },
     geometry: {
       type: 'object',
       additionalProperties: false,

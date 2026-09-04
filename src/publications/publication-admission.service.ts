@@ -4,6 +4,7 @@ import { DataSource, type EntityManager } from 'typeorm';
 import { AppException } from '../common/http/app.exception';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import type { PublishRevisionDto } from '../layers/layer.dto';
+import { touchLayerAggregate } from '../layers/layer-aggregate-version';
 import type { PublicationJobView } from './publication.dto';
 import { PublicationFingerprintService } from './publication-fingerprint.service';
 import { PublicationJobRepository } from './publication-job.repository';
@@ -110,6 +111,7 @@ export class PublicationAdmissionService {
          SET status='publishing',lock_version=$2,updated_at=now() WHERE id=$1`,
         [revisionId, nextRevisionLockVersion],
       );
+      await touchLayerAggregate(manager, revision.layer_id);
       const row = await this.repository.insertAdmission(manager, {
         layerId: revision.layer_id,
         revisionId,

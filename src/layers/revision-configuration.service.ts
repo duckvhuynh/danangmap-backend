@@ -5,6 +5,7 @@ import { AppException } from '../common/http/app.exception';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import type { GeometryKind } from '../domain/enums';
 import { requireRevisionVersion, revisionEtag } from './etag';
+import { touchLayerAggregate } from './layer-aggregate-version';
 import type { LayerFieldDto, RevisionConfigurationDto } from './layer.dto';
 import { LayerFieldEntity, LayerRevisionEntity } from './layer.entities';
 import { LayerSchemaService } from './layer-schema.service';
@@ -150,6 +151,7 @@ export class RevisionConfigurationService {
            VALUES($1,$2,'edit') ON CONFLICT DO NOTHING`,
           [draftId, actor.id],
         );
+        await touchLayerAggregate(manager, layerId);
         const draftRevision = await manager.findOneByOrFail(LayerRevisionEntity, { id: draftId });
         const etag = revisionEtag(draftId, draftRevision.lockVersion);
         const data = {
@@ -279,6 +281,7 @@ export class RevisionConfigurationService {
          VALUES($1,$2,'edit') ON CONFLICT DO NOTHING`,
         [revisionId, actor.id],
       );
+      await touchLayerAggregate(manager, revision!.layerId);
 
       const after = this.configurationShape(savedRevision, savedFields);
       await this.audit(manager, actor, requestId, revisionId, before, after, impact);

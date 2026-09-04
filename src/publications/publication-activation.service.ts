@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, type EntityManager } from 'typeorm';
 import { CryptoService } from '../common/crypto/crypto.service';
+import { touchLayerAggregate } from '../layers/layer-aggregate-version';
 import { PublicationFingerprintService } from './publication-fingerprint.service';
 import type { PublicationFailureCode } from './publication-worker.errors';
 
@@ -143,6 +144,7 @@ export class PublicationActivationService {
          WHERE id=$1`,
         [job.revision_id],
       );
+      await touchLayerAggregate(manager, job.layer_id);
       await manager.query(
         `INSERT INTO revision_participants(revision_id,user_id,participation_type)
          VALUES($1,$2,'publish') ON CONFLICT DO NOTHING`,
@@ -227,6 +229,7 @@ export class PublicationActivationService {
            VALUES($1,'publishing','approved',$2,$3)`,
           [job.revision_id, job.requested_by, code],
         );
+        await touchLayerAggregate(manager, job.layer_id);
       }
       await manager.query(
         `UPDATE publication_jobs

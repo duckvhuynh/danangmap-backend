@@ -907,6 +907,8 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
 
     const publishedRevision = await adminGet(`/api/v1/admin/revisions/${revisionId}`);
     const publishedEtag = requiredHeader(publishedRevision, 'etag');
+    const layerBeforeSuccessor = await adminGet(`/api/v1/admin/layers/${created.layer.id}`);
+    const layerEtagBeforeSuccessor = requiredHeader(layerBeforeSuccessor, 'etag');
     await expectProblem(
       mutate(editor, `/api/v1/admin/revisions/${revisionId}/config`, safeConfig, {
         method: 'PUT',
@@ -989,6 +991,24 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       },
     });
     expect(requiredHeader(successor, 'etag')).toBe(successorData.draftEtag);
+    const layerWithSuccessor = await fetch(
+      `${apiBaseUrl}/api/v1/admin/layers/${created.layer.id}`,
+      {
+        headers: {
+          Cookie: editor.cookie,
+          'If-None-Match': layerEtagBeforeSuccessor,
+        },
+      },
+    );
+    expect(layerWithSuccessor.status).toBe(200);
+    expect(requiredHeader(layerWithSuccessor, 'etag')).not.toBe(layerEtagBeforeSuccessor);
+    expect(
+      (await json<Envelope<{ draftRevision: { id: string; status: string } }>>(layerWithSuccessor))
+        .data.draftRevision,
+    ).toMatchObject({
+      id: successorData.draftRevision.id,
+      status: 'draft',
+    });
     const successorReplay = await mutate(
       editor,
       `/api/v1/admin/layers/${created.layer.id}/drafts`,
@@ -1052,6 +1072,8 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
 
     const requestChangesKey = randomUUID();
     const crossPathCreateKey = randomUUID();
+    const layerBeforeRequestedChanges = await adminGet(`/api/v1/admin/layers/${created.layer.id}`);
+    const layerEtagBeforeRequestedChanges = requiredHeader(layerBeforeRequestedChanges, 'etag');
     const [requestedChanges, rejectedCrossPathCreate] = await Promise.all([
       mutate(
         reviewer,
@@ -1070,6 +1092,26 @@ describe('Dynamic layer lifecycle HTTP E2E', () => {
       await json<Envelope<{ draftRevisionId: string; draftEtag: string }>>(requestedChanges)
     ).data;
     revisionIds.push(requestedChangesData.draftRevisionId);
+    const layerWithRequestedChanges = await fetch(
+      `${apiBaseUrl}/api/v1/admin/layers/${created.layer.id}`,
+      {
+        headers: {
+          Cookie: editor.cookie,
+          'If-None-Match': layerEtagBeforeRequestedChanges,
+        },
+      },
+    );
+    expect(layerWithRequestedChanges.status).toBe(200);
+    expect(requiredHeader(layerWithRequestedChanges, 'etag')).not.toBe(
+      layerEtagBeforeRequestedChanges,
+    );
+    expect(
+      (
+        await json<Envelope<{ draftRevision: { id: string; status: string } }>>(
+          layerWithRequestedChanges,
+        )
+      ).data.draftRevision,
+    ).toMatchObject({ id: requestedChangesData.draftRevisionId, status: 'draft' });
     const activeDraftRows = (await AppDataSource.query(
       `SELECT id FROM layer_revisions WHERE layer_id=$1 AND status='draft'`,
       [created.layer.id],

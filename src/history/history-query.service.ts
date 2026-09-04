@@ -403,6 +403,46 @@ export class HistoryQueryService {
         const identity = identities[0];
         if (!identity) throw new AppException(404, 'NOT_FOUND', 'Không tìm thấy revision.');
 
+        const configurationRows = (await manager.query(
+          `SELECT
+             ARRAY_REMOVE(ARRAY[
+               CASE WHEN current.title IS DISTINCT FROM base.title THEN 'title' END,
+               CASE WHEN current.description IS DISTINCT FROM base.description THEN 'description' END,
+               CASE WHEN current.geometry_mode IS DISTINCT FROM base.geometry_mode THEN 'geometryMode' END,
+               CASE WHEN current.allowed_geometry_kinds IS DISTINCT FROM base.allowed_geometry_kinds THEN 'allowedGeometryKinds' END,
+               CASE WHEN current.style IS DISTINCT FROM base.style THEN 'style' END,
+               CASE WHEN current.render_config IS DISTINCT FROM base.render_config THEN 'renderConfig' END,
+               CASE WHEN current.popup_config IS DISTINCT FROM base.popup_config THEN 'popupConfig' END
+             ]::text[],NULL) AS "changedKeys",
+             CASE WHEN base.id IS NULL THEN NULL ELSE jsonb_build_object(
+               'title',base.title,
+               'description',base.description,
+               'geometryMode',base.geometry_mode,
+               'allowedGeometryKinds',base.allowed_geometry_kinds,
+               'style',base.style,
+               'renderConfig',base.render_config,
+               'popupConfig',base.popup_config
+             ) END AS before,
+             jsonb_build_object(
+               'title',current.title,
+               'description',current.description,
+               'geometryMode',current.geometry_mode,
+               'allowedGeometryKinds',current.allowed_geometry_kinds,
+               'style',current.style,
+               'renderConfig',current.render_config,
+               'popupConfig',current.popup_config
+             ) AS after
+           FROM layer_revisions current
+           LEFT JOIN layer_revisions base ON base.id=$2
+           WHERE current.id=$1`,
+          [revisionId, identity.baseRevisionId],
+        )) as Array<{
+          changedKeys: string[];
+          before: Record<string, unknown> | null;
+          after: Record<string, unknown>;
+        }>;
+        const configuration = configurationRows[0]!;
+
         const complexityRows = (await manager.query(
           `SELECT count(*) FILTER (WHERE member.revision_id=$1)::integer AS "currentFeatures",
               count(*) FILTER (WHERE member.revision_id=$2)::integer AS "baseFeatures",
@@ -686,6 +726,7 @@ export class HistoryQueryService {
           layerId: identity.layerId,
           comparison: query.compareTo,
           baseRevisionId: identity.baseRevisionId,
+          configuration,
           geometry: {
             currentFeatureCount: Number(feature.currentFeatureCount ?? 0),
             baseFeatureCount: Number(feature.baseFeatureCount ?? 0),

@@ -4,6 +4,7 @@ import { CryptoService } from '../common/crypto/crypto.service';
 import { AppException } from '../common/http/app.exception';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { publicationPointerEtag, requirePublicationPointerEtag } from '../layers/etag';
+import { touchLayerAggregate } from '../layers/layer-aggregate-version';
 import type { RollbackDto } from '../layers/layer.dto';
 
 interface Actor {
@@ -175,6 +176,7 @@ export class PublicationRollbackService {
       await manager.query(`UPDATE publication_snapshots SET activated_at=now() WHERE id=$1`, [
         snapshotId,
       ]);
+      await touchLayerAggregate(manager, layerId);
       const etag = publicationPointerEtag(layerId, snapshotId, generation);
       const response: RollbackResponse = {
         publicationId: snapshotId,

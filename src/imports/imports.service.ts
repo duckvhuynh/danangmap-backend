@@ -19,6 +19,7 @@ import { LayerFieldEntity, LayerRevisionEntity } from '../layers/layer.entities'
 import { StorageService } from '../storage/storage.service';
 import type { ApplyImportDto, CreateImportDto, UpdateImportMappingDto } from './import.dto';
 import { ImportFileInspector } from './import-file.inspector';
+import { isSafeImportColumnName, normalizeImportColumnName } from './import-normalization';
 import { ImportJobEntity } from './import.entity';
 
 @Injectable()
@@ -202,8 +203,9 @@ export class ImportsService {
         'Import hiện chỉ hỗ trợ hệ tọa độ EPSG:4326.',
       );
     }
-    this.validateFormatMapping(job.format, dto);
-    const entries = Object.entries(dto.fields);
+    const normalizedDto = this.normalizeMapping(dto);
+    this.validateFormatMapping(job.format, normalizedDto);
+    const entries = Object.entries(normalizedDto.fields);
     if (entries.length > 256) {
       throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Mapping hỗ trợ tối đa 256 cột.');
     }
@@ -212,7 +214,7 @@ export class ImportsService {
     const specialTargets = new Set(['feature_id', 'external_source', 'external_id']);
     const mappedTargets = new Set<string>();
     for (const [source, target] of entries) {
-      if (!this.isSourceColumn(source)) {
+      if (!isSafeImportColumnName(source)) {
         throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Tên cột nguồn không hợp lệ.');
       }
       if (!targetKeys.has(target) && !specialTargets.has(target)) {
@@ -268,7 +270,7 @@ export class ImportsService {
     const mapping = {
       ...job.mapping,
       planVersion: Number(job.mapping.planVersion ?? 0) + 1,
-      plan: dto,
+      plan: normalizedDto,
       apply: undefined,
     };
     await this.dataSource.transaction(async (manager) => {
@@ -600,7 +602,7 @@ export class ImportsService {
       dto.geometry.latitudeColumn,
       dto.geometry.geometryColumn,
     ].filter((column): column is string => column !== undefined);
-    if (geometryColumns.some((column) => !this.isSourceColumn(column))) {
+    if (geometryColumns.some((column) => !isSafeImportColumnName(column))) {
       throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Tên cột geometry không hợp lệ.');
     }
     if (format === 'geojson' && geometryKind !== 'geojson') {
@@ -657,10 +659,37 @@ export class ImportsService {
     }
   }
 
-  private isSourceColumn(value: string): boolean {
-    return (
-      /^[\p{L}\p{N}_. -]{1,200}$/u.test(value) &&
-      !['__proto__', 'prototype', 'constructor'].includes(value.toLowerCase())
-    );
+  private normalizeMapping(dto: UpdateImportMappingDto): UpdateImportMappingDto {
+    const fields: Record<string, string> = {};
+    for (const [source, target] of Object.entries(dto.fields)) {
+      const normalizedSource = normalizeImportColumnName(source);
+      if (!isSafeImportColumnName(normalizedSource)) {
+        throw new AppException(422, 'IMPORT_MAPPING_INVALID', 'Tên cột nguồn không hợp lệ.');
+      }
+      if (Object.prototype.hasOwnProperty.call(fields, normalizedSource)) {
+        throw new AppException(
+          422,
+          'IMPORT_MAPPING_INVALID',
+          'Tên cột nguồn bị trùng sau khi chuẩn hóa Unicode.',
+        );
+      }
+      fields[normalizedSource] = target;
+    }
+    return {
+      ...dto,
+      geometry: {
+        ...dto.geometry,
+        ...(dto.geometry.longitudeColumn === undefined
+          ? {}
+          : { longitudeColumn: normalizeImportColumnName(dto.geometry.longitudeColumn) }),
+        ...(dto.geometry.latitudeColumn === undefined
+          ? {}
+          : { latitudeColumn: normalizeImportColumnName(dto.geometry.latitudeColumn) }),
+        ...(dto.geometry.geometryColumn === undefined
+          ? {}
+          : { geometryColumn: normalizeImportColumnName(dto.geometry.geometryColumn) }),
+      },
+      fields,
+    };
   }
 }

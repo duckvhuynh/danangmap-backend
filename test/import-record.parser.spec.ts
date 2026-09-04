@@ -38,6 +38,18 @@ describe('Import record parsers', () => {
     ).rejects.toMatchObject({ code: 'XLSX_SHEET_NOT_FOUND' });
   });
 
+  it('normalizes canonically equivalent Unicode headers in XLSX files', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Dữ liệu');
+    sheet.addRow(['Tên'.normalize('NFD'), 'Vĩ độ'.normalize('NFD')]);
+    sheet.addRow(['Sở Công Thương', 16.017949]);
+    const content = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    await expect(parseImportRecords(content, 'xlsx', { sheet: 'Dữ liệu' }, 100)).resolves.toEqual([
+      { Tên: 'Sở Công Thương', 'Vĩ độ': 16.017949 },
+    ]);
+  });
+
   it('normalizes safe KML Placemarks and blocks entity/network payloads', async () => {
     const safe = Buffer.from(`<?xml version="1.0"?>
       <kml xmlns="http://www.opengis.net/kml/2.2"><Document>

@@ -4,6 +4,7 @@ import { XMLParser } from 'fast-xml-parser';
 import iconv from 'iconv-lite';
 import { Geometry as WkxGeometry } from 'wkx';
 import type { ImportFormat } from '../domain/enums';
+import { normalizeImportColumnName } from './import-normalization';
 
 export const MAX_XLSX_SHEETS = 10;
 export const MAX_IMPORT_COLUMNS = 256;
@@ -174,7 +175,7 @@ function validateHeaders(headers: string[]): string[] {
   if (headers.length < 1 || headers.length > MAX_IMPORT_COLUMNS) {
     throw new ImportParserError('IMPORT_COLUMN_LIMIT');
   }
-  const normalized = headers.map((header) => header.trim());
+  const normalized = headers.map(normalizeImportColumnName);
   const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
   if (
     normalized.some(

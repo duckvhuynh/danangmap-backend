@@ -19,6 +19,7 @@ import { ChangeFeedRetentionService } from '../layers/change-feed-retention.serv
 import { StorageService } from '../storage/storage.service';
 import { MAX_IMPORT_BYTES } from './import-file.inspector';
 import { ImportJobEntity } from './import.entity';
+import { normalizeImportedFieldValue } from './import-normalization';
 import {
   ImportParserError,
   inspectXlsxSheets,
@@ -208,10 +209,11 @@ export class ImportProcessor extends WorkerHost {
         field: string | null;
       }> = [];
       const mappedCandidates: StagedFeature[] = [];
+      const fieldTypes = new Map(fields.map((field) => [field.key, field.type]));
       for (let index = 0; index < sourceFeatures.length; index += 1) {
         try {
           mappedCandidates.push(
-            this.mapFeature(sourceFeatures[index], index + 1, plan, record.format),
+            this.mapFeature(sourceFeatures[index], index + 1, plan, record.format, fieldTypes),
           );
         } catch (error) {
           issues.push({
@@ -594,6 +596,7 @@ export class ImportProcessor extends WorkerHost {
     rowNumber: number,
     plan: ImportMappingPlan,
     format: ImportFormat,
+    fieldTypes: ReadonlyMap<string, string>,
   ): StagedFeature {
     if (!value || typeof value !== 'object') {
       throw new AppException(422, 'IMPORT_ROW_INVALID', 'Dòng import không hợp lệ.');
@@ -678,7 +681,7 @@ export class ImportProcessor extends WorkerHost {
         }
         sourceFeatureId = identifier;
       } else if (mapped !== undefined) {
-        properties[target] = mapped;
+        properties[target] = normalizeImportedFieldValue(mapped, fieldTypes.get(target), target);
       }
     }
     if ((externalSource === null) !== (externalId === null)) {

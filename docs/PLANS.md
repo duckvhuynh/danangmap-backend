@@ -2,12 +2,12 @@
 
 ## 1. Mục đích và nguyên tắc điều phối
 
-Tài liệu này chuyển PRD/SRS/API Contract/Design thành dependency map, milestone, backlog có thể đưa vào GitHub Project, quality gate và runbook phát hành. Hai repository private được triển khai độc lập nhưng dùng một contract chung:
+Tài liệu này chuyển PRD/SRS/API Contract/Design thành dependency map, milestone, backlog có thể đưa vào GitHub Project, quality gate và runbook phát hành. Hai repository public (owner chuyển public ngày 2026-09-05) được triển khai độc lập nhưng dùng một contract chung:
 
 - `duckvhuynh/danangmap-frontend`
 - `duckvhuynh/danangmap-backend`
 
-Checklist thực thi theo task 30–60 phút, vertical slice, Docker E2E và commit checkpoint được duy trì tại `docs/EXECUTION-CHECKLIST.md`. `PLANS.md` vẫn là nguồn dependency/milestone đầy đủ; checklist không thay thế bất kỳ acceptance criteria nào trong backlog 169 ID.
+Checklist thực thi theo task 30–60 phút, vertical slice, Docker E2E và commit checkpoint được duy trì tại `docs/EXECUTION-CHECKLIST.md`. `PLANS.md` vẫn là nguồn dependency/milestone đầy đủ; checklist không thay thế bất kỳ acceptance criteria nào trong backlog 172 ID.
 
 Nguyên tắc:
 
@@ -28,7 +28,7 @@ Nguyên tắc:
 - Ba public desktop visual directions gốc vẫn được giữ tại `docs/visual-directions/direction-1.png`, `direction-2.png`, `direction-3.png` trong `danangmap-frontend`.
 - Product owner đã phê duyệt **Direction 1 — Civic Focus (refined)** tại `docs/visual-directions/direction-1-refined.png`; đây là refinement của Direction 1, không phải hướng thứ tư.
 - Product Design đã derive đúng hướng được chọn thành `direction-1-public-mobile.png`, `direction-1-admin-editor-desktop.png` và `direction-1-admin-review-mobile.png`.
-- `DESIGN.md` đã ghi decision/date, Tabler Icons, semantic blue, Google Maps web-like control radius/elevation và trạng thái `SELECTED_READY_TO_SCAFFOLD`.
+- `DESIGN.md` đã ghi decision/date, Lucide Icons (quyết định cập nhật ngày 2026-09-04), semantic blue, Google Maps web-like control radius/elevation và trạng thái `SELECTED_READY_TO_SCAFFOLD`.
 - UI scaffold, shadcn theme/component và production screen được phép bắt đầu từ sau commit `2d35ec5`, phải bám source/derived artifacts và không trộn Direction 2/3 nếu chưa có vòng review mới.
 - Visual QA follow-up `0899ebd` đã bỏ badge `v2` trên public mobile và làm phẳng primary CTA ở public mobile/admin review mobile; frontend `C-016` issue có đủ evidence để đóng.
 
@@ -60,7 +60,7 @@ flowchart TD
   P --> Q[Production cutover]
 ```
 
-Đường găng: baseline → 3 public desktop assets → user selection → derive admin/mobile → UI scaffold → editor/public UI → Docker E2E → staging → release. Các bước selection/derive/visual QA đã hoàn tất tại `2d35ec5` + `0899ebd`; backend bốn-format import/equivalence đạt tại `bd5013b` với CI `32448008945` xanh, frontend typed wizard pin cùng contract đạt tại `ab806d6`. Synchronous history/diff/rollback/audit và imported-feature browser checkpoint đã được chấp nhận tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040`; durable BullMQ production activation đã GO ở local gate và exact-SHA remote cross-stack CI ghi dưới đây. Backend attachment diff đã có typed contract + Postgres E2E; đường găng còn frontend tiêu thụ contract này, Mapbox visual QA, Coolify deploy/cutover và no-backup sign-off trong `docs/EXECUTION-CHECKLIST.md`.
+Đường găng chức năng M0/M2–M6 đã có issue closure và canonical CI/browser evidence. Checkpoint hiện tại chuyển sang đối soát governance và regression staging; C-017 đã cấu hình sau khi repo public. Việc chưa đạt có issue riêng (backend #54/#55/#56), không ẩn trong milestone Done. M7 migration và M8 release/hardening vẫn deferred theo product owner. Xem `docs/DELIVERY-STATUS-2026-09-05.md` và checklist hiện hành để phân biệt evidence lịch sử với trạng thái mới.
 
 ## 4. Milestone và exit criteria
 
@@ -76,15 +76,26 @@ flowchart TD
 | M7 — V1 migration | Manifest, transforms, rehearsals, reconciliation | Count/checksum/geometry report và product-owner sign-off |
 | M8 — Hardening & release | Performance/security, Coolify staging, runbooks, cutover | Go/no-go signed; smoke xanh; accepted no-backup risk được ghi nhận |
 
-`bd5013b` đóng sub-gate backend parser/mapping/apply/equivalence và upload replay của M4; CI `32448008945` đã xanh toàn bộ. Frontend wizard pin tại `ab806d6` đóng sub-gate UI riêng. IMP-008/V3 vertical slice hoàn tất khi imported feature đi qua real browser submit/approve/publish/public trong hai run exact-SHA ở `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + `244538488ecb4fd26f910c33d4a499ef23a7d040`. M4 vẫn `In Progress` cho attachment quarantine/scan/binding, Geo Service/external partial-failure và toàn bộ exit criteria còn lại.
+M4 hiện **Done** trên GitHub (backend #5; attachment #29/frontend #20 và external integration đã hoàn tất). Parser/equivalence `bd5013b`, wizard `ab806d6` và hai exact-SHA imported-feature runs là evidence sub-gate lịch sử, không phải dependency còn chờ. Unicode/website fix `4eeee31` và stale revision upload frontend `b008b47` đã merge; regression staging được theo dõi riêng.
 
 PR backend lịch sử `#13` tại `6800ff6` có CI `32449796541` xanh cho controlled-publication HTTP, deny matrix, private redaction, atomic pointer failure và hai fresh-volume container smoke runs. Phần thay đổi canonical đã được reconcile và merge qua stack `#32..#38` vào `main` tại `059e240`; exact-SHA browser/imported-feature evidence ở checkpoint kế tiếp đã thay thế trạng thái Partial và cross-stack blocker #11 đã đóng.
 
-History/diff/rollback/audit checkpoint tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040` có artifact OpenAPI **73 operations** và final suites unit **67**, integration **40**, E2E **41**. Hai run browser HTTPS fresh-volume đều pass 5/5 real-stack specs; durable publication progress/recovery sau đó cũng pass remote exact-SHA activation và merge canonical. Backend extension cho attachment diff đã thay unavailable marker bằng typed association diff có private redaction và real-Postgres E2E; frontend issue `#19` giữ scope tiêu thụ contract. Không có Mapbox visual QA trong checkpoint này.
+History/diff/rollback/audit checkpoint tại backend `bb41e77da992c3bc5e2a6f439f51eeb5d2ef15d7` + frontend `244538488ecb4fd26f910c33d4a499ef23a7d040` có artifact OpenAPI **73 operations** và final suites unit **67**, integration **40**, E2E **41**. Hai run browser HTTPS fresh-volume đều pass 5/5 real-stack specs; durable publication progress/recovery sau đó cũng pass remote exact-SHA activation và merge canonical. Backend extension cho attachment diff đã thay unavailable marker bằng typed association diff có private redaction và real-Postgres E2E; frontend #19 sau đó đã hoàn tất và hiện Done. Checkpoint lịch sử này không bao gồm Mapbox QA; frontend #4/#21 có evidence tiếp theo và đã Done.
 
 Evidence local bị `.gitignore` và không công khai tại `artifacts/fullstack/2026-08-21T19-07-31.934Z-244538488ecb-run-1` và `artifacts/fullstack/2026-08-21T19-09-53.800Z-244538488ecb-run-2`. Các thư mục dùng ACL kế thừa nên không được mô tả là strict ACL-restricted, đồng thời chưa có manifest tự ràng buộc SHA/project/spec exit/checksum/residual. Hardening sau phải lưu evidence vào kho bảo vệ và sinh manifest; giới hạn provenance này không được bỏ qua khi review release.
 
-Durable publication local production activation gate đã được independent artifact review chấp nhận tại exact backend `2d4675ec2385abf55fa23ad26914e037456f14cd` + frontend `6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8`. Hai evidence manifest là `artifacts/fullstack/2026-08-22T02-48-36.875Z-2d4675ec2385-6e6fe83f7dbf-run-1/evidence.json` (`6497db82ebfd8b92206cdfabd9ffa4456d650198e3501e33485a32d2d3e9516e`) và `artifacts/fullstack/2026-08-22T02-53-38.466Z-2d4675ec2385-6e6fe83f7dbf-run-2/evidence.json` (`70a04b03205b6d58160bc22f50fd2abc10b00d4b6bec646f30d9d4dc1ca70c3a`). Tổng 18/18 Playwright invocation pass, zero failed/skipped/flaky; production runtime dùng trusted STARTTLS, terminal attempt 2/recovered lease 1/generation 1→2 và cleanup 0/0/0. Exact-SHA remote cross-stack run `32561792134` cũng pass hai fresh-volume journey, artifact `9473176426`; canonical stack đã merge vào `main` tại `059e240` và final main CI `32562513173` xanh. VS-035B đã đóng, default vẫn false; release giữ frontend attachment UI/Mapbox/deploy/no-backup scopes riêng.
+Durable publication local production activation gate đã được independent artifact review chấp nhận tại exact backend `2d4675ec2385abf55fa23ad26914e037456f14cd` + frontend `6e6fe83f7dbf6d5a01c710bb35e670e08b63e1b8`. Hai evidence manifest là `artifacts/fullstack/2026-08-22T02-48-36.875Z-2d4675ec2385-6e6fe83f7dbf-run-1/evidence.json` (`6497db82ebfd8b92206cdfabd9ffa4456d650198e3501e33485a32d2d3e9516e`) và `artifacts/fullstack/2026-08-22T02-53-38.466Z-2d4675ec2385-6e6fe83f7dbf-run-2/evidence.json` (`70a04b03205b6d58160bc22f50fd2abc10b00d4b6bec646f30d9d4dc1ca70c3a`). Tổng 18/18 Playwright invocation pass, zero failed/skipped/flaky; production runtime dùng trusted STARTTLS, terminal attempt 2/recovered lease 1/generation 1→2 và cleanup 0/0/0. Exact-SHA remote cross-stack run `32561792134` cũng pass hai fresh-volume journey, artifact `9473176426`; canonical stack đã merge vào `main` tại `059e240` và final main CI `32562513173` xanh. VS-035B đã đóng, default vẫn false; frontend attachment UI/Mapbox QA sau đó đã Done. Deployment/release/no-backup sign-off vẫn thuộc M8; không hồi tố kết quả này sang SHA hiện tại.
+
+### 4.1 Delivery checkpoint — 2026-09-05
+
+- Hai repository public; main protection đã bật/read-back, không còn HTTP 403 do gói private repo.
+- M0/M2–M6 có issue Done; M1 cần proof PR/review theo backend #2/#56. Không coi thiếu reviewer là lỗi ứng dụng.
+- Backend main/staging baseline: `aad5065`; frontend: `9f24c21`.
+- Main CI backend `33864138926`, frontend `33886744545` xanh. Cross-stack browser job bị skip trong backend run đó; không suy ra full browser coverage cho mọi push.
+- Role report 04/09: 11/11 nhưng dùng narrowed image. Canonical source-policy gap: backend #55, thuộc release CI frontend #25.
+- Backend #54: seed polygon không hợp lệ. Editor focus/resize đã có trong frontend PR #45, không còn là chức năng chưa triển khai.
+- M7/M8 giữ Todo/deferred. Mapbox URL restriction là owner-managed deployment follow-up, không dùng làm blocker feature.
+- Backlog §5 là requirement/acceptance, không phải 172 task chưa làm. Checklist lưu giữ provenance lịch sử.
 
 ## 5. Issue-ready backlog
 
@@ -105,7 +116,7 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | C-009 | Threat model auth/upload/publish/external adapter | `danangmap-backend` | C-003, C-008 | Có trust boundaries, abuse cases, mitigation và security test mapping |
 | C-010 | Cross-repo version compatibility policy | `danangmap-backend` | C-003 | Khóa SemVer/API compatibility window, backend-first deploy và breaking-change gate |
 | C-011 | GitHub issue/PR templates và CODEOWNERS | `danangmap-backend` | C-001 | Template bắt buộc Requirement/AC/Dependency/Test/Risk; docs/API có owner review |
-| C-012 | GitHub Project cấu hình delivery | `danangmap-backend` | C-011 | Fields/views/status ở mục 9 tồn tại và link cả hai repo private |
+| C-012 | GitHub Project cấu hình delivery | `danangmap-backend` | C-011 | Fields/views/status ở mục 9 tồn tại và link cả hai repo public |
 | C-013 | Observability naming và correlation convention | `danangmap-backend` | C-002 | Request/job/publication/import IDs, log fields và metric labels được khóa |
 | C-014 | Performance budget và test dataset profile | `danangmap-backend` | C-001 | Có p75/p95 targets, dataset small/medium/large và rule chọn GeoJSON hay MVT theo bbox/zoom/layer |
 | C-015 | Release accepted-risk register | `danangmap-backend` | C-008, C-009 | No-backup risk và giới hạn rollback được chủ sản phẩm ghi nhận trước M8 |
@@ -421,7 +432,7 @@ Mỗi run dùng isolated project name/volume, migrations và deterministic seed;
 
 ## 9. GitHub Project
 
-Tên project: **DanangMap v2 Delivery** trong tài khoản `duckvhuynh`, liên kết cả hai private repositories.
+Tên project: **DanangMap v2 Delivery** trong tài khoản `duckvhuynh`, liên kết cả hai public repositories.
 
 ### Fields
 

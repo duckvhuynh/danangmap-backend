@@ -15,15 +15,15 @@ Both canonical worktrees were clean at the start; no open PRs existed. Documenta
 
 GitHub reports both repositories PUBLIC. The former private-plan HTTP 403 is resolved. Main protection was configured through GitHub REST, then read back successfully on both repositories:
 
-| Setting                                  | Backend                       | Frontend                                                                 |
-| ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
-| Required checks                          | `verify`                      | `Contract, quality, tests, and build`; `Non-root container health smoke` |
-| Check publisher                          | GitHub Actions app ID `15368` | GitHub Actions app ID `15368`                                            |
-| Up-to-date branch required               | true                          | true                                                                     |
-| Required approving reviews               | 1                             | 1                                                                        |
-| CODEOWNER review / dismiss stale reviews | true / true                   | true / true                                                              |
-| Enforce admins / conversation resolution | true / true                   | true / true                                                              |
-| Allow force pushes / deletions           | false / false                 | false / false                                                            |
+| Setting                                  | Backend                        | Frontend                                                                 |
+| ---------------------------------------- | ------------------------------ | ------------------------------------------------------------------------ |
+| Required checks                          | `verify`                       | `Contract, quality, tests, and build`; `Non-root container health smoke` |
+| Check publisher                          | GitHub Actions app ID `15368`  | GitHub Actions app ID `15368`                                            |
+| Up-to-date branch required               | true                           | true                                                                     |
+| Required approving reviews               | 0 (owner-approved solo policy) | 0 (owner-approved solo policy)                                           |
+| CODEOWNER review / dismiss stale reviews | false / true                   | false / true                                                             |
+| Enforce admins / conversation resolution | true / true                    | true / true                                                              |
+| Allow force pushes / deletions           | false / false                  | false / false                                                            |
 
 Read-only verification commands:
 
@@ -34,13 +34,13 @@ gh api repos/duckvhuynh/danangmap-frontend/branches/main/protection
 
 Only main was changed. Staging protection was not silently added: its push workflow does not run the same required checks. The conditional backend `cross-stack-browser` job was not added as a required check because it skips ordinary main pushes/most PRs; release coverage remains frontend #25.
 
-### Review constraint
+### Owner-approved solo-maintainer policy
 
-Both collaborator listings and CODEOWNERS currently contain only `duckvhuynh`. A PR authored by this account cannot self-approve. Adding an independent collaborator/CODEOWNER, using a separate legitimate author/reviewer workflow, or changing the review policy requires an explicit owner decision. Do not grant access, use another identity, disable checks, force-push, or use an admin bypass to finish this checkpoint.
+Both repositories have only `duckvhuynh` as collaborator/CODEOWNER. GitHub rejected self-approval by this PR author. On 2026-09-05 the owner explicitly approved removing mandatory approval/CODEOWNER review while retaining PRs and successful CI. Only the review settings were PATCHed: approving review count 0, CODEOWNER review false. Required checks, strict freshness, admin enforcement, conversation resolution and force-push/delete protections remain unchanged. No account access was granted and no admin merge bypass is authorized.
 
 Proof PR links/read-back evidence are recorded in [foundation #2](https://github.com/duckvhuynh/danangmap-backend/issues/2) and [delivery #56](https://github.com/duckvhuynh/danangmap-backend/issues/56). Configuration completion and documentation-merge completion are separate states.
 
-Proof PRs: [backend #57](https://github.com/duckvhuynh/danangmap-backend/pull/57) and [frontend #47](https://github.com/duckvhuynh/danangmap-frontend/pull/47), both ready for review. GitHub returned `reviewDecision=REVIEW_REQUIRED` and `mergeStateStatus=BLOCKED` on 05/09; required CI was running at capture time. This verifies the gate is active; it is not an approval or a successful merge. M1 configuration/proof is complete, while checkpoint merge remains blocked under #56.
+Proof PRs: [backend #57](https://github.com/duckvhuynh/danangmap-backend/pull/57) and [frontend #47](https://github.com/duckvhuynh/danangmap-frontend/pull/47). Initial read-back showed REVIEW_REQUIRED/BLOCKED under the original one-review policy; this historical observation is not the final policy. Under the owner-approved amendment, PR and CI gates remain required but approval is optional. Backend CI run 33941311477 failed during 25,001-record fixture creation (30-second test timeout); do not merge on that failed check or weaken the test. Final CI/merge evidence is recorded in #56.
 
 ## Plans and Project reconciliation
 
@@ -57,7 +57,7 @@ Proof PRs: [backend #57](https://github.com/duckvhuynh/danangmap-backend/pull/57
 | -------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | [Backend #54](https://github.com/duckvhuynh/danangmap-backend/issues/54)   | Invalid simplified Bàn Thạch seed geometry                       | Valid fixture, real PostGIS validity assertions, fresh/repeat seed and public/admin polygon regression; no silent deployed-data rewrite. |
 | [Backend #55](https://github.com/duckvhuynh/danangmap-backend/issues/55)   | Canonical no-mock scanner versus intentional network-fault tests | Separate suites while retaining both coverage and strict no-mock enforcement; deferred under M8/frontend #25.                            |
-| [Backend #56](https://github.com/duckvhuynh/danangmap-backend/issues/56)   | This governance/docs/Project reconciliation                      | Reviewed documentation PRs and truthful QA evidence; no protection bypass.                                                               |
+| [Backend #56](https://github.com/duckvhuynh/danangmap-backend/issues/56)   | This governance/docs/Project reconciliation                      | Documentation PRs with required CI and owner-approved review policy; truthful QA evidence, no admin bypass.                              |
 | [Frontend #46](https://github.com/duckvhuynh/danangmap-frontend/issues/46) | Staging import/lifecycle regression                              | Public smoke partly complete; authenticated role sessions and deployed image SHAs still needed.                                          |
 
 Seed evidence comes from the local 04/09 PostGIS audit (`ST_IsValid=false`, self-intersection); seed coordinates remain unchanged. It is not evidence that staging contains this seeded boundary. Editor fit/focus and ResizeObserver are already implemented by frontend PR #45; the old camera finding is not an unimplemented feature.
@@ -70,5 +70,5 @@ Seed evidence comes from the local 04/09 PostGIS audit (`ST_IsValid=false`, self
 - Frontend main CI covers generated contract, lint, typecheck, unit/component, production build and non-root container health. It does not yet execute the complete release browser/security gate.
 - Frontend `docs/admin-role-e2e-2026-09-04.md` reports 11/11 real-stack role journeys. Its narrowed eight-spec image excludes intentional network fault-injection sources; backend #55 records this limitation instead of claiming the unchanged canonical harness passed.
 - Browser-only staging public smoke on 05/09 observed published agency data, toggle/empty state, list/detail, Vietnamese combined search and basemap-control state. The admin route reached login with no authenticated session. See frontend `docs/staging-qa-2026-09-05.md`.
-- No code changed in this checkpoint. No new Docker stack was started or rebuilt; historical Docker evidence is explicitly labeled, not presented as today's rerun.
+- No application code changed in this checkpoint; no manual local Docker stack was rebuilt. PR CI does build/test Docker images and its result is recorded separately; historical Docker evidence is not presented as a new local rerun.
 - No production release, full device/a11y/performance sign-off, backup capability or Mapbox URL restriction is claimed.

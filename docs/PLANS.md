@@ -89,7 +89,7 @@ Durable publication local production activation gate đã được independent a
 ### 4.1 Delivery checkpoint — 2026-09-05
 
 - Hai repository public; main protection đã bật/read-back, không còn HTTP 403 do gói private repo.
-- M0–M6 có issue Done; M1/C-017 đã có REST read-back và proof PR backend #57/frontend #47 (REVIEW_REQUIRED/BLOCKED). Review để merge checkpoint docs còn chờ ở backend #56, không phải lỗi ứng dụng hoặc blocker GitHub plan.
+- M0–M6 có issue Done. M1/C-017 có REST read-back và proof PR backend #57/frontend #47. Owner đã phê duyệt policy một maintainer ngày 05/09: bắt buộc PR + CI xanh, không bắt buộc approval/CODEOWNER, không admin bypass; merge checkpoint theo backend #56.
 - Backend main/staging baseline: `aad5065`; frontend: `9f24c21`.
 - Main CI backend `33864138926`, frontend `33886744545` xanh. Cross-stack browser job bị skip trong backend run đó; không suy ra full browser coverage cho mọi push.
 - Role report 04/09: 11/11 nhưng dùng narrowed image. Canonical source-policy gap: backend #55, thuộc release CI frontend #25.
@@ -115,13 +115,13 @@ Quy ước dependency: `—` là không phụ thuộc issue khác; nhiều ID c�
 | C-008 | Data classification cho public/private/credential/audit | `danangmap-backend` | C-001 | Mỗi loại field/file/log có classification và serialization/storage policy |
 | C-009 | Threat model auth/upload/publish/external adapter | `danangmap-backend` | C-003, C-008 | Có trust boundaries, abuse cases, mitigation và security test mapping |
 | C-010 | Cross-repo version compatibility policy | `danangmap-backend` | C-003 | Khóa SemVer/API compatibility window, backend-first deploy và breaking-change gate |
-| C-011 | GitHub issue/PR templates và CODEOWNERS | `danangmap-backend` | C-001 | Template bắt buộc Requirement/AC/Dependency/Test/Risk; docs/API có owner review |
+| C-011 | GitHub issue/PR templates và CODEOWNERS | `danangmap-backend` | C-001 | Template bắt buộc Requirement/AC/Dependency/Test/Risk; CODEOWNERS nêu ownership docs/API; review không bắt buộc theo owner-approved solo-maintainer policy 2026-09-05 |
 | C-012 | GitHub Project cấu hình delivery | `danangmap-backend` | C-011 | Fields/views/status ở mục 9 tồn tại và link cả hai repo public |
 | C-013 | Observability naming và correlation convention | `danangmap-backend` | C-002 | Request/job/publication/import IDs, log fields và metric labels được khóa |
 | C-014 | Performance budget và test dataset profile | `danangmap-backend` | C-001 | Có p75/p95 targets, dataset small/medium/large và rule chọn GeoJSON hay MVT theo bbox/zoom/layer |
 | C-015 | Release accepted-risk register | `danangmap-backend` | C-008, C-009 | No-backup risk và giới hạn rollback được chủ sản phẩm ghi nhận trước M8 |
 | C-016 | Derive selected direction thành public mobile/admin desktop/admin review mobile | `danangmap-frontend` | C-006 | Chỉ derive từ option đã chọn; artifact/source và DESIGN cập nhật; GATE-DESIGN chuyển `SELECTED_READY_TO_SCAFFOLD` |
-| C-017 | Branch protection và required checks cho hai repo | `danangmap-backend` | C-011, C-012 | `main` cấm force-push, merge qua PR, required CI/review áp dụng cho frontend và backend |
+| C-017 | Branch protection và required checks cho hai repo | `danangmap-backend` | C-011, C-012 | `main` cấm force-push/delete; bắt buộc PR + required CI/up-to-date và resolved conversations, enforce admins; approval/CODEOWNER không bắt buộc theo owner-approved solo-maintainer policy 2026-09-05 |
 
 ### 5.2 Backend foundation, identity và platform
 
@@ -358,7 +358,7 @@ Một issue chỉ `Done` khi:
 - Authorization có cả allow và deny tests; mutation quan trọng có audit assertion.
 - UI có loading/empty/error/permission/conflict/responsive/accessibility states liên quan.
 - Feature lớn có Docker integration/E2E evidence hoặc issue test bị block rõ.
-- PR nhỏ, mô tả dependency, screenshot/video/report phù hợp và được owner review.
+- PR nhỏ, mô tả dependency và evidence; owner đã chấp thuận một-maintainer policy ngày 05/09: review tùy chọn, PR và CI xanh vẫn bắt buộc.
 - Không còn P0/P1; P2 trở xuống có issue/risk owner nếu defer.
 
 ## 8. Test, CI, Docker và Coolify

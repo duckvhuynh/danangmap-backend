@@ -20,7 +20,7 @@ Checkbox đã đánh dấu là slice có bằng chứng, không phải cam kết
 | V1 — Published read         | Complete + QA follow-up        | Backend #9/#11, frontend #2/#4/#21 Done; seed geometry theo backend #54 chưa đạt.                                                       |
 | V2 — Controlled publication | Complete + staging regression  | Backend #30, frontend #19/#20 Done; role browser report 04/09 đạt 11/11. Chưa chạy lại admin staging 05/09 vì không có phiên đăng nhập. |
 | V3 — Four-format import     | Complete                       | Backend #5/#11 Done; Unicode/website fix 4eeee31 đã merge.                                                                              |
-| C-017 — Protected main      | Complete (configuration/proof) | REST read-back và proof PR backend #57/frontend #47 xác nhận REVIEW_REQUIRED/BLOCKED. Review để merge tài liệu vẫn chờ ở backend #56.   |
+| C-017 — Protected main      | Complete (configuration/proof) | Owner-approved solo policy 05/09: PR + required CI, 0 approval, CODEOWNER tùy chọn; các bảo vệ khác giữ nguyên. Merge theo backend #56. |
 | M7 — V1 migration           | Deferred / Todo                | Backend #6; chưa nghiệm thu migration đầy đủ.                                                                                           |
 | M8 — Hardening/release      | Deferred / Todo                | Backend #7, frontend #25; không thay release sign-off bằng CI xanh.                                                                     |
 
@@ -32,8 +32,8 @@ Checkbox đã đánh dấu là slice có bằng chứng, không phải cam kết
 - [x] VS-007..VS-014: API/worker, PostGIS/Redis/MinIO, redacted logs, readiness, frontend tooling và isolated Docker. Backend PR #52; main CI 33864138926.
 - [x] VS-014A: issue forms, PR template, CODEOWNERS cả hai repo.
 - [x] VS-014B: 21 Project fields và status/dependency được đối soát; field/view setup lịch sử giữ trong bản lưu.
-- [x] VS-014C — configuration: required PR/review/CI, strict freshness, conversation resolution, enforce admins; cấm force-push/delete. REST read-back 05/09 xác nhận checks gắn GitHub Actions app ID.
-- [x] VS-014C — proof gate: backend PR #57/frontend PR #47 đều REVIEW_REQUIRED/BLOCKED, khớp required review/checks đã read-back. Việc merge tài liệu chưa hoàn tất: chỉ duckvhuynh là collaborator/CODEOWNER, không self-approve; backend #56 theo dõi điều kiện reviewer.
+- [x] VS-014C — configuration: required PR/CI, strict freshness, resolved conversations, enforce admins; cấm force-push/delete. Owner chấp thuận 0 approval và CODEOWNER review không bắt buộc ngày 05/09; checks vẫn gắn GitHub Actions app ID.
+- [x] VS-014C — proof gate: ban đầu backend #57/frontend #47 báo REVIEW_REQUIRED/BLOCKED. GitHub từ chối owner tự approve; owner sau đó chấp thuận policy một maintainer. Không yêu cầu reviewer thứ hai hoặc admin bypass; chỉ merge khi required CI xanh.
 
 ### Public layer read
 
@@ -77,5 +77,5 @@ Checkbox đã đánh dấu là slice có bằng chứng, không phải cam kết
 1. Ghi SHA/git status từng repo; phân biệt branch tip với image đang deploy.
 2. Gắn evidence đúng SHA/môi trường/phạm vi; không hồi tố local thành staging/CI.
 3. Tạo issue cho regression mới; giữ historical dependency ở comment, Project chỉ nêu điều kiện đang hoạt động.
-4. Dùng PR nhỏ, required checks/review; không direct-push main hoặc admin bypass.
-5. Chỉ Done sau acceptance; thiếu phiên đăng nhập/reviewer thì ghi Blocked và điều kiện gỡ.
+4. Dùng PR nhỏ và required checks xanh; review tùy chọn theo policy một maintainer được owner phê duyệt. Không direct-push main hoặc admin bypass.
+5. Chỉ Done sau acceptance; thiếu phiên đăng nhập hoặc CI chưa đạt thì ghi rõ blocker và điều kiện gỡ.

@@ -8,6 +8,7 @@
 - [PLANS.md](PLANS.md): backlog 172 ID và acceptance criteria không thay đổi.
 - [Project 3](https://github.com/users/duckvhuynh/projects/3): task status/dependency hiện hành.
 - [Checkpoint 05/09](DELIVERY-STATUS-2026-09-05.md): SHA, CI, governance và giới hạn kiểm thử.
+- [Regression fixture diff](qa-oversized-diff-fixture-2026-09-05.md): backend #58, tái hiện timeout với PostGIS thật, giữ ngưỡng 25.001 đối tượng/HTTP 422; required CI và merge theo #56/#58.
 - [Checklist lưu](archive/EXECUTION-CHECKLIST-before-20260905.md): giữ toàn bộ evidence lịch sử. Không dùng các nhãn In Progress/Blocked trong bản lưu để suy ra việc còn lại.
 
 Checkbox đã đánh dấu là slice có bằng chứng, không phải cam kết không có regression. Lỗi mới có issue riêng; không tự mở lại mọi milestone hoặc tuyên bố release hoàn tất.

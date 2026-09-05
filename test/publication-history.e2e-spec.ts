@@ -709,6 +709,18 @@ describe('Publication, revision and audit history HTTP E2E', () => {
 
   it('rejects an oversized synchronous diff before unbounded comparison work', async () => {
     const oversized = await createOversizedDiffFixture();
+    const counts = (await AppDataSource.query(
+      `SELECT count(*)::integer AS features,
+              count(DISTINCT fv.id)::integer AS versions,
+              count(DISTINCT rf.feature_id)::integer AS links
+       FROM features f
+       JOIN feature_versions fv ON fv.feature_id=f.id AND fv.revision_id=$2
+       JOIN revision_features rf ON rf.feature_id=f.id AND rf.feature_version_id=fv.id
+         AND rf.revision_id=$2
+       WHERE f.layer_id=$1`,
+      [oversized.layerId, oversized.revisionId],
+    )) as Array<{ features: number; versions: number; links: number }>;
+    expect(counts).toEqual([{ features: 25_001, versions: 25_001, links: 25_001 }]);
     const response = await get(
       reviewer,
       `/api/v1/admin/revisions/${oversized.revisionId}/diff?compareTo=parent&limit=1`,
@@ -1206,21 +1218,27 @@ async function createOversizedDiffFixture() {
        VALUES($1,$2,1,'draft','Oversized diff','point',ARRAY['point'],$3)`,
       [revisionId, layerId, users.editor.id],
     );
+    // Small earlier fixtures can cache sequential-scan plans for FK checks. Refresh
+    // parent-table statistics after each bulk insert so those plans are invalidated
+    // before inserting the dependent rows. Keep every real constraint enabled.
     await manager.query(
-      `WITH created_features AS (
-         INSERT INTO features(layer_id)
-         SELECT $1::uuid FROM generate_series(1,25001)
-         RETURNING id
-       ), created_versions AS (
-         INSERT INTO feature_versions(feature_id,revision_id,geometry,geometry_kind,properties,checksum,created_by)
-         SELECT id,$2::uuid,ST_SetSRID(ST_MakePoint(108.2,16),4326),'point','{}'::jsonb,id::text,$3::uuid
-         FROM created_features
-         RETURNING id,feature_id
-       )
-       INSERT INTO revision_features(revision_id,feature_id,feature_version_id)
-       SELECT $2::uuid,feature_id,id FROM created_versions`,
+      `INSERT INTO features(layer_id) SELECT $1::uuid FROM generate_series(1,25001)`,
+      [layerId],
+    );
+    await manager.query('ANALYZE features');
+    await manager.query(
+      `INSERT INTO feature_versions(feature_id,revision_id,geometry,geometry_kind,properties,checksum,created_by)
+       SELECT id,$2::uuid,ST_SetSRID(ST_MakePoint(108.2,16),4326),'point','{}'::jsonb,id::text,$3::uuid
+       FROM features WHERE layer_id=$1`,
       [layerId, revisionId, users.editor.id],
     );
+    await manager.query('ANALYZE feature_versions');
+    await manager.query(
+      `INSERT INTO revision_features(revision_id,feature_id,feature_version_id)
+       SELECT revision_id,feature_id,id FROM feature_versions WHERE revision_id=$1`,
+      [revisionId],
+    );
+    await manager.query('ANALYZE revision_features');
   });
   createdLayerIds.push(layerId);
   return { layerId, revisionId };

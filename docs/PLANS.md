@@ -89,7 +89,7 @@ Durable publication local production activation gate đã được independent a
 ### 4.1 Delivery checkpoint — 2026-09-05
 
 - Hai repository public; main protection đã bật/read-back, không còn HTTP 403 do gói private repo.
-- M0/M2–M6 có issue Done; M1 cần proof PR/review theo backend #2/#56. Không coi thiếu reviewer là lỗi ứng dụng.
+- M0–M6 có issue Done; M1/C-017 đã có REST read-back và proof PR backend #57/frontend #47 (REVIEW_REQUIRED/BLOCKED). Review để merge checkpoint docs còn chờ ở backend #56, không phải lỗi ứng dụng hoặc blocker GitHub plan.
 - Backend main/staging baseline: `aad5065`; frontend: `9f24c21`.
 - Main CI backend `33864138926`, frontend `33886744545` xanh. Cross-stack browser job bị skip trong backend run đó; không suy ra full browser coverage cho mọi push.
 - Role report 04/09: 11/11 nhưng dùng narrowed image. Canonical source-policy gap: backend #55, thuộc release CI frontend #25.

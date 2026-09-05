@@ -40,6 +40,8 @@ Both collaborator listings and CODEOWNERS currently contain only `duckvhuynh`. A
 
 Proof PR links/read-back evidence are recorded in [foundation #2](https://github.com/duckvhuynh/danangmap-backend/issues/2) and [delivery #56](https://github.com/duckvhuynh/danangmap-backend/issues/56). Configuration completion and documentation-merge completion are separate states.
 
+Proof PRs: [backend #57](https://github.com/duckvhuynh/danangmap-backend/pull/57) and [frontend #47](https://github.com/duckvhuynh/danangmap-frontend/pull/47), both ready for review. GitHub returned `reviewDecision=REVIEW_REQUIRED` and `mergeStateStatus=BLOCKED` on 05/09; required CI was running at capture time. This verifies the gate is active; it is not an approval or a successful merge. M1 configuration/proof is complete, while checkpoint merge remains blocked under #56.
+
 ## Plans and Project reconciliation
 
 - Baseline Project contained 43 items: 39 Done, 1 Blocked, 3 Todo; 40 issues plus 3 PR items. M0/M2–M6 were Done.

@@ -14,15 +14,15 @@ Checkbox đã đánh dấu là slice có bằng chứng, không phải cam kết
 
 ## 2. Các gate hiện tại
 
-| Gate                        | Trạng thái                       | Bằng chứng / giới hạn                                                                                                                   |
-| --------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| D0–D3 — Design/scaffold     | Complete                         | Frontend #1; DESIGN.md chốt Lucide ngày 04/09.                                                                                          |
-| V1 — Published read         | Complete + QA follow-up          | Backend #9/#11, frontend #2/#4/#21 Done; seed geometry theo backend #54 chưa đạt.                                                       |
-| V2 — Controlled publication | Complete + staging regression    | Backend #30, frontend #19/#20 Done; role browser report 04/09 đạt 11/11. Chưa chạy lại admin staging 05/09 vì không có phiên đăng nhập. |
-| V3 — Four-format import     | Complete                         | Backend #5/#11 Done; Unicode/website fix 4eeee31 đã merge.                                                                              |
-| C-017 — Protected main      | Configured; proof review pending | REST read-back thành công; proof PR/reviewer theo backend #2/#56.                                                                       |
-| M7 — V1 migration           | Deferred / Todo                  | Backend #6; chưa nghiệm thu migration đầy đủ.                                                                                           |
-| M8 — Hardening/release      | Deferred / Todo                  | Backend #7, frontend #25; không thay release sign-off bằng CI xanh.                                                                     |
+| Gate                        | Trạng thái                     | Bằng chứng / giới hạn                                                                                                                   |
+| --------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| D0–D3 — Design/scaffold     | Complete                       | Frontend #1; DESIGN.md chốt Lucide ngày 04/09.                                                                                          |
+| V1 — Published read         | Complete + QA follow-up        | Backend #9/#11, frontend #2/#4/#21 Done; seed geometry theo backend #54 chưa đạt.                                                       |
+| V2 — Controlled publication | Complete + staging regression  | Backend #30, frontend #19/#20 Done; role browser report 04/09 đạt 11/11. Chưa chạy lại admin staging 05/09 vì không có phiên đăng nhập. |
+| V3 — Four-format import     | Complete                       | Backend #5/#11 Done; Unicode/website fix 4eeee31 đã merge.                                                                              |
+| C-017 — Protected main      | Complete (configuration/proof) | REST read-back và proof PR backend #57/frontend #47 xác nhận REVIEW_REQUIRED/BLOCKED. Review để merge tài liệu vẫn chờ ở backend #56.   |
+| M7 — V1 migration           | Deferred / Todo                | Backend #6; chưa nghiệm thu migration đầy đủ.                                                                                           |
+| M8 — Hardening/release      | Deferred / Todo                | Backend #7, frontend #25; không thay release sign-off bằng CI xanh.                                                                     |
 
 ## 3. Đối soát work packages
 
@@ -33,7 +33,7 @@ Checkbox đã đánh dấu là slice có bằng chứng, không phải cam kết
 - [x] VS-014A: issue forms, PR template, CODEOWNERS cả hai repo.
 - [x] VS-014B: 21 Project fields và status/dependency được đối soát; field/view setup lịch sử giữ trong bản lưu.
 - [x] VS-014C — configuration: required PR/review/CI, strict freshness, conversation resolution, enforce admins; cấm force-push/delete. REST read-back 05/09 xác nhận checks gắn GitHub Actions app ID.
-- [ ] VS-014C — proof PR/review: proof PR cả hai repo cần reviewer hợp lệ. Hiện chỉ duckvhuynh là collaborator/CODEOWNER, không thể self-approve; backend #2/#56 theo dõi, không bypass.
+- [x] VS-014C — proof gate: backend PR #57/frontend PR #47 đều REVIEW_REQUIRED/BLOCKED, khớp required review/checks đã read-back. Việc merge tài liệu chưa hoàn tất: chỉ duckvhuynh là collaborator/CODEOWNER, không self-approve; backend #56 theo dõi điều kiện reviewer.
 
 ### Public layer read
 

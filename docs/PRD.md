@@ -7,8 +7,8 @@
 | Sản phẩm            | DanangMap v2                                                                |
 | Trạng thái          | Baseline MVP; UI gate `SELECTED_READY_TO_SCAFFOLD`                          |
 | Chủ sở hữu sản phẩm | `duckvhuynh`                                                                |
-| Repository          | `duckvhuynh/danangmap-frontend` và `duckvhuynh/danangmap-backend` (private) |
-| Cập nhật            | 2026-08-21                                                                  |
+| Repository          | `duckvhuynh/danangmap-frontend` và `duckvhuynh/danangmap-backend` (public) |
+| Cập nhật            | 2026-09-05 (public repositories; Lucide decision reconciliation)             |
 | Tài liệu liên quan  | `SRS.md`, `API-CONTRACT.md`, `DESIGN.md`, `PLANS.md`                        |
 
 Tài liệu này là nguồn yêu cầu sản phẩm. `SRS.md` cụ thể hóa hành vi hệ thống, `API-CONTRACT.md` khóa giao tiếp, `DESIGN.md` khóa thiết kế sau khi người dùng chọn phương án, và `PLANS.md` điều phối triển khai.
@@ -28,7 +28,7 @@ DanangMap v2 phải trở thành một **Spatial CMS** phục vụ hai mặt:
 
 ## 3. Quyết định đã khóa
 
-- Hai private repository: `duckvhuynh/danangmap-frontend` và `duckvhuynh/danangmap-backend`.
+- Hai public repository (owner chuyển public ngày 2026-09-05): `duckvhuynh/danangmap-frontend` và `duckvhuynh/danangmap-backend`.
 - Một ứng dụng Next.js chứa cả `/` và `/admin`; `/` mở trực tiếp bản đồ full-screen.
 - Frontend: Next.js, Tailwind CSS, shadcn/ui, Mapbox GL JS, Terra Draw và Dexie.js.
 - Backend: NestJS, TypeORM, PostgreSQL/PostGIS; Redis cho queue/cache; MinIO cho file/attachment.
@@ -351,7 +351,7 @@ Artifact được chọn và các màn hình derive, đều xuất phát từ Di
 3. Admin editor desktop: `docs/visual-directions/direction-1-admin-editor-desktop.png`.
 4. Admin review mobile: `docs/visual-directions/direction-1-admin-review-mobile.png`.
 
-`danangmap-frontend/docs/DESIGN.md` ghi decision/date, Tabler Icons, semantic blue, radius/elevation của floating controls và trạng thái `SELECTED_READY_TO_SCAFFOLD`. Refined asset là bản hoàn thiện của Direction 1 đã chọn, không phải visual direction thứ tư. Follow-up `0899ebd` loại badge phiên bản khỏi public identity và làm phẳng CTA mobile theo no-gradient rule. Implementation UI từ sau commit `2d35ec5` phải bám source/derived artifacts mới nhất; thay đổi hướng cần một vòng product/design review mới.
+`danangmap-frontend/docs/DESIGN.md` ghi decision/date, Lucide Icons (quyết định cập nhật 2026-09-04), semantic blue, radius/elevation của floating controls và trạng thái `SELECTED_READY_TO_SCAFFOLD`. Refined asset là bản hoàn thiện của Direction 1 đã chọn, không phải visual direction thứ tư. Follow-up `0899ebd` loại badge phiên bản khỏi public identity và làm phẳng CTA mobile theo no-gradient rule. Implementation UI từ sau commit `2d35ec5` phải bám source/derived artifacts mới nhất; thay đổi hướng cần một vòng product/design review mới.
 
 ## 13. Chỉ số thành công MVP
 
